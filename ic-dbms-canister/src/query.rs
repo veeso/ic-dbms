@@ -13,7 +13,7 @@ use crate::memory::MemoryError;
 pub type QueryResult<T> = Result<T, QueryError>;
 
 /// An enum representing possible errors that can occur during query operations.
-#[derive(Debug, Error, Clone, PartialEq, Eq)]
+#[derive(Debug, Error)]
 pub enum QueryError {
     /// Attempted to create or modify a table with more than one primary key.
     #[error("Duplicate primary key defined in table schema")]

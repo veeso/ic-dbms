@@ -53,7 +53,7 @@ struct Post {
 And once you have defined all your tables, you can instantiate the database canister:
 
 ```rust
-ic_odbc_canister!(User, Post, Comment);
+ic_dbms_canister!(User, Post, Comment);
 ```
 
 And you will have a fully functional database canister with all the CRUD operations implemented for you.
