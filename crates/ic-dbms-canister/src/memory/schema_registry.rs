@@ -1,7 +1,15 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 
 use crate::memory::{DataSize, Encode, MEMORY_MANAGER, MemoryError, MemoryResult, Page};
 use crate::table::{TableFingerprint, TableSchema};
+
+thread_local! {
+    /// The global schema registry.
+    ///
+    /// We allow failing because on first initialization the schema registry might not be present yet.
+    pub static SCHEMA_REGISTRY: RefCell<SchemaRegistry> = RefCell::new(SchemaRegistry::load().unwrap_or_default());
+}
 
 /// Data regarding the table registry page.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -11,7 +19,7 @@ pub struct TableRegistryPage {
 }
 
 /// The schema registry takes care of storing and retrieving table schemas from memory.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct SchemaRegistry {
     tables: HashMap<TableFingerprint, TableRegistryPage>,
 }
@@ -70,7 +78,7 @@ impl Encode for SchemaRegistry {
         std::borrow::Cow::Owned(buffer)
     }
 
-    fn decode(data: std::borrow::Cow<[u8]>) -> Self
+    fn decode(data: std::borrow::Cow<[u8]>) -> MemoryResult<Self>
     where
         Self: Sized,
     {
@@ -85,23 +93,11 @@ impl Encode for SchemaRegistry {
         let mut tables = HashMap::with_capacity(len);
         // read each entry
         for _ in 0..len {
-            let fingerprint = u64::from_le_bytes(
-                data[offset..offset + 8]
-                    .try_into()
-                    .expect("failed to read fingerprint"),
-            );
+            let fingerprint = u64::from_le_bytes(data[offset..offset + 8].try_into()?);
             offset += 8;
-            let pages_list_page = Page::from_le_bytes(
-                data[offset..offset + 4]
-                    .try_into()
-                    .expect("failed to read pages_list_page"),
-            );
+            let pages_list_page = Page::from_le_bytes(data[offset..offset + 4].try_into()?);
             offset += 4;
-            let deleted_records_page = Page::from_le_bytes(
-                data[offset..offset + 4]
-                    .try_into()
-                    .expect("failed to read deleted_records_page"),
-            );
+            let deleted_records_page = Page::from_le_bytes(data[offset..offset + 4].try_into()?);
             offset += 4;
             tables.insert(
                 fingerprint,
@@ -111,7 +107,7 @@ impl Encode for SchemaRegistry {
                 },
             );
         }
-        Self { tables }
+        Ok(Self { tables })
     }
 }
 
@@ -141,7 +137,7 @@ mod tests {
         // encode
         let encoded = registry.encode();
         // decode
-        let decoded = SchemaRegistry::decode(encoded);
+        let decoded = SchemaRegistry::decode(encoded).expect("failed to decode");
         assert_eq!(registry, decoded);
 
         // try to actually add another

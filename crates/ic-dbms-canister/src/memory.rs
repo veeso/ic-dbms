@@ -1,18 +1,20 @@
 //! Memory module provides stable memory management for the IC DBMS Canister.
 
+mod acl;
 mod delegate;
 mod encode;
+mod error;
 mod provider;
 mod schema_registry;
 
 use std::cell::RefCell;
 
-use thiserror::Error;
-
+pub use self::acl::{ACL, AccessControlList};
 pub use self::delegate::MemoryDelegate;
 pub use self::encode::{DataSize, Encode};
+pub use self::error::MemoryError;
 use self::provider::MemoryProvider;
-pub use self::schema_registry::{SchemaRegistry, TableRegistryPage};
+pub use self::schema_registry::{SCHEMA_REGISTRY, SchemaRegistry, TableRegistryPage};
 
 // instantiate a static memory manager with the stable memory provider
 thread_local! {
@@ -34,23 +36,6 @@ pub type PageOffset = u16;
 
 /// The result type for memory operations.
 pub type MemoryResult<T> = Result<T, MemoryError>;
-
-/// An enum representing possible memory-related errors.
-#[derive(Debug, Error)]
-pub enum MemoryError {
-    /// Error when failing to allocate a new page.
-    #[error("Failed to allocate a new page")]
-    FailedToAllocatePage,
-    /// Error when attempting to access stable memory out of bounds.
-    #[error("Stable memory access out of bounds")]
-    OutOfBounds,
-    /// Error when attempting to write out of the allocated page.
-    #[error("Tried to write out of the allocated page")]
-    SegmentationFault,
-    /// Error when failing to grow stable memory.
-    #[error("Failed to grow stable memory: {0}")]
-    StableMemoryError(#[from] ic_cdk::stable::StableMemoryError),
-}
 
 /// Schema page
 const SCHEMA_PAGE: Page = 0;
@@ -146,7 +131,7 @@ where
         let absolute_offset = self.absolute_offset(page, offset);
         self.provider.read(absolute_offset, &mut buf)?;
 
-        Ok(D::decode(std::borrow::Cow::Owned(buf)))
+        D::decode(std::borrow::Cow::Owned(buf))
     }
 
     /// Write data as a [`Encode`] impl at the specified page and offset.
@@ -293,13 +278,13 @@ mod tests {
             Cow::Owned(buf)
         }
 
-        fn decode(data: Cow<[u8]>) -> Self
+        fn decode(data: Cow<[u8]>) -> MemoryResult<Self>
         where
             Self: Sized,
         {
             let a = u16::from_le_bytes([data[0], data[1]]);
             let b = u32::from_le_bytes([data[2], data[3], data[4], data[5]]);
-            FixedSizeData { a, b }
+            Ok(FixedSizeData { a, b })
         }
     }
 
@@ -321,14 +306,14 @@ mod tests {
             Cow::Owned(buf)
         }
 
-        fn decode(data: Cow<[u8]>) -> Self
+        fn decode(data: Cow<[u8]>) -> MemoryResult<Self>
         where
             Self: Sized,
         {
             let age = u16::from_le_bytes([data[0], data[1]]);
             let name_len = u16::from_le_bytes([data[2], data[3]]) as usize;
-            let name = String::from_utf8(data[4..4 + name_len].to_vec()).unwrap();
-            VariableSizeData { age, name }
+            let name = String::from_utf8(data[4..4 + name_len].to_vec())?;
+            Ok(VariableSizeData { age, name })
         }
     }
 }
