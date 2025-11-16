@@ -26,7 +26,7 @@ where
     pub fn load(table_pages: TableRegistryPage) -> MemoryResult<Self> {
         Ok(Self {
             _marker: PhantomData,
-            deleted_records_ledger: DeletedRecordsLedger,
+            deleted_records_ledger: DeletedRecordsLedger::load(table_pages.deleted_records_page)?,
             page_ledger: PageLedger::load(table_pages.pages_list_page)?,
         })
     }
