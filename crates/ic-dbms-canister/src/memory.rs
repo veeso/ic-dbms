@@ -47,8 +47,6 @@ const SCHEMA_PAGE: Page = 0;
 const ACL_PAGE: Page = 1;
 
 /// The memory manager is the main struct responsible for handling the stable memory operations.
-///
-/// It takes advantage of [`MemoryDelegate`]s to know how to allocate and write memory for different kind of data.
 pub struct MemoryManager<P>
 where
     P: MemoryProvider,
