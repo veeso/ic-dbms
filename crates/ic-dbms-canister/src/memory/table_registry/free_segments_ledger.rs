@@ -2,7 +2,6 @@ mod free_segment;
 
 pub use self::free_segment::FreeSegment;
 use self::free_segment::FreeSegmentsTable;
-use crate::memory::table_registry::RECORD_LEN_SIZE;
 use crate::memory::{Encode, MEMORY_MANAGER, MemoryResult, Page, PageOffset};
 
 /// The free segments ledger keeps track of free segments in the [`FreeSegmentsTable`] registry.
@@ -53,8 +52,7 @@ impl FreeSegmentsLedger {
     where
         E: Encode,
     {
-        let memory_size = record.size() + RECORD_LEN_SIZE;
-        self.table.insert_free_segment(page, offset, memory_size);
+        self.table.insert_free_segment(page, offset, record.size());
         self.write()
     }
 
@@ -79,7 +77,7 @@ impl FreeSegmentsLedger {
     where
         E: Encode,
     {
-        let used_size = record.size() + RECORD_LEN_SIZE;
+        let used_size = record.size();
 
         self.table.remove(page, offset, size, used_size);
         self.write()
@@ -127,7 +125,7 @@ mod tests {
 
         let found_record = ledger
             .table
-            .find(|r| r.page == 4 && r.offset == 0 && r.size == record.size() + RECORD_LEN_SIZE);
+            .find(|r| r.page == 4 && r.offset == 0 && r.size == record.size());
         assert!(found_record.is_some());
 
         // verify it's written (reload)
@@ -135,7 +133,7 @@ mod tests {
             FreeSegmentsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
         let found_record = reloaded_ledger
             .table
-            .find(|r| r.page == 4 && r.offset == 0 && r.size == record.size() + RECORD_LEN_SIZE);
+            .find(|r| r.page == 4 && r.offset == 0 && r.size == record.size());
         assert!(found_record.is_some());
     }
 
@@ -161,7 +159,7 @@ mod tests {
             Some(FreeSegment {
                 page: 4,
                 offset: 0,
-                size: record.size() + RECORD_LEN_SIZE,
+                size: record.size(),
             })
         );
     }
@@ -212,7 +210,7 @@ mod tests {
         // should be empty
         let record = ledger
             .table
-            .find(|r| r.page == 4 && r.offset == 0 && r.size == 100 + RECORD_LEN_SIZE);
+            .find(|r| r.page == 4 && r.offset == 0 && r.size == 100);
         assert!(record.is_none());
 
         // reload
@@ -220,7 +218,7 @@ mod tests {
             FreeSegmentsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
         let record = reloaded_ledger
             .table
-            .find(|r| r.page == 4 && r.offset == 0 && r.size == 100 + RECORD_LEN_SIZE);
+            .find(|r| r.page == 4 && r.offset == 0 && r.size == 100);
         assert!(record.is_none());
     }
 
@@ -250,7 +248,7 @@ mod tests {
         // should have a new record for the remaining space
         let record = ledger
             .table
-            .find(|r| r.page == 4 && r.offset == 100 + RECORD_LEN_SIZE && r.size == 100);
+            .find(|r| r.page == 4 && r.offset == 100 && r.size == 100);
         assert!(record.is_some());
     }
 

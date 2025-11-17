@@ -1,7 +1,7 @@
 mod page_table;
 
 use self::page_table::PageTable;
-use crate::memory::{Encode, MEMORY_MANAGER, MemoryResult, Page};
+use crate::memory::{Encode, MEMORY_MANAGER, MemoryResult, Page, PageOffset};
 
 /// Takes care of storing the pages for each table
 #[derive(Debug)]
@@ -21,12 +21,15 @@ impl PageLedger {
         })
     }
 
-    /// Get the page number to store the next record.
+    /// Get the page number and the offset to store the next record.
     ///
     /// It usually returns the first page with enough free space.
     /// If the provided record is larger than any page's free space,
     /// it allocates a new page and returns it.
-    pub fn get_page_for_record<R>(&mut self, record: &R) -> MemoryResult<Page>
+    pub fn get_page_and_offset_for_record<R>(
+        &mut self,
+        record: &R,
+    ) -> MemoryResult<(Page, PageOffset)>
     where
         R: Encode,
     {
@@ -35,7 +38,7 @@ impl PageLedger {
         // check if record can fit in a page
         if required_size > page_size {
             return Err(crate::memory::error::MemoryError::DataTooLarge {
-                page_size: page_size,
+                page_size,
                 requested: required_size,
             });
         }
@@ -48,7 +51,8 @@ impl PageLedger {
             .find(|page_record| page_record.free + required_size <= page_size);
         // if page found, return it
         if let Some(page_record) = next_page {
-            return Ok(page_record.page);
+            let offset = page_size.saturating_sub(page_record.free) as PageOffset;
+            return Ok((page_record.page, offset));
         }
 
         // otherwise allocate a new one
@@ -59,7 +63,7 @@ impl PageLedger {
             free: page_size, // NOTE: we commit later, so full free space
         });
 
-        Ok(new_page)
+        Ok((new_page, 0))
     }
 
     /// Commits the allocation of a record in the given page.
@@ -141,11 +145,11 @@ mod tests {
         // create test record
         let record = TestRecord { data: [1; 100] };
         // get page for record
-        let page = page_ledger
-            .get_page_for_record(&record)
+        let (page, offset) = page_ledger
+            .get_page_and_offset_for_record(&record)
             .expect("failed to get page for record");
         assert_eq!(page_ledger.pages.pages.len(), 1);
-        assert_eq!(page_ledger.pages.pages[0].page, page);
+        assert_eq!((page_ledger.pages.pages[0].page, 0), (page, offset));
         assert_eq!(
             page_ledger.pages.pages[0].free,
             HeapMemoryProvider::PAGE_SIZE
@@ -163,6 +167,49 @@ mod tests {
         // reload
         let reloaded_ledger = PageLedger::load(ledger_page).expect("failed to load page ledger");
         assert_eq!(page_ledger.pages.pages, reloaded_ledger.pages.pages);
+    }
+
+    #[test]
+    fn test_should_get_page_with_offset() {
+        // allocate page
+        let ledger_page = MEMORY_MANAGER
+            .with_borrow_mut(|mm| mm.allocate_page())
+            .expect("failed to allocate ledger page");
+        let mut page_ledger = PageLedger::load(ledger_page).expect("failed to load page ledger");
+        assert!(page_ledger.pages.pages.is_empty());
+
+        // create test record
+        let record = TestRecord { data: [1; 100] };
+        // get page for record
+        let (page, offset) = page_ledger
+            .get_page_and_offset_for_record(&record)
+            .expect("failed to get page for record");
+        assert_eq!(page_ledger.pages.pages.len(), 1);
+        assert_eq!((page_ledger.pages.pages[0].page, 0), (page, offset));
+        assert_eq!(
+            page_ledger.pages.pages[0].free,
+            HeapMemoryProvider::PAGE_SIZE
+        );
+
+        // commit record allocation
+        page_ledger
+            .commit(page, &record)
+            .expect("failed to commit record allocation");
+        assert_eq!(
+            page_ledger.pages.pages[0].free,
+            HeapMemoryProvider::PAGE_SIZE - 100
+        );
+
+        // get page for another record
+        let (page, offset) = page_ledger
+            .get_page_and_offset_for_record(&record)
+            .expect("failed to get page for record");
+        assert_eq!(page_ledger.pages.pages.len(), 1);
+        assert_eq!((page_ledger.pages.pages[0].page, 100), (page, offset));
+        assert_eq!(
+            page_ledger.pages.pages[0].free,
+            HeapMemoryProvider::PAGE_SIZE - 100
+        );
     }
 
     #[derive(Debug)]

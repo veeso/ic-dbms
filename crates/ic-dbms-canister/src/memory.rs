@@ -187,6 +187,7 @@ mod tests {
 
     use super::*;
     use crate::memory::provider::HeapMemoryProvider;
+    use crate::tests::User;
 
     #[test]
     fn test_should_init_memory_manager() {
@@ -230,8 +231,8 @@ mod tests {
     fn test_should_write_and_read_variable_data_size() {
         // write to ACL page
         MEMORY_MANAGER.with_borrow_mut(|manager| {
-            let data_to_write = VariableSizeData {
-                age: 30,
+            let data_to_write = User {
+                id: 30,
                 name: "Alice".to_string(),
             };
             manager
@@ -304,39 +305,6 @@ mod tests {
 
         fn size(&self) -> MSize {
             6
-        }
-    }
-
-    #[derive(Debug, PartialEq)]
-    struct VariableSizeData {
-        age: u16,
-        name: String,
-    }
-
-    impl Encode for VariableSizeData {
-        const SIZE: DataSize = DataSize::Variable;
-
-        fn encode(&'_ self) -> Cow<'_, [u8]> {
-            let mut buf = vec![];
-            buf.extend_from_slice(&self.age.to_le_bytes());
-            // write string len as u16
-            buf.extend_from_slice(&(self.name.len() as u16).to_le_bytes());
-            buf.extend_from_slice(self.name.as_bytes());
-            Cow::Owned(buf)
-        }
-
-        fn decode(data: Cow<[u8]>) -> MemoryResult<Self>
-        where
-            Self: Sized,
-        {
-            let age = u16::from_le_bytes([data[0], data[1]]);
-            let name_len = u16::from_le_bytes([data[2], data[3]]) as usize;
-            let name = String::from_utf8(data[4..4 + name_len].to_vec())?;
-            Ok(VariableSizeData { age, name })
-        }
-
-        fn size(&self) -> MSize {
-            4 + self.name.len() as MSize
         }
     }
 }
