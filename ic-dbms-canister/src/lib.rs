@@ -18,4 +18,6 @@ pub mod data_types;
 pub mod memory;
 pub mod query;
 pub mod table;
+#[cfg(test)]
+mod tests;
 pub mod utils;

@@ -46,4 +46,7 @@ pub enum DecodeError {
     /// Error when failing to convert from UTF-8 string.
     #[error("Failed to convert from UTF-8 string: {0}")]
     Utf8Error(#[from] std::string::FromUtf8Error),
+    /// Error when the data is too short to decode.
+    #[error("Data too short to decode")]
+    TooShort,
 }
