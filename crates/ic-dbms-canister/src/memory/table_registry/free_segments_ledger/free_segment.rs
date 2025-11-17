@@ -1,38 +1,38 @@
 use crate::memory::{DataSize, Encode, MSize, MemoryResult, Page, PageOffset};
 
-/// [`Encode`]able representation of a table that keeps track of [`DeletedRecord`]s.
+/// [`Encode`]able representation of a table that keeps track of [`FreeSegment`]s.
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
-pub struct DeletedRecordsTable {
-    pub records: Vec<DeletedRecord>,
+pub struct FreeSegmentsTable {
+    pub records: Vec<FreeSegment>,
 }
 
-/// Represents a deleted record's metadata.
+/// Represents a free segment's metadata.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct DeletedRecord {
-    /// The page where the deleted record was located.
+pub struct FreeSegment {
+    /// The page where the free segment was located.
     pub page: Page,
-    /// The offset within the page where the deleted record was located.
+    /// The offset within the page where the free segment was located.
     pub offset: PageOffset,
-    /// The size of the deleted record.
+    /// The size of the free segment.
     pub size: MSize,
 }
 
-impl DeletedRecordsTable {
-    /// Inserts a new [`DeletedRecord`] into the table.
-    pub fn insert_deleted_record(&mut self, page: Page, offset: PageOffset, size: MSize) {
-        let record = DeletedRecord { page, offset, size };
+impl FreeSegmentsTable {
+    /// Inserts a new [`FreeSegment`] into the table.
+    pub fn insert_free_segment(&mut self, page: Page, offset: PageOffset, size: MSize) {
+        let record = FreeSegment { page, offset, size };
         self.records.push(record);
     }
 
-    /// Finds a deleted record that matches the given predicate.
-    pub fn find<F>(&self, predicate: F) -> Option<DeletedRecord>
+    /// Finds a free segment that matches the given predicate.
+    pub fn find<F>(&self, predicate: F) -> Option<FreeSegment>
     where
-        F: Fn(&&DeletedRecord) -> bool,
+        F: Fn(&&FreeSegment) -> bool,
     {
         self.records.iter().find(predicate).copied()
     }
 
-    /// Removes a deleted record that matches the given parameters.
+    /// Removes a free segment that matches the given parameters.
     ///
     /// If `used_size` is less than `size`, the old record is removed, but a new record is added
     /// for the remaining free space.
@@ -48,7 +48,7 @@ impl DeletedRecordsTable {
             if used_size < size {
                 let remaining_size = size.saturating_sub(used_size);
                 let new_offset = offset.saturating_add(used_size);
-                let new_record = DeletedRecord {
+                let new_record = FreeSegment {
                     page,
                     offset: new_offset,
                     size: remaining_size,
@@ -59,7 +59,7 @@ impl DeletedRecordsTable {
     }
 }
 
-impl Encode for DeletedRecordsTable {
+impl Encode for FreeSegmentsTable {
     const SIZE: DataSize = DataSize::Variable;
 
     fn size(&self) -> MSize {
@@ -88,25 +88,23 @@ impl Encode for DeletedRecordsTable {
     {
         let length = u32::from_le_bytes(data[0..4].try_into()?);
         let mut records = Vec::with_capacity(length as usize);
-        let record_size = DeletedRecord::SIZE
-            .get_fixed_size()
-            .expect("Should be fixed");
+        let record_size = FreeSegment::SIZE.get_fixed_size().expect("Should be fixed");
 
         let mut offset = 4;
         for _ in 0..length {
             let record_data = data[offset as usize..(offset + record_size) as usize]
                 .to_vec()
                 .into();
-            let record = DeletedRecord::decode(record_data)?;
+            let record = FreeSegment::decode(record_data)?;
             records.push(record);
             offset += record_size;
         }
 
-        Ok(DeletedRecordsTable { records })
+        Ok(FreeSegmentsTable { records })
     }
 }
 
-impl Encode for DeletedRecord {
+impl Encode for FreeSegment {
     const SIZE: DataSize = DataSize::Fixed(8); // page (4) + offset (2) + size (2)
 
     fn size(&self) -> MSize {
@@ -130,7 +128,7 @@ impl Encode for DeletedRecord {
         let offset = PageOffset::from_le_bytes(data[4..6].try_into()?);
         let size = MSize::from_le_bytes(data[6..8].try_into()?);
 
-        Ok(DeletedRecord { page, offset, size })
+        Ok(FreeSegment { page, offset, size })
     }
 }
 
@@ -140,8 +138,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_should_encode_and_decode_deleted_record() {
-        let original_record = DeletedRecord {
+    fn test_should_encode_and_decode_free_segment() {
+        let original_record = FreeSegment {
             page: 42,
             offset: 1000,
             size: 256,
@@ -149,21 +147,21 @@ mod tests {
 
         assert_eq!(original_record.size(), 8);
         let encoded = original_record.encode();
-        let decoded = DeletedRecord::decode(encoded).expect("Decoding failed");
+        let decoded = FreeSegment::decode(encoded).expect("Decoding failed");
 
         assert_eq!(original_record, decoded);
     }
 
     #[test]
-    fn test_should_encode_and_decode_deleted_records_table() {
-        let original_table = DeletedRecordsTable {
+    fn test_should_encode_and_decode_free_segments_table() {
+        let original_table = FreeSegmentsTable {
             records: vec![
-                DeletedRecord {
+                FreeSegment {
                     page: 1,
                     offset: 100,
                     size: 50,
                 },
-                DeletedRecord {
+                FreeSegment {
                     page: 2,
                     offset: 200,
                     size: 75,
@@ -172,17 +170,17 @@ mod tests {
         };
 
         let encoded = original_table.encode();
-        let decoded = DeletedRecordsTable::decode(encoded).expect("Decoding failed");
+        let decoded = FreeSegmentsTable::decode(encoded).expect("Decoding failed");
 
         assert_eq!(original_table, decoded);
     }
 
     #[test]
-    fn test_should_insert_deleted_record() {
-        let mut table = DeletedRecordsTable::default();
+    fn test_should_insert_free_segment() {
+        let mut table = FreeSegmentsTable::default();
 
-        table.insert_deleted_record(1, 100, 50);
-        table.insert_deleted_record(2, 200, 75);
+        table.insert_free_segment(1, 100, 50);
+        table.insert_free_segment(2, 200, 75);
 
         assert_eq!(table.records.len(), 2);
         assert_eq!(table.records[0].page, 1);
@@ -190,10 +188,10 @@ mod tests {
     }
 
     #[test]
-    fn test_should_find_record() {
-        let mut table = DeletedRecordsTable::default();
-        table.insert_deleted_record(1, 100, 50);
-        table.insert_deleted_record(2, 200, 75);
+    fn test_should_find_free_segment() {
+        let mut table = FreeSegmentsTable::default();
+        table.insert_free_segment(1, 100, 50);
+        table.insert_free_segment(2, 200, 75);
 
         let record = table.find(|r| r.page == 2);
         assert!(record.is_some());
@@ -201,9 +199,9 @@ mod tests {
     }
 
     #[test]
-    fn test_should_remove_record_with_same_size() {
-        let mut table = DeletedRecordsTable::default();
-        table.insert_deleted_record(1, 100, 50);
+    fn test_should_remove_free_segment_with_same_size() {
+        let mut table = FreeSegmentsTable::default();
+        table.insert_free_segment(1, 100, 50);
 
         table.remove(1, 100, 50, 50);
 
@@ -211,9 +209,9 @@ mod tests {
     }
 
     #[test]
-    fn test_should_remove_record_and_create_remaining() {
-        let mut table = DeletedRecordsTable::default();
-        table.insert_deleted_record(1, 100, 50);
+    fn test_should_remove_free_segment_and_create_remaining() {
+        let mut table = FreeSegmentsTable::default();
+        table.insert_free_segment(1, 100, 50);
 
         table.remove(1, 100, 50, 30);
 
