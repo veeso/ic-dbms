@@ -62,6 +62,21 @@ The canister API will be automatically generated based on the defined tables, wi
 
 todo...
 
+## Features
+
+- [x] Define tables with common attributes
+- [x] CRUD operations
+- [x] Complex queries with filtering, sorting and pagination
+- [x] Relationships between tables with foreign keys
+- [x] Transactions with commit and rollback
+- [x] Access Control Lists (ACL) to restrict access to the database
+- [ ] Migrations to update the database schema without losing data (coming soon)
+- [ ] Indexes on columns to optimize queries (coming soon)
+
+## Documentation
+
+- [Memory Management](./docs/memory.md)
+
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
