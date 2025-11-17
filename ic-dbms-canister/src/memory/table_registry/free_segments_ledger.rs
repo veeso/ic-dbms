@@ -1,47 +1,50 @@
-mod deleted_records;
+mod free_segment;
 
-pub use self::deleted_records::DeletedRecord;
-use self::deleted_records::DeletedRecordsTable;
+pub use self::free_segment::FreeSegment;
+use self::free_segment::FreeSegmentsTable;
 use crate::memory::table_registry::RECORD_LEN_SIZE;
 use crate::memory::{Encode, MEMORY_MANAGER, MemoryResult, Page, PageOffset};
 
-/// The deleted records ledger keeps track of deleted records in the [`DeletedRecordsTable`] registry.
+/// The free segments ledger keeps track of free segments in the [`FreeSegmentsTable`] registry.
+///
+/// Free segments can occur either when a record is deleted or
+/// when a record is moved to a different location due to resizing after an update.
 ///
 /// Each record tracks:
 ///
 /// - The page number where the record was located
 /// - The offset within that page
-/// - The size of the deleted record
+/// - The size of the free segment
 ///
 /// The responsibilities of this ledger include:
 ///
-/// - Storing metadata about deleted records whenever a record is deleted
-/// - Find a suitable location for new records by reusing space from deleted records
-pub struct DeletedRecordsLedger {
-    /// The page where the deleted records ledger is stored in memory.
-    deleted_records_page: Page,
-    /// Deleted records table that holds metadata about deleted records.
-    table: DeletedRecordsTable,
+/// - Storing metadata about free segments whenever a record is deleted or moved
+/// - Find a suitable location for new records by reusing space from free segments
+pub struct FreeSegmentsLedger {
+    /// The page where the free segments ledger is stored in memory.
+    free_segments_page: Page,
+    /// Free segments table that holds metadata about free segments.
+    table: FreeSegmentsTable,
 }
 
-impl DeletedRecordsLedger {
+impl FreeSegmentsLedger {
     /// Loads the deleted records ledger from memory
     pub fn load(deleted_records_page: Page) -> MemoryResult<Self> {
         // read from memory
         let table = MEMORY_MANAGER.with_borrow(|mm| mm.read_at(deleted_records_page, 0))?;
 
         Ok(Self {
-            deleted_records_page,
+            free_segments_page: deleted_records_page,
             table,
         })
     }
 
-    /// Inserts a new [`DeletedRecord`] into the ledger with the specified [`Page`], offset, and size.
+    /// Inserts a new [`FreeSegment`] into the ledger with the specified [`Page`], offset, and size.
     ///
     /// The size is calculated based on the size of the record plus the length prefix.
     ///
     /// The table is then written back to memory.
-    pub fn insert_deleted_record<E>(
+    pub fn insert_free_segment<E>(
         &mut self,
         page: Page,
         offset: PageOffset,
@@ -51,15 +54,15 @@ impl DeletedRecordsLedger {
         E: Encode,
     {
         let memory_size = record.size() + RECORD_LEN_SIZE;
-        self.table.insert_deleted_record(page, offset, memory_size);
+        self.table.insert_free_segment(page, offset, memory_size);
         self.write()
     }
 
-    /// Finds a reusable deleted record that can accommodate the size of the given record.
+    /// Finds a reusable free segment that can accommodate the size of the given record.
     ///
-    /// If a suitable deleted record is found, it is returned as [`Some<DeletedRecord>`].
-    /// If no suitable record is found, [`None`] is returned.
-    pub fn find_reusable_record<E>(&self, record: &E) -> Option<DeletedRecord>
+    /// If a suitable free segment is found, it is returned as [`Some<FreeSegment>`].
+    /// If no suitable free segment is found, [`None`] is returned.
+    pub fn find_reusable_segment<E>(&self, record: &E) -> Option<FreeSegment>
     where
         E: Encode,
     {
@@ -67,11 +70,11 @@ impl DeletedRecordsLedger {
         self.table.find(|r| r.size >= required_size)
     }
 
-    /// Commits a deleted record by removing it from the ledger and updating it based on the used size.
+    /// Commits a reused free segment by removing it from the ledger and updating it based on the used size.
     pub fn commit_reused_space<E>(
         &mut self,
         record: &E,
-        DeletedRecord { page, offset, size }: DeletedRecord,
+        FreeSegment { page, offset, size }: FreeSegment,
     ) -> MemoryResult<()>
     where
         E: Encode,
@@ -82,9 +85,9 @@ impl DeletedRecordsLedger {
         self.write()
     }
 
-    /// Writes the current state of the deleted records table back to memory.
+    /// Writes the current state of the free segments table back to memory.
     fn write(&self) -> MemoryResult<()> {
-        MEMORY_MANAGER.with_borrow_mut(|mm| mm.write_at(self.deleted_records_page, 0, &self.table))
+        MEMORY_MANAGER.with_borrow_mut(|mm| mm.write_at(self.free_segments_page, 0, &self.table))
     }
 }
 
@@ -95,14 +98,14 @@ mod tests {
     use crate::memory::{DataSize, MSize};
 
     #[test]
-    fn test_should_load_deleted_records_ledger() {
+    fn test_should_load_free_segments_ledger() {
         // allocate new page
         let page = MEMORY_MANAGER
             .with_borrow_mut(|mm| mm.allocate_page())
             .expect("Failed to allocate page");
 
-        let ledger = DeletedRecordsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
-        assert_eq!(ledger.deleted_records_page, page);
+        let ledger = FreeSegmentsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
+        assert_eq!(ledger.free_segments_page, page);
         assert!(ledger.table.records.is_empty());
     }
 
@@ -114,12 +117,12 @@ mod tests {
             .expect("Failed to allocate page");
 
         let mut ledger =
-            DeletedRecordsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
+            FreeSegmentsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
 
         let record = TestRecord { data: [0; 100] };
 
         ledger
-            .insert_deleted_record(4, 0, &record)
+            .insert_free_segment(4, 0, &record)
             .expect("Failed to insert deleted record");
 
         let found_record = ledger
@@ -129,7 +132,7 @@ mod tests {
 
         // verify it's written (reload)
         let reloaded_ledger =
-            DeletedRecordsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
+            FreeSegmentsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
         let found_record = reloaded_ledger
             .table
             .find(|r| r.page == 4 && r.offset == 0 && r.size == record.size() + RECORD_LEN_SIZE);
@@ -143,19 +146,19 @@ mod tests {
             .expect("Failed to allocate page");
 
         let mut ledger =
-            DeletedRecordsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
+            FreeSegmentsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
 
         let record = TestRecord { data: [0; 100] };
 
         ledger
-            .insert_deleted_record(4, 0, &record)
+            .insert_free_segment(4, 0, &record)
             .expect("Failed to insert deleted record");
 
         let record = TestRecord { data: [0; 100] };
-        let reusable_space = ledger.find_reusable_record(&record);
+        let reusable_space = ledger.find_reusable_segment(&record);
         assert_eq!(
             reusable_space,
-            Some(DeletedRecord {
+            Some(FreeSegment {
                 page: 4,
                 offset: 0,
                 size: record.size() + RECORD_LEN_SIZE,
@@ -170,16 +173,16 @@ mod tests {
             .expect("Failed to allocate page");
 
         let mut ledger =
-            DeletedRecordsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
+            FreeSegmentsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
 
         let record = TestRecord { data: [0; 100] };
 
         ledger
-            .insert_deleted_record(4, 0, &record)
+            .insert_free_segment(4, 0, &record)
             .expect("Failed to insert deleted record");
 
         let record = BigTestRecord { data: [0; 200] };
-        let reusable_space = ledger.find_reusable_record(&record);
+        let reusable_space = ledger.find_reusable_segment(&record);
         assert_eq!(reusable_space, None);
     }
 
@@ -190,16 +193,16 @@ mod tests {
             .expect("Failed to allocate page");
 
         let mut ledger =
-            DeletedRecordsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
+            FreeSegmentsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
 
         let record = TestRecord { data: [0; 100] };
 
         ledger
-            .insert_deleted_record(4, 0, &record)
+            .insert_free_segment(4, 0, &record)
             .expect("Failed to insert deleted record");
 
         let reusable_space = ledger
-            .find_reusable_record(&record)
+            .find_reusable_segment(&record)
             .expect("should find reusable space");
 
         ledger
@@ -214,7 +217,7 @@ mod tests {
 
         // reload
         let reloaded_ledger =
-            DeletedRecordsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
+            FreeSegmentsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
         let record = reloaded_ledger
             .table
             .find(|r| r.page == 4 && r.offset == 0 && r.size == 100 + RECORD_LEN_SIZE);
@@ -227,17 +230,17 @@ mod tests {
             .with_borrow_mut(|mm| mm.allocate_page())
             .expect("Failed to allocate page");
         let mut ledger =
-            DeletedRecordsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
+            FreeSegmentsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
 
         let big_record = BigTestRecord { data: [1; 200] };
 
         ledger
-            .insert_deleted_record(4, 0, &big_record)
+            .insert_free_segment(4, 0, &big_record)
             .expect("Failed to insert deleted record");
 
         let small_record = TestRecord { data: [0; 100] };
         let reusable_space = ledger
-            .find_reusable_record(&small_record)
+            .find_reusable_segment(&small_record)
             .expect("should find reusable space");
 
         ledger

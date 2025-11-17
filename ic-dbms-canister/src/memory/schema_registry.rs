@@ -15,7 +15,7 @@ thread_local! {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TableRegistryPage {
     pub pages_list_page: Page,
-    pub deleted_records_page: Page,
+    pub free_segments_page: Page,
 }
 
 /// The schema registry takes care of storing and retrieving table schemas from memory.
@@ -35,7 +35,7 @@ impl SchemaRegistry {
     /// Registers a table and allocates it registry page.
     pub fn register_table(&mut self, schema: &TableSchema) -> MemoryResult<TableRegistryPage> {
         // allocate table registry page
-        let (pages_list_page, deleted_records_page) = MEMORY_MANAGER.with_borrow_mut(|m| {
+        let (pages_list_page, free_segments_page) = MEMORY_MANAGER.with_borrow_mut(|m| {
             Ok::<(Page, Page), MemoryError>((m.allocate_page()?, m.allocate_page()?))
         })?;
 
@@ -43,7 +43,7 @@ impl SchemaRegistry {
         let fingerprint = schema.fingerprint();
         let pages = TableRegistryPage {
             pages_list_page,
-            deleted_records_page,
+            free_segments_page,
         };
         self.tables.insert(fingerprint, pages);
 
@@ -78,7 +78,7 @@ impl Encode for SchemaRegistry {
         for (fingerprint, page) in &self.tables {
             buffer.extend_from_slice(&fingerprint.to_le_bytes());
             buffer.extend_from_slice(&page.pages_list_page.to_le_bytes());
-            buffer.extend_from_slice(&page.deleted_records_page.to_le_bytes());
+            buffer.extend_from_slice(&page.free_segments_page.to_le_bytes());
         }
         std::borrow::Cow::Owned(buffer)
     }
@@ -108,7 +108,7 @@ impl Encode for SchemaRegistry {
                 fingerprint,
                 TableRegistryPage {
                     pages_list_page,
-                    deleted_records_page,
+                    free_segments_page: deleted_records_page,
                 },
             );
         }
