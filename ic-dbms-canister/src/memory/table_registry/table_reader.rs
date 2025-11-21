@@ -118,6 +118,7 @@ where
             // get read_len (cannot read more than page_size)
             let read_len =
                 std::cmp::min(self.page_size, page_size as usize).saturating_sub(offset as usize);
+            // TODO: Do not re-read page every time; read once, unless we move to next page
             let read_bytes = MEMORY_MANAGER
                 .with_borrow(|mm| mm.read_at_raw(page, offset, &mut self.buffer[..read_len]))?;
 

@@ -17,12 +17,37 @@ pub struct FreeSegment {
     pub size: MSize,
 }
 
+/// Represents an adjacent free segment, either before or after a given segment.
+#[derive(Debug)]
+enum AdjacentSegment {
+    Before(FreeSegment),
+    After(FreeSegment),
+}
+
 impl FreeSegmentsTable {
     /// Inserts a new [`FreeSegment`] into the table.
     pub fn insert_free_segment(&mut self, page: Page, offset: PageOffset, size: MSize) {
-        let record = FreeSegment { page, offset, size };
-        self.records.push(record);
-        todo!("Merge adjacent free segments for optimization");
+        // check for adjacent segments and merge if found
+        if let Some(adjacent) = self.has_adjacent_segment(page, offset, size) {
+            match adjacent {
+                AdjacentSegment::Before(seg) => {
+                    // Merge with the segment before
+                    let new_size = seg.size.saturating_add(size);
+                    self.remove(seg.page, seg.offset, seg.size, seg.size);
+                    self.insert_free_segment(page, seg.offset, new_size);
+                }
+                AdjacentSegment::After(seg) => {
+                    // Merge with the segment after
+                    let new_size = size.saturating_add(seg.size);
+                    self.remove(seg.page, seg.offset, seg.size, seg.size);
+                    self.insert_free_segment(page, offset, new_size);
+                }
+            }
+        } else {
+            // No adjacent segments found, insert as is
+            let record = FreeSegment { page, offset, size };
+            self.records.push(record);
+        }
     }
 
     /// Finds a free segment that matches the given predicate.
@@ -57,6 +82,38 @@ impl FreeSegmentsTable {
                 self.records.push(new_record);
             }
         }
+    }
+
+    /// Checks for adjacent free segments before or after the given segment.
+    fn has_adjacent_segment(
+        &self,
+        page: Page,
+        offset: PageOffset,
+        size: MSize,
+    ) -> Option<AdjacentSegment> {
+        self.has_adjacent_segment_before(page, offset)
+            .or_else(|| self.has_adjacent_segment_after(page, offset, size))
+    }
+
+    /// Checks for an adjacent free segment before the given segment.
+    fn has_adjacent_segment_before(
+        &self,
+        page: Page,
+        offset: PageOffset,
+    ) -> Option<AdjacentSegment> {
+        self.find(|r| r.page == page && r.offset.saturating_add(r.size) == offset)
+            .map(AdjacentSegment::Before)
+    }
+
+    /// Checks for an adjacent free segment after the given segment.
+    fn has_adjacent_segment_after(
+        &self,
+        page: Page,
+        offset: PageOffset,
+        size: MSize,
+    ) -> Option<AdjacentSegment> {
+        self.find(|r| r.page == page && r.offset == offset.saturating_add(size))
+            .map(AdjacentSegment::After)
     }
 }
 
@@ -220,5 +277,51 @@ mod tests {
         assert_eq!(table.records[0].page, 1);
         assert_eq!(table.records[0].offset, 130);
         assert_eq!(table.records[0].size, 20);
+    }
+
+    #[test]
+    fn test_should_find_adjacent_segment_before() {
+        let mut table = FreeSegmentsTable::default();
+        table.insert_free_segment(1, 100, 50);
+
+        let adjacent = table.has_adjacent_segment_before(1, 150);
+        assert!(adjacent.is_some());
+        match adjacent.unwrap() {
+            AdjacentSegment::Before(seg) => {
+                assert_eq!(seg.page, 1);
+                assert_eq!(seg.offset, 100);
+                assert_eq!(seg.size, 50);
+            }
+            _ => panic!("Expected AdjacentSegment::Before"),
+        }
+    }
+
+    #[test]
+    fn test_should_find_adjacent_segment_after() {
+        let mut table = FreeSegmentsTable::default();
+        table.insert_free_segment(1, 100, 50);
+
+        let adjacent = table.has_adjacent_segment_after(1, 0, 100);
+        assert!(adjacent.is_some());
+        match adjacent.unwrap() {
+            AdjacentSegment::After(seg) => {
+                assert_eq!(seg.page, 1);
+                assert_eq!(seg.offset, 100);
+                assert_eq!(seg.size, 50);
+            }
+            _ => panic!("Expected AdjacentSegment::After"),
+        }
+    }
+
+    #[test]
+    fn test_should_insert_adjacent_segment() {
+        let mut table = FreeSegmentsTable::default();
+        table.insert_free_segment(1, 100, 50);
+        table.insert_free_segment(1, 150, 50); // Adjacent to the first
+
+        assert_eq!(table.records.len(), 1);
+        assert_eq!(table.records[0].page, 1);
+        assert_eq!(table.records[0].offset, 100);
+        assert_eq!(table.records[0].size, 100); // Merged size
     }
 }
