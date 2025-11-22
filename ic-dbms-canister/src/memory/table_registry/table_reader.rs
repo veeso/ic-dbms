@@ -118,13 +118,15 @@ where
             // get read_len (cannot read more than page_size)
             let read_len =
                 std::cmp::min(self.page_size, page_size as usize).saturating_sub(offset as usize);
-            // TODO: Do not re-read page every time; read once, unless we move to next page
-            let read_bytes = MEMORY_MANAGER
-                .with_borrow(|mm| mm.read_at_raw(page, offset, &mut self.buffer[..read_len]))?;
+            // if offset is zero, read page; otherwise, just reuse buffer
+            if offset == 0 {
+                MEMORY_MANAGER
+                    .with_borrow(|mm| mm.read_at_raw(page, 0, &mut self.buffer[..read_len]))?;
+            }
 
             // find next record in buffer; if found, return it
             if let Some((next_segment_offset, next_segment_size)) =
-                self.find_next_record_position(&self.buffer[..read_bytes])?
+                self.find_next_record_position(&self.buffer[(offset as usize)..read_len])?
             {
                 // found a record; return it
                 // sum the buffer offset to the current page offset to get the absolute offset
