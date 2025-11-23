@@ -46,12 +46,27 @@ impl From<std::string::FromUtf8Error> for MemoryError {
     }
 }
 
+impl From<candid::types::principal::PrincipalError> for MemoryError {
+    fn from(err: candid::types::principal::PrincipalError) -> Self {
+        MemoryError::DecodeError(DecodeError::from(err))
+    }
+}
+
+impl From<uuid::Error> for MemoryError {
+    fn from(err: uuid::Error) -> Self {
+        MemoryError::DecodeError(DecodeError::from(err))
+    }
+}
+
 /// An enum representing possible decoding errors.
 #[derive(Debug, Error)]
 pub enum DecodeError {
     /// Error when the raw record header is invalid.
     #[error("Bad raw record header")]
     BadRawRecordHeader,
+    /// Principal error
+    #[error("Principal error: {0}")]
+    PrincipalError(#[from] candid::types::principal::PrincipalError),
     /// Error when failing to convert from slice.
     #[error("Failed to convert from slice: {0}")]
     TryFromSliceError(#[from] TryFromSliceError),
@@ -61,4 +76,13 @@ pub enum DecodeError {
     /// Error when the data is too short to decode.
     #[error("Data too short to decode")]
     TooShort,
+    /// UUID error
+    #[error("UUID error: {0}")]
+    UuidError(uuid::Error),
+}
+
+impl From<uuid::Error> for DecodeError {
+    fn from(err: uuid::Error) -> Self {
+        DecodeError::UuidError(err)
+    }
 }

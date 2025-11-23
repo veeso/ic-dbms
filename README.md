@@ -25,10 +25,10 @@ The user can just define the data entity by defining the tables
 #[derive(Table)]
 struct User {
     #[primary_key]
-    id: Integer,
+    id: Int64,
     name: Text,
     email: Text,
-    age: Integer,
+    age: Nullable<Int32>,
 }
 ```
 
