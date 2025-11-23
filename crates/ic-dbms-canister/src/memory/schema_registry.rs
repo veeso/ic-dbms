@@ -1,8 +1,8 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
+use crate::dbms::table::{TableFingerprint, TableSchema};
 use crate::memory::{DataSize, Encode, MEMORY_MANAGER, MSize, MemoryError, MemoryResult, Page};
-use crate::table::{TableFingerprint, TableSchema};
 
 thread_local! {
     /// The global schema registry.

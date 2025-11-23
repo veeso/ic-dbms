@@ -1,4 +1,4 @@
-use crate::query::Query;
+use crate::dbms::query::Query;
 
 /// A builder for constructing database queries.
 #[derive(Default, Debug, Clone)]
