@@ -11,7 +11,7 @@ use std::cell::RefCell;
 
 pub use self::acl::{ACL, AccessControlList};
 pub use self::encode::{DataSize, Encode};
-pub use self::error::MemoryError;
+pub use self::error::{DecodeError, MemoryError};
 use self::provider::MemoryProvider;
 pub use self::schema_registry::{SCHEMA_REGISTRY, SchemaRegistry, TableRegistryPage};
 pub use self::table_registry::{NextRecord, TableReader, TableRegistry};
