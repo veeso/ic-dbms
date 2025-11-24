@@ -1,3 +1,5 @@
+use std::fmt;
+
 use candid::CandidType;
 use serde::{Deserialize, Serialize};
 
@@ -18,6 +20,18 @@ where
 {
     Null,
     Value(T),
+}
+
+impl<T> fmt::Display for Nullable<T>
+where
+    T: DataType,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Nullable::Null => write!(f, "NULL"),
+            Nullable::Value(v) => write!(f, "{}", v),
+        }
+    }
 }
 
 impl<T> Nullable<T>

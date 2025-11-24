@@ -191,8 +191,8 @@ mod tests {
         let mut registry = registry();
 
         let record = RawRecord::new(User {
-            id: 1,
-            name: "Test".to_string(),
+            id: 1u32.into(),
+            name: "Test".to_string().into(),
         });
         let write_at = registry
             .get_write_position(&record)
@@ -206,8 +206,8 @@ mod tests {
         let mut registry = registry();
 
         let record = RawRecord::new(User {
-            id: 1,
-            name: "Test".to_string(),
+            id: 1u32.into(),
+            name: "Test".to_string().into(),
         });
         // allocate a page to insert a free segment
         let (page, _) = registry
@@ -242,8 +242,8 @@ mod tests {
         let mut registry = registry();
 
         let record = User {
-            id: 1,
-            name: "Test".to_string(),
+            id: 1u32.into(),
+            name: "Test".to_string().into(),
         };
 
         // insert record
@@ -256,8 +256,8 @@ mod tests {
 
         for id in 0..4000 {
             let record = User {
-                id,
-                name: format!("User {}", id),
+                id: id.into(),
+                name: format!("User {}", id).into(),
             };
             registry.insert(record).expect("failed to insert record");
         }
@@ -268,8 +268,8 @@ mod tests {
         let mut registry = registry();
 
         let record = User {
-            id: 1,
-            name: "Test".to_string(),
+            id: 1u32.into(),
+            name: "Test".to_string().into(),
         };
 
         // insert record
@@ -298,8 +298,8 @@ mod tests {
         let free_segment = registry
             .free_segments_ledger
             .find_reusable_segment(&User {
-                id: 2,
-                name: "Test".to_string(),
+                id: 2u32.into(),
+                name: "Test".to_string().into(),
             })
             .expect("could not find the free segment after free");
         assert_eq!(free_segment.page, page);
@@ -319,12 +319,12 @@ mod tests {
         let mut registry = registry();
 
         let old_record = User {
-            id: 1,
-            name: "John".to_string(),
+            id: 1u32.into(),
+            name: "John".to_string().into(),
         };
         let new_record = User {
-            id: 1,
-            name: "Mark".to_string(), // same length as "John"
+            id: 1u32.into(),
+            name: "Mark".to_string().into(), // same length as "John"
         };
 
         // insert old record
@@ -364,17 +364,17 @@ mod tests {
         let mut registry = registry();
 
         let old_record = User {
-            id: 1,
-            name: "John".to_string(),
+            id: 1u32.into(),
+            name: "John".to_string().into(),
         };
         // this user creates a record with same size as old_record to avoid reusing the free segment
         let extra_user = User {
-            id: 2,
-            name: "Extra".to_string(),
+            id: 2u32.into(),
+            name: "Extra".to_string().into(),
         };
         let new_record = User {
-            id: 1,
-            name: "Alexander".to_string(), // longer than "John"
+            id: 1u32.into(),
+            name: "Alexander".to_string().into(), // longer than "John"
         };
 
         // insert old record

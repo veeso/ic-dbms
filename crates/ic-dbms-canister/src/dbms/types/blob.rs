@@ -1,3 +1,5 @@
+use std::fmt;
+
 use candid::CandidType;
 use serde::{Deserialize, Serialize};
 
@@ -9,6 +11,12 @@ use crate::memory::{DataSize, Encode};
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, CandidType, Serialize, Deserialize,
 )]
 pub struct Blob(pub Vec<u8>);
+
+impl fmt::Display for Blob {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Blob(len={})", self.0.len())
+    }
+}
 
 impl Encode for Blob {
     const SIZE: DataSize = DataSize::Variable;

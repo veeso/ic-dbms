@@ -288,8 +288,8 @@ mod tests {
         // write to ACL page
         MEMORY_MANAGER.with_borrow_mut(|manager| {
             let data_to_write = User {
-                id: 30,
-                name: "Alice".to_string(),
+                id: 30u32.into(),
+                name: "Alice".to_string().into(),
             };
             manager
                 .write_at(ACL_PAGE, 10, &data_to_write)

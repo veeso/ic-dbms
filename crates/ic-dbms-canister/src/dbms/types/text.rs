@@ -1,3 +1,4 @@
+use std::fmt;
 use std::str::FromStr;
 
 use candid::CandidType;
@@ -11,6 +12,12 @@ use crate::memory::{DataSize, Encode};
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, CandidType, Serialize, Deserialize,
 )]
 pub struct Text(pub String);
+
+impl fmt::Display for Text {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl Encode for Text {
     const SIZE: DataSize = DataSize::Variable;

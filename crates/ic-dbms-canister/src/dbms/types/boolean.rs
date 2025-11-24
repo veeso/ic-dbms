@@ -1,3 +1,5 @@
+use std::fmt;
+
 use candid::CandidType;
 use serde::{Deserialize, Serialize};
 
@@ -7,6 +9,12 @@ use crate::memory::{DataSize, Encode};
 /// Boolean data type for the DBMS.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Boolean(pub bool);
+
+impl fmt::Display for Boolean {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl Encode for Boolean {
     const SIZE: DataSize = DataSize::Fixed(1);

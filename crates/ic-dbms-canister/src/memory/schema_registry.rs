@@ -33,14 +33,19 @@ impl SchemaRegistry {
     }
 
     /// Registers a table and allocates it registry page.
-    pub fn register_table(&mut self, schema: &TableSchema) -> MemoryResult<TableRegistryPage> {
+    ///
+    /// The [`TableSchema`] type parameter is used to get the [`TableSchema::fingerprint`] of the table schema.
+    pub fn register_table<TS>(&mut self) -> MemoryResult<TableRegistryPage>
+    where
+        TS: TableSchema,
+    {
         // allocate table registry page
         let (pages_list_page, free_segments_page) = MEMORY_MANAGER.with_borrow_mut(|m| {
             Ok::<(Page, Page), MemoryError>((m.allocate_page()?, m.allocate_page()?))
         })?;
 
         // insert into tables map
-        let fingerprint = schema.fingerprint();
+        let fingerprint = TS::fingerprint();
         let pages = TableRegistryPage {
             pages_list_page,
             free_segments_page,
@@ -56,8 +61,11 @@ impl SchemaRegistry {
     }
 
     /// Returns the table registry page for a given table schema.
-    pub fn table_registry_page(&self, schema: &TableSchema) -> Option<TableRegistryPage> {
-        self.tables.get(&schema.fingerprint()).copied()
+    pub fn table_registry_page<TS>(&self) -> Option<TableRegistryPage>
+    where
+        TS: TableSchema,
+    {
+        self.tables.get(&TS::fingerprint()).copied()
     }
 }
 
@@ -120,22 +128,22 @@ impl Encode for SchemaRegistry {
 mod tests {
 
     use super::*;
+    use crate::dbms::table::{ColumnDef, TableRecord};
+    use crate::tests::User;
 
     #[test]
     fn test_should_encode_and_decode_schema_registry() {
         // load
         let mut registry = SchemaRegistry::load().expect("failed to load init schema registry");
 
-        // create table schema
-        let table_schema = TableSchema(42);
         // register table
         let registry_page = registry
-            .register_table(&table_schema)
+            .register_table::<User>()
             .expect("failed to register table");
 
         // get table registry page
         let fetched_page = registry
-            .table_registry_page(&table_schema)
+            .table_registry_page::<User>()
             .expect("failed to get table registry page");
         assert_eq!(registry_page, fetched_page);
 
@@ -146,12 +154,11 @@ mod tests {
         assert_eq!(registry, decoded);
 
         // try to actually add another
-        let another_table_schema = TableSchema(84);
         let another_registry_page = registry
-            .register_table(&another_table_schema)
+            .register_table::<AnotherTable>()
             .expect("failed to register another table");
         let another_fetched_page = registry
-            .table_registry_page(&another_table_schema)
+            .table_registry_page::<AnotherTable>()
             .expect("failed to get another table registry page");
         assert_eq!(another_registry_page, another_fetched_page);
 
@@ -162,15 +169,51 @@ mod tests {
         assert_eq!(reloaded.tables.len(), 2);
         assert_eq!(
             reloaded
-                .table_registry_page(&table_schema)
+                .table_registry_page::<User>()
                 .expect("failed to get first table registry page after reload"),
             registry_page
         );
         assert_eq!(
             reloaded
-                .table_registry_page(&another_table_schema)
+                .table_registry_page::<AnotherTable>()
                 .expect("failed to get second table registry page after reload"),
             another_registry_page
         );
+    }
+
+    struct AnotherTable;
+
+    struct AnotherTableRecord;
+
+    impl TableRecord for AnotherTableRecord {
+        type Schema = AnotherTable;
+
+        fn from_values(_values: &[(ColumnDef, crate::dbms::value::Value)]) -> Self {
+            AnotherTableRecord
+        }
+
+        fn to_values(&self) -> Vec<crate::dbms::value::Value> {
+            vec![]
+        }
+    }
+
+    impl TableSchema for AnotherTable {
+        type Record = AnotherTableRecord;
+
+        fn table_name() -> &'static str {
+            "another_table"
+        }
+
+        fn columns() -> &'static [crate::dbms::table::ColumnDef] {
+            &[]
+        }
+
+        fn primary_key() -> &'static str {
+            ""
+        }
+
+        fn foreign_keys() -> &'static [crate::dbms::table::ForeignKeyDef] {
+            &[]
+        }
     }
 }
