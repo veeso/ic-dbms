@@ -3,3 +3,4 @@
 pub mod query;
 pub mod table;
 pub mod types;
+pub mod value;

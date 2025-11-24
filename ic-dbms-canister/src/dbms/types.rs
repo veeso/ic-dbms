@@ -43,6 +43,7 @@ pub use self::uuid::Uuid;
 pub trait DataType:
     Clone
     + std::fmt::Debug
+    + std::fmt::Display
     + PartialEq
     + Eq
     + PartialOrd
@@ -53,4 +54,21 @@ pub trait DataType:
     + Serialize
     + for<'de> Deserialize<'de>
 {
+}
+
+/// An enumeration of all supported data type kinds in the DBMS.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DataTypeKind {
+    Blob,
+    Boolean,
+    Date,
+    DateTime,
+    Decimal,
+    Int32,
+    Int64,
+    Principal,
+    Text,
+    Uint32,
+    Uint64,
+    Uuid,
 }

@@ -42,11 +42,11 @@ You can also define relationships between tables:
 #[derive(Table)]
 struct Post {
     #[primary_key]
-    id: Integer,
+    id: Int64,
     title: Text,
     content: Text,
     #[foreign_key(table = "User", column = "id")]
-    author_id: Integer,
+    author_id: Int64,
 }
 ```
 

@@ -10,7 +10,7 @@ const RUST_DECIMAL_ENCODE_SIZE: MSize = 16;
 
 /// Decimal data type for the DBMS.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Decimal(RustDecimal);
+pub struct Decimal(pub RustDecimal);
 
 impl From<RustDecimal> for Decimal {
     fn from(value: RustDecimal) -> Self {

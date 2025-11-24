@@ -1,3 +1,5 @@
+use std::fmt;
+
 use candid::CandidType;
 use serde::{Deserialize, Serialize};
 
@@ -18,6 +20,12 @@ impl CandidType for Uint32 {
         S: candid::types::Serializer,
     {
         serializer.serialize_nat32(self.0)
+    }
+}
+
+impl fmt::Display for Uint32 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

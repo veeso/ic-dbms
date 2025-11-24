@@ -226,8 +226,8 @@ mod tests {
                 "Read user: id={}, name={}; new position: {:?}",
                 user.id, user.name, reader.position
             );
-            assert_eq!(user.id, id);
-            assert_eq!(user.name, format!("User {}", id));
+            assert_eq!(user.id.0, id);
+            assert_eq!(user.name.0, format!("User {}", id));
 
             id += 1;
         }
@@ -340,8 +340,8 @@ mod tests {
         // insert `entries` records
         for id in 0..entries {
             let user = User {
-                id,
-                name: format!("User {}", id),
+                id: id.into(),
+                name: format!("User {}", id).into(),
             };
             registry.insert(user).expect("failed to insert user");
         }

@@ -1,3 +1,5 @@
+use std::fmt;
+
 use candid::CandidType;
 use serde::{Deserialize, Serialize};
 
@@ -7,6 +9,12 @@ use crate::memory::{DataSize, Encode};
 /// Integer 64-bit data type for the DBMS.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Int64(pub i64);
+
+impl fmt::Display for Int64 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl CandidType for Int64 {
     fn _ty() -> candid::types::Type {
