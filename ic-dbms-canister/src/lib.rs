@@ -14,9 +14,23 @@
     html_logo_url = "https://raw.githubusercontent.com/veeso/ic-dbms-canister/main/assets/images/cargo/logo-512.png"
 )]
 
-pub mod data_types;
+use thiserror::Error;
+
 pub mod dbms;
 pub mod memory;
+pub mod prelude;
 #[cfg(test)]
 mod tests;
 pub mod utils;
+
+/// IcDbms Error type
+#[derive(Debug, Error)]
+pub enum IcDbmsError {
+    #[error("Memory error: {0}")]
+    Memory(#[from] self::memory::MemoryError),
+    #[error("Query error: {0}")]
+    Query(#[from] self::dbms::query::QueryError),
+}
+
+/// IcDbms Result type
+pub type IcDbmsResult<T> = Result<T, IcDbmsError>;
