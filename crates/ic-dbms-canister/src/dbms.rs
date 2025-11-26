@@ -2,5 +2,6 @@
 
 pub mod query;
 pub mod table;
+pub mod transaction;
 pub mod types;
 pub mod value;
