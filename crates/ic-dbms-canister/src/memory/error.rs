@@ -86,3 +86,27 @@ impl From<uuid::Error> for DecodeError {
         DecodeError::UuidError(err)
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_memory_error_display() {
+        let error = MemoryError::DataTooLarge {
+            page_size: 1024,
+            requested: 2048,
+        };
+        assert_eq!(
+            format!("{}", error),
+            "Data too large for page (page size: 1024, requested: 2048)"
+        );
+    }
+
+    #[test]
+    fn test_decode_error_display() {
+        let error = DecodeError::BadRawRecordHeader;
+        assert_eq!(format!("{}", error), "Bad raw record header");
+    }
+}

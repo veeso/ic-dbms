@@ -81,3 +81,61 @@ pub struct UntypedUpdateRecord {
     pub update_fields: Vec<(String, Value)>,
     pub where_clause: Option<Filter>,
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use crate::tests::{UserInsertRequest, UserUpdateRequest};
+
+    #[test]
+    fn test_should_insert_make_into_untyped() {
+        let typed = UserInsertRequest {
+            id: 1,
+            name: "Alice".to_string(),
+        };
+
+        let untyped = typed.into_untyped();
+        assert_eq!(
+            untyped.fields,
+            vec![
+                ("id".to_string(), Value::Uint32(1.into())),
+                ("name".to_string(), Value::Text("Alice".to_string().into()))
+            ]
+        );
+
+        let from_untyped = UserInsertRequest::from_untyped(untyped).unwrap();
+        assert_eq!(from_untyped.id, 1);
+        assert_eq!(from_untyped.name, "Alice".to_string());
+    }
+
+    #[test]
+    fn test_should_insert_make_from_untyped() {
+        let typed = UserUpdateRequest {
+            id: Some(2),
+            name: Some("Bob".to_string()),
+            where_clause: Some(Filter::Eq("id", Value::Uint32(1.into()))),
+        };
+        let untyped = typed.into_untyped();
+
+        assert_eq!(
+            untyped.update_fields,
+            vec![
+                ("id".to_string(), Value::Uint32(2.into())),
+                ("name".to_string(), Value::Text("Bob".to_string().into()))
+            ]
+        );
+        assert_eq!(
+            untyped.where_clause,
+            Some(Filter::Eq("id", Value::Uint32(1.into())))
+        );
+
+        let from_untyped = UserUpdateRequest::from_untyped(untyped).unwrap();
+        assert_eq!(from_untyped.id, Some(2));
+        assert_eq!(from_untyped.name, Some("Bob".to_string()));
+        assert_eq!(
+            from_untyped.where_clause,
+            Some(Filter::Eq("id", Value::Uint32(1.into())))
+        );
+    }
+}

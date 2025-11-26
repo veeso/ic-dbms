@@ -36,3 +36,17 @@ impl DataSize {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_should_get_data_size_fixed() {
+        let size = DataSize::Fixed(10);
+        assert_eq!(size.get_fixed_size(), Some(10));
+
+        let variable_size = DataSize::Variable;
+        assert_eq!(variable_size.get_fixed_size(), None);
+    }
+}
