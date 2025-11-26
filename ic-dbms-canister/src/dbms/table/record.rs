@@ -1,3 +1,4 @@
+use crate::dbms::query::QueryResult;
 use crate::dbms::table::{ColumnDef, TableSchema};
 use crate::dbms::value::Value;
 use crate::prelude::Filter;
@@ -15,18 +16,32 @@ pub trait TableRecord {
 }
 
 /// This trait represents a record for inserting into a table.
-pub trait InsertRecord {
+pub trait InsertRecord: Sized {
     /// The [`TableRecord`] type associated with this table schema.
     type Record: TableRecord;
     /// The table schema associated with this record.
     type Schema: TableSchema<Record = Self::Record>;
 
     /// Converts the record into a list of column [`Value`]s for insertion.
-    fn into_values(self) -> Vec<Value>;
+    fn into_values(self) -> Vec<(ColumnDef, Value)>;
+
+    /// Constructs the [`InsertRecord`] from an untyped [`UntypedInsertRecord`] representation.
+    fn from_untyped(untyped: UntypedInsertRecord) -> QueryResult<Self>;
+
+    /// Converts the record into an untyped [`UntypedInsertRecord`] representation.
+    fn into_untyped(self) -> UntypedInsertRecord {
+        UntypedInsertRecord {
+            fields: self
+                .into_values()
+                .into_iter()
+                .map(|(col_def, value)| (col_def.name.to_string(), value))
+                .collect(),
+        }
+    }
 }
 
 /// This trait represents a record for updating a table.
-pub trait UpdateRecord {
+pub trait UpdateRecord: Sized {
     /// The [`TableRecord`] type associated with this table schema.
     type Record: TableRecord;
     /// The table schema associated with this record.
@@ -37,4 +52,32 @@ pub trait UpdateRecord {
 
     /// Get the [`Filter`] condition for the update operation.
     fn where_clause(&self) -> Option<Filter>;
+
+    /// Constructs the [`UpdateRecord`] from an untyped [`UntypedUpdateRecord`] representation.
+    fn from_untyped(untyped: UntypedUpdateRecord) -> QueryResult<Self>;
+
+    /// Converts the record into an untyped [`UntypedUpdateRecord`] representation.
+    fn into_untyped(self) -> UntypedUpdateRecord {
+        UntypedUpdateRecord {
+            update_fields: self
+                .update_values()
+                .into_iter()
+                .map(|(col_def, value)| (col_def.name.to_string(), value))
+                .collect(),
+            where_clause: self.where_clause(),
+        }
+    }
+}
+
+/// Untyped insert record for dynamic operations.
+#[derive(Debug, Clone)]
+pub struct UntypedInsertRecord {
+    pub fields: Vec<(String, Value)>,
+}
+
+/// Untyped update record for dynamic operations.
+#[derive(Debug, Clone)]
+pub struct UntypedUpdateRecord {
+    pub update_fields: Vec<(String, Value)>,
+    pub where_clause: Option<Filter>,
 }

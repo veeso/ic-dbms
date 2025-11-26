@@ -1,7 +1,10 @@
-use crate::dbms::table::{ColumnDef, ForeignKeyDef, TableRecord, TableSchema};
+use crate::dbms::query::QueryResult;
+use crate::dbms::table::{
+    ColumnDef, ForeignKeyDef, TableRecord, TableSchema, UntypedInsertRecord, UntypedUpdateRecord,
+};
 use crate::dbms::types::{DataTypeKind, Text, Uint32};
 use crate::memory::{DataSize, Encode};
-use crate::prelude::{Filter, InsertRecord, UpdateRecord};
+use crate::prelude::{Filter, InsertRecord, QueryError, UpdateRecord};
 
 /// A simple user struct for testing purposes.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -24,11 +27,55 @@ impl InsertRecord for UserInsertRequest {
     type Record = UserRecord;
     type Schema = User;
 
-    fn into_values(self) -> Vec<crate::dbms::value::Value> {
+    fn into_values(self) -> Vec<(ColumnDef, crate::dbms::value::Value)> {
         vec![
-            crate::dbms::value::Value::Uint32(self.id.into()),
-            crate::dbms::value::Value::Text(self.name.into()),
+            (
+                ColumnDef {
+                    name: "id",
+                    data_type: DataTypeKind::Uint32,
+                    nullable: false,
+                    primary_key: true,
+                    foreign_keys: None,
+                },
+                crate::dbms::value::Value::Uint32(self.id.into()),
+            ),
+            (
+                ColumnDef {
+                    name: "name",
+                    data_type: DataTypeKind::Text,
+                    nullable: false,
+                    primary_key: false,
+                    foreign_keys: None,
+                },
+                crate::dbms::value::Value::Text(self.name.into()),
+            ),
         ]
+    }
+
+    fn from_untyped(untyped: UntypedInsertRecord) -> QueryResult<Self> {
+        let mut id = None;
+        let mut name = None;
+
+        for (field_name, value) in untyped.fields {
+            match field_name.as_str() {
+                "id" => {
+                    if let crate::dbms::value::Value::Uint32(v) = value {
+                        id = Some(v.0);
+                    }
+                }
+                "name" => {
+                    if let crate::dbms::value::Value::Text(v) = value {
+                        name = Some(v.to_string());
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(UserInsertRequest {
+            id: id.ok_or(QueryError::MissingNonNullableField("id"))?,
+            name: name.ok_or(QueryError::MissingNonNullableField("name"))?,
+        })
     }
 }
 
@@ -73,6 +120,33 @@ impl UpdateRecord for UserUpdateRequest {
 
     fn where_clause(&self) -> Option<Filter> {
         self.where_clause.clone()
+    }
+
+    fn from_untyped(untyped: UntypedUpdateRecord) -> QueryResult<Self> {
+        let mut id = None;
+        let mut name = None;
+
+        for (field_name, value) in untyped.update_fields {
+            match field_name.as_str() {
+                "id" => {
+                    if let crate::dbms::value::Value::Uint32(v) = value {
+                        id = Some(v.0);
+                    }
+                }
+                "name" => {
+                    if let crate::dbms::value::Value::Text(v) = value {
+                        name = Some(v.to_string());
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(UserUpdateRequest {
+            id,
+            name,
+            where_clause: untyped.where_clause,
+        })
     }
 }
 
