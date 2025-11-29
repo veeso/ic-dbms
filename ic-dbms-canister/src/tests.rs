@@ -230,6 +230,31 @@ impl TableSchema for User {
     fn foreign_keys() -> &'static [ForeignKeyDef] {
         &[]
     }
+
+    fn to_values(&self) -> Vec<(ColumnDef, crate::dbms::value::Value)> {
+        vec![
+            (
+                ColumnDef {
+                    name: "id",
+                    data_type: DataTypeKind::Uint32,
+                    nullable: false,
+                    primary_key: true,
+                    foreign_keys: None,
+                },
+                crate::dbms::value::Value::Uint32(self.id),
+            ),
+            (
+                ColumnDef {
+                    name: "name",
+                    data_type: DataTypeKind::Text,
+                    nullable: false,
+                    primary_key: false,
+                    foreign_keys: None,
+                },
+                crate::dbms::value::Value::Text(self.name.clone()),
+            ),
+        ]
+    }
 }
 
 impl Encode for User {

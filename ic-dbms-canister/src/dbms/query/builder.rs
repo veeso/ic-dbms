@@ -209,7 +209,7 @@ mod tests {
         let filter = query.filter.expect("should have filter");
         if let Filter::Or(left, right) = filter {
             assert!(matches!(*left, Filter::Eq("id", Value::Uint32(_))));
-            assert!(matches!(*right, Filter::Like("name", Value::Text(_))));
+            assert!(matches!(*right, Filter::Like("name", _)));
         } else {
             panic!("Expected OR filter at the top level");
         }

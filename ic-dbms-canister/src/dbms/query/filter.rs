@@ -1,4 +1,8 @@
+use crate::dbms::query::QueryResult;
+use crate::dbms::table::ColumnDef;
+use crate::dbms::types::Text;
 use crate::dbms::value::Value;
+use crate::prelude::QueryError;
 
 /// [`super::Query`] filters.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -9,7 +13,7 @@ pub enum Filter {
     Lt(&'static str, Value),
     Ge(&'static str, Value),
     Le(&'static str, Value),
-    Like(&'static str, Value),
+    Like(&'static str, String),
     NotNull(&'static str),
     IsNull(&'static str),
     And(Box<Filter>, Box<Filter>),
@@ -49,8 +53,8 @@ impl Filter {
     }
 
     /// Creates a LIKE filter.
-    pub fn like(field: &'static str, value: &str) -> Self {
-        Filter::Like(field, Value::Text(value.to_string().into()))
+    pub fn like(field: &'static str, pattern: &str) -> Self {
+        Filter::Like(field, pattern.to_string())
     }
 
     /// Creates a NOT NULL filter.
@@ -78,13 +82,68 @@ impl Filter {
     pub fn not(self) -> Self {
         Filter::Not(Box::new(self))
     }
+
+    /// Checks if the given values match the filter.
+    pub fn matches(&self, values: &[(ColumnDef, Value)]) -> QueryResult<bool> {
+        let res = match self {
+            Filter::Eq(field, value) => values
+                .iter()
+                .any(|(col, val)| col.name == *field && val == value),
+            Filter::Ne(field, value) => values
+                .iter()
+                .any(|(col, val)| col.name == *field && val != value),
+            Filter::Gt(field, value) => values
+                .iter()
+                .any(|(col, val)| col.name == *field && val > value),
+            Filter::Lt(field, value) => values
+                .iter()
+                .any(|(col, val)| col.name == *field && val < value),
+            Filter::Ge(field, value) => values
+                .iter()
+                .any(|(col, val)| col.name == *field && val >= value),
+            Filter::Le(field, value) => values
+                .iter()
+                .any(|(col, val)| col.name == *field && val <= value),
+            Filter::Like(field, pattern) => {
+                for (col, val) in values {
+                    if col.name == *field {
+                        if let Value::Text(Text(text)) = val {
+                            let res =
+                                like::Like::<true>::like(text.as_str(), pattern).map_err(|e| {
+                                    QueryError::InvalidQuery(format!(
+                                        "Invalid LIKE pattern {pattern}: {e}"
+                                    ))
+                                })?;
+
+                            return Ok(res);
+                        }
+                        return Err(QueryError::InvalidQuery(
+                            "LIKE operator can only be applied to Text values".to_string(),
+                        ));
+                    }
+                }
+                false
+            }
+            Filter::NotNull(field) => values
+                .iter()
+                .any(|(col, val)| col.name == *field && !val.is_null()),
+            Filter::IsNull(field) => values
+                .iter()
+                .any(|(col, val)| col.name == *field && val.is_null()),
+            Filter::And(left, right) => left.matches(values)? && right.matches(values)?,
+            Filter::Or(left, right) => left.matches(values)? || right.matches(values)?,
+            Filter::Not(inner) => !inner.matches(values)?,
+        };
+
+        Ok(res)
+    }
 }
 
 #[cfg(test)]
 mod tests {
 
     use super::*;
-    use crate::dbms::types::Int32;
+    use crate::dbms::types::{DataTypeKind, Int32};
 
     #[test]
     fn test_should_build_filter() {
@@ -113,7 +172,7 @@ mod tests {
         assert!(matches!(is_null, Filter::IsNull("phone")));
 
         let like = Filter::like("name", "John%");
-        assert!(matches!(like, Filter::Like("name", Value::Text(_))));
+        assert!(matches!(like, Filter::Like("name", _)));
 
         // chained filters
         let combined = eq.and(gt).or(is_null.not());
@@ -123,5 +182,471 @@ mod tests {
         } else {
             panic!("Expected combined filter to be an Or filter");
         }
+    }
+
+    #[test]
+    fn test_should_check_eq() {
+        let filter = Filter::eq("id", Value::Int32(30.into()));
+        let values = vec![(
+            ColumnDef {
+                name: "id",
+                data_type: DataTypeKind::Int32,
+                nullable: false,
+                primary_key: true,
+                foreign_keys: None,
+            },
+            Value::Int32(30.into()),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(result);
+
+        let values = vec![(
+            ColumnDef {
+                name: "id",
+                data_type: DataTypeKind::Int32,
+                nullable: false,
+                primary_key: true,
+                foreign_keys: None,
+            },
+            Value::Int32(35.into()),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_should_check_ne() {
+        let filter = Filter::ne("id", Value::Int32(30.into()));
+        let values = vec![(
+            ColumnDef {
+                name: "id",
+                data_type: DataTypeKind::Int32,
+                nullable: false,
+                primary_key: true,
+                foreign_keys: None,
+            },
+            Value::Int32(25.into()),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(result);
+
+        let values = vec![(
+            ColumnDef {
+                name: "id",
+                data_type: DataTypeKind::Int32,
+                nullable: false,
+                primary_key: true,
+                foreign_keys: None,
+            },
+            Value::Int32(30.into()),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_should_check_gt() {
+        let filter = Filter::gt("id", Value::Int32(20.into()));
+        let values = vec![(
+            ColumnDef {
+                name: "id",
+                data_type: DataTypeKind::Int32,
+                nullable: false,
+                primary_key: true,
+                foreign_keys: None,
+            },
+            Value::Int32(25.into()),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(result);
+
+        let values = vec![(
+            ColumnDef {
+                name: "id",
+                data_type: DataTypeKind::Int32,
+                nullable: false,
+                primary_key: true,
+                foreign_keys: None,
+            },
+            Value::Int32(10.into()),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_should_check_lt() {
+        let filter = Filter::lt("id", Value::Int32(30.into()));
+        let values = vec![(
+            ColumnDef {
+                name: "id",
+                data_type: DataTypeKind::Int32,
+                nullable: false,
+                primary_key: true,
+                foreign_keys: None,
+            },
+            Value::Int32(25.into()),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(result);
+
+        let values = vec![(
+            ColumnDef {
+                name: "id",
+                data_type: DataTypeKind::Int32,
+                nullable: false,
+                primary_key: true,
+                foreign_keys: None,
+            },
+            Value::Int32(40.into()),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_should_check_ge() {
+        let filter = Filter::ge("id", Value::Int32(25.into()));
+        let values = vec![(
+            ColumnDef {
+                name: "id",
+                data_type: DataTypeKind::Int32,
+                nullable: false,
+                primary_key: true,
+                foreign_keys: None,
+            },
+            Value::Int32(25.into()),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(result);
+
+        let filter = Filter::ge("id", Value::Int32(25.into()));
+        let values = vec![(
+            ColumnDef {
+                name: "id",
+                data_type: DataTypeKind::Int32,
+                nullable: false,
+                primary_key: true,
+                foreign_keys: None,
+            },
+            Value::Int32(30.into()),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(result);
+
+        let filter = Filter::ge("id", Value::Int32(25.into()));
+        let values = vec![(
+            ColumnDef {
+                name: "id",
+                data_type: DataTypeKind::Int32,
+                nullable: false,
+                primary_key: true,
+                foreign_keys: None,
+            },
+            Value::Int32(20.into()),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_should_check_le() {
+        let filter = Filter::le("id", Value::Int32(25.into()));
+        let values = vec![(
+            ColumnDef {
+                name: "id",
+                data_type: DataTypeKind::Int32,
+                nullable: false,
+                primary_key: true,
+                foreign_keys: None,
+            },
+            Value::Int32(25.into()),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(result);
+
+        let filter = Filter::le("id", Value::Int32(25.into()));
+        let values = vec![(
+            ColumnDef {
+                name: "id",
+                data_type: DataTypeKind::Int32,
+                nullable: false,
+                primary_key: true,
+                foreign_keys: None,
+            },
+            Value::Int32(20.into()),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(result);
+
+        let filter = Filter::le("id", Value::Int32(25.into()));
+        let values = vec![(
+            ColumnDef {
+                name: "id",
+                data_type: DataTypeKind::Int32,
+                nullable: false,
+                primary_key: true,
+                foreign_keys: None,
+            },
+            Value::Int32(35.into()),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_should_check_is_null() {
+        let filter = Filter::is_null("name");
+        let values = vec![(
+            ColumnDef {
+                name: "name",
+                data_type: DataTypeKind::Text,
+                nullable: true,
+                primary_key: false,
+                foreign_keys: None,
+            },
+            Value::Null,
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(result);
+
+        let values = vec![(
+            ColumnDef {
+                name: "name",
+                data_type: DataTypeKind::Text,
+                nullable: true,
+                primary_key: false,
+                foreign_keys: None,
+            },
+            Value::Text(Text("Alice".to_string())),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_should_check_not_null() {
+        let filter = Filter::not_null("name");
+        let values = vec![(
+            ColumnDef {
+                name: "name",
+                data_type: DataTypeKind::Text,
+                nullable: true,
+                primary_key: false,
+                foreign_keys: None,
+            },
+            Value::Text(Text("Alice".to_string())),
+        )];
+        let result = filter.matches(&values).unwrap();
+        assert!(result);
+
+        let values = vec![(
+            ColumnDef {
+                name: "name",
+                data_type: DataTypeKind::Text,
+                nullable: true,
+                primary_key: false,
+                foreign_keys: None,
+            },
+            Value::Null,
+        )];
+        let result = filter.matches(&values).unwrap();
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_should_check_like() {
+        let filter = Filter::like("name", "%ohn%");
+        let values = vec![(
+            ColumnDef {
+                name: "name",
+                data_type: DataTypeKind::Text,
+                nullable: false,
+                primary_key: false,
+                foreign_keys: None,
+            },
+            Value::Text(Text("Johnathan".to_string())),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(result);
+
+        let values = vec![(
+            ColumnDef {
+                name: "name",
+                data_type: DataTypeKind::Text,
+                nullable: false,
+                primary_key: false,
+                foreign_keys: None,
+            },
+            Value::Text(Text("Alice".to_string())),
+        )];
+
+        let result = filter.matches(&values).expect("LIKE match failed");
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_should_raise_error_or_like_on_non_text() {
+        let filter = Filter::like("age", "%30%");
+        let values = vec![(
+            ColumnDef {
+                name: "age",
+                data_type: DataTypeKind::Int32,
+                nullable: false,
+                primary_key: false,
+                foreign_keys: None,
+            },
+            Value::Int32(30.into()),
+        )];
+
+        let result = filter.matches(&values);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_should_escape_like() {
+        let filter = Filter::like("name", "100%% match");
+        let values = vec![(
+            ColumnDef {
+                name: "name",
+                data_type: DataTypeKind::Text,
+                nullable: false,
+                primary_key: false,
+                foreign_keys: None,
+            },
+            Value::Text(Text("100% match".to_string())),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(result);
+    }
+
+    #[test]
+    fn test_should_check_and_or_not() {
+        let filter = Filter::eq("id", Value::Int32(30.into()))
+            .and(Filter::gt("age", Value::Int32(18.into())))
+            .or(Filter::is_null("name").not());
+
+        let values = vec![
+            (
+                ColumnDef {
+                    name: "id",
+                    data_type: DataTypeKind::Int32,
+                    nullable: false,
+                    primary_key: true,
+                    foreign_keys: None,
+                },
+                Value::Int32(30.into()),
+            ),
+            (
+                ColumnDef {
+                    name: "age",
+                    data_type: DataTypeKind::Int32,
+                    nullable: false,
+                    primary_key: false,
+                    foreign_keys: None,
+                },
+                Value::Int32(20.into()),
+            ),
+            (
+                ColumnDef {
+                    name: "name",
+                    data_type: DataTypeKind::Text,
+                    nullable: true,
+                    primary_key: false,
+                    foreign_keys: None,
+                },
+                Value::Text(Text("Alice".to_string())),
+            ),
+        ];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(result);
+
+        // check false
+        let values = vec![
+            (
+                ColumnDef {
+                    name: "id",
+                    data_type: DataTypeKind::Int32,
+                    nullable: false,
+                    primary_key: true,
+                    foreign_keys: None,
+                },
+                Value::Int32(25.into()),
+            ),
+            (
+                ColumnDef {
+                    name: "age",
+                    data_type: DataTypeKind::Int32,
+                    nullable: false,
+                    primary_key: false,
+                    foreign_keys: None,
+                },
+                Value::Int32(16.into()),
+            ),
+            (
+                ColumnDef {
+                    name: "name",
+                    data_type: DataTypeKind::Text,
+                    nullable: true,
+                    primary_key: false,
+                    foreign_keys: None,
+                },
+                Value::Null,
+            ),
+        ];
+        let result = filter.matches(&values).unwrap();
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_should_check_not() {
+        let filter = Filter::not_null("name").not();
+
+        let values = vec![(
+            ColumnDef {
+                name: "name",
+                data_type: DataTypeKind::Text,
+                nullable: true,
+                primary_key: false,
+                foreign_keys: None,
+            },
+            Value::Null,
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(result);
+
+        let values = vec![(
+            ColumnDef {
+                name: "name",
+                data_type: DataTypeKind::Text,
+                nullable: true,
+                primary_key: false,
+                foreign_keys: None,
+            },
+            Value::Text(Text("Bob".to_string())),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(!result);
     }
 }

@@ -17,6 +17,7 @@ candid = { version = "0.10", features = ["value"] }
 getrandom = { version = "0.3", default-features = false }
 ic-cdk = "0.19"
 ic-cdk-macros = "0.19"
+like = "0.3"
 rust_decimal = "1"
 serde = "1"
 thiserror = "2"
