@@ -145,6 +145,16 @@ impl<T> Query<T>
 where
     T: TableSchema,
 {
+    /// Creates a new [`QueryBuilder`] for building a query.
+    pub fn builder() -> QueryBuilder<T> {
+        QueryBuilder::default()
+    }
+
+    /// Returns whether all columns are selected in the query.
+    pub fn all_selected(&self) -> bool {
+        matches!(self.columns, Select::All)
+    }
+
     /// Returns the list of columns to be selected in the query.
     pub fn columns(&self) -> Vec<&'static str> {
         match &self.columns {
@@ -184,5 +194,11 @@ mod tests {
 
         let columns = query.columns();
         assert_eq!(columns, vec!["id"]);
+    }
+
+    #[test]
+    fn test_should_check_all_selected() {
+        let query = Query::<User>::default();
+        assert!(query.all_selected());
     }
 }

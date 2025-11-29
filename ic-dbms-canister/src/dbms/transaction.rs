@@ -22,3 +22,10 @@ pub enum Operation {
     /// A delete operation. The first element is the table name, and the second is an optional filter to specify which records to delete.
     Delete(&'static str, Option<Filter>),
 }
+
+/// An enum representing possible errors that can occur during transaction operations.
+#[derive(Debug, thiserror::Error)]
+pub enum TransactionError {
+    #[error("No active transaction")]
+    NoActiveTransaction,
+}
