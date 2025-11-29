@@ -3,7 +3,7 @@ use crate::dbms::table::{
     ColumnDef, ForeignKeyDef, TableRecord, TableSchema, UntypedInsertRecord, UntypedUpdateRecord,
 };
 use crate::dbms::types::{DataTypeKind, Text, Uint32};
-use crate::memory::{DataSize, Encode};
+use crate::memory::{DataSize, Encode, SCHEMA_REGISTRY, TableRegistry};
 use crate::prelude::{Filter, InsertRecord, QueryError, UpdateRecord};
 
 /// A simple user struct for testing purposes.
@@ -231,7 +231,7 @@ impl TableSchema for User {
         &[]
     }
 
-    fn to_values(&self) -> Vec<(ColumnDef, crate::dbms::value::Value)> {
+    fn to_values(self) -> Vec<(ColumnDef, crate::dbms::value::Value)> {
         vec![
             (
                 ColumnDef {
@@ -251,7 +251,7 @@ impl TableSchema for User {
                     primary_key: false,
                     foreign_keys: None,
                 },
-                crate::dbms::value::Value::Text(self.name.clone()),
+                crate::dbms::value::Value::Text(self.name),
             ),
         ]
     }
@@ -280,6 +280,34 @@ impl Encode for User {
         let name = Text::decode(std::borrow::Cow::Borrowed(&data[offset..]))?;
 
         Ok(User { id, name })
+    }
+}
+
+pub const USERS_FIXTURES: &[&str] = &[
+    "Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Grace", "Heidi", "Ivan", "Judy",
+];
+
+/// Loads fixtures into the database for testing purposes.
+///
+/// # Panics
+///
+/// Panics if any operation fails.
+pub fn load_fixtures() {
+    // register tables
+    let user_pages = SCHEMA_REGISTRY
+        .with_borrow_mut(|sr| sr.register_table::<User>())
+        .expect("failed to register `User` table");
+
+    let mut user_table: TableRegistry<User> =
+        TableRegistry::load(user_pages).expect("failed to load `User` table registry");
+
+    // insert users
+    for (id, user) in USERS_FIXTURES.iter().enumerate() {
+        let user = User {
+            id: Uint32(id as u32),
+            name: Text(user.to_string()),
+        };
+        user_table.insert(user).expect("failed to insert user");
     }
 }
 

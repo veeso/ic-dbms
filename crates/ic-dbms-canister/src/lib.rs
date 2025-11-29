@@ -30,6 +30,10 @@ pub enum IcDbmsError {
     Memory(#[from] self::memory::MemoryError),
     #[error("Query error: {0}")]
     Query(#[from] self::dbms::query::QueryError),
+    #[error("Table error: {0}")]
+    Table(#[from] self::dbms::table::TableError),
+    #[error("Transaction error: {0}")]
+    Transaction(#[from] self::dbms::transaction::TransactionError),
 }
 
 /// IcDbms Result type

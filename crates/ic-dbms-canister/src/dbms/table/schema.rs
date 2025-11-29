@@ -35,7 +35,7 @@ where
     fn foreign_keys() -> &'static [ForeignKeyDef];
 
     /// Converts itself into a vector of column-value pairs.
-    fn to_values(&self) -> Vec<(ColumnDef, crate::dbms::value::Value)>;
+    fn to_values(self) -> Vec<(ColumnDef, crate::dbms::value::Value)>;
 
     /// Returns the fingerprint of the table schema.
     fn fingerprint() -> TableFingerprint {

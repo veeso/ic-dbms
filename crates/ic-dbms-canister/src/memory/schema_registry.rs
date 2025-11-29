@@ -276,7 +276,7 @@ mod tests {
             &[]
         }
 
-        fn to_values(&self) -> Vec<(ColumnDef, crate::dbms::value::Value)> {
+        fn to_values(self) -> Vec<(ColumnDef, crate::dbms::value::Value)> {
             vec![]
         }
     }
