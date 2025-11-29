@@ -1,7 +1,7 @@
 use super::types;
 
 /// A generic wrapper enum to hold any DBMS value.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Value {
     Blob(types::Blob),
     Boolean(types::Boolean),

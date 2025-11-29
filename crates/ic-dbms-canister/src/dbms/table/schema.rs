@@ -2,6 +2,7 @@ use std::hash::{Hash as _, Hasher as _};
 
 use crate::dbms::table::column_def::{ColumnDef, ForeignKeyDef};
 use crate::dbms::table::{InsertRecord, TableRecord, UpdateRecord};
+use crate::memory::Encode;
 
 /// A type representing a unique fingerprint for a table schema.
 pub type TableFingerprint = u64;
@@ -11,7 +12,7 @@ pub type TableFingerprint = u64;
 /// It is used to define the structure of a database table.
 pub trait TableSchema
 where
-    Self: 'static,
+    Self: Encode + 'static,
 {
     /// The [`TableRecord`] type associated with this table schema;
     /// which is the data returned by a query.
@@ -32,6 +33,9 @@ where
 
     /// Returns the foreign key definitions of the table.
     fn foreign_keys() -> &'static [ForeignKeyDef];
+
+    /// Converts itself into a vector of column-value pairs.
+    fn to_values(&self) -> Vec<(ColumnDef, crate::dbms::value::Value)>;
 
     /// Returns the fingerprint of the table schema.
     fn fingerprint() -> TableFingerprint {

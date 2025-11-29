@@ -54,6 +54,10 @@ pub enum QueryError {
         found: &'static str,
     },
 
+    /// The specified transaction was not found or has expired.
+    #[error("transaction not found")]
+    TransactionNotFound,
+
     /// Query contains syntactically or semantically invalid conditions.
     #[error("Invalid query: {0}")]
     InvalidQuery(String),

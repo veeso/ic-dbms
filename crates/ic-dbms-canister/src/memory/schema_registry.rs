@@ -184,6 +184,25 @@ mod tests {
 
     struct AnotherTable;
 
+    impl Encode for AnotherTable {
+        const SIZE: DataSize = DataSize::Variable;
+
+        fn size(&self) -> MSize {
+            0
+        }
+
+        fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
+            std::borrow::Cow::Owned(vec![])
+        }
+
+        fn decode(_data: std::borrow::Cow<[u8]>) -> MemoryResult<Self>
+        where
+            Self: Sized,
+        {
+            Ok(AnotherTable)
+        }
+    }
+
     struct AnotherTableRecord;
 
     impl TableRecord for AnotherTableRecord {
@@ -255,6 +274,10 @@ mod tests {
 
         fn foreign_keys() -> &'static [crate::dbms::table::ForeignKeyDef] {
             &[]
+        }
+
+        fn to_values(&self) -> Vec<(ColumnDef, crate::dbms::value::Value)> {
+            vec![]
         }
     }
 }

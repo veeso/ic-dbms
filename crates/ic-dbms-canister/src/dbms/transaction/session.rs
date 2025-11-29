@@ -4,6 +4,8 @@ use std::collections::HashMap;
 use candid::{Nat, Principal};
 
 use super::Transaction;
+use crate::prelude::QueryError;
+use crate::{IcDbmsError, IcDbmsResult};
 
 /// Type alias for Transaction ID
 pub type TransactionId = Nat;
@@ -43,12 +45,29 @@ impl TransactionSession {
             .is_some_and(|owner| *owner == caller)
     }
 
-    /// Retrieves a mutable reference to the [`Transaction`] associated with the given [`TransactionId`].
-    pub fn get_transaction_mut(
+    /// Pushes an [`super::Operation`] to the transaction associated with the given [`TransactionId`].
+    pub fn push_operation(
         &mut self,
         transaction_id: &TransactionId,
-    ) -> Option<&mut Transaction> {
-        self.transactions.get_mut(transaction_id)
+        operation: super::Operation,
+    ) -> IcDbmsResult<()> {
+        let transaction = self.get_transaction_mut(transaction_id)?;
+
+        transaction.operations.push(operation);
+        Ok(())
+    }
+
+    /// Retrieves the list of [`super::Operation`]s associated with the given [`TransactionId`].
+    pub fn get_transaction_operations(
+        &self,
+        transaction_id: &TransactionId,
+    ) -> IcDbmsResult<&Vec<super::Operation>> {
+        let transaction = self
+            .transactions
+            .get(transaction_id)
+            .ok_or(IcDbmsError::Query(QueryError::TransactionNotFound))?;
+
+        Ok(&transaction.operations)
     }
 
     /// Closes the transaction associated with the given [`TransactionId`].
@@ -56,12 +75,23 @@ impl TransactionSession {
         self.transactions.remove(transaction_id);
         self.owners.remove(transaction_id);
     }
+
+    /// Retrieves a mutable reference to the [`Transaction`] associated with the given [`TransactionId`].
+    fn get_transaction_mut(
+        &mut self,
+        transaction_id: &TransactionId,
+    ) -> IcDbmsResult<&mut Transaction> {
+        self.transactions
+            .get_mut(transaction_id)
+            .ok_or(IcDbmsError::Query(QueryError::TransactionNotFound))
+    }
 }
 
 #[cfg(test)]
 mod tests {
 
     use super::*;
+    use crate::dbms::transaction::Operation;
 
     #[test]
     fn test_should_begin_transaction() {
@@ -72,7 +102,7 @@ mod tests {
         assert!(!session.has_transaction(&transaction_id, bob()));
 
         let transaction = session.get_transaction_mut(&transaction_id);
-        assert!(transaction.is_some());
+        assert!(transaction.is_ok());
     }
 
     #[test]
@@ -86,9 +116,46 @@ mod tests {
 
         assert!(!session.has_transaction(&transaction_id, alice()));
         let transaction = session.get_transaction_mut(&transaction_id);
-        assert!(transaction.is_none());
+        assert!(transaction.is_err());
         assert!(!session.owners.contains_key(&transaction_id));
         assert!(!session.transactions.contains_key(&transaction_id));
+    }
+
+    #[test]
+    fn test_should_push_operation() {
+        let mut session = TransactionSession::default();
+        let transaction_id = session.begin_transaction(alice());
+
+        let operation = Operation::Insert(
+            "test_table",
+            crate::dbms::table::UntypedInsertRecord { fields: vec![] },
+        );
+        let result = session.push_operation(&transaction_id, operation.clone());
+        assert!(result.is_ok());
+
+        let transaction = session.get_transaction_mut(&transaction_id).unwrap();
+        assert_eq!(transaction.operations.len(), 1);
+        assert!(matches!(transaction.operations[0], Operation::Insert(_, _)));
+    }
+
+    #[test]
+    fn test_should_get_transaction_operations() {
+        let mut session = TransactionSession::default();
+        let transaction_id = session.begin_transaction(alice());
+
+        let operation = Operation::Insert(
+            "test_table",
+            crate::dbms::table::UntypedInsertRecord { fields: vec![] },
+        );
+        session
+            .push_operation(&transaction_id, operation.clone())
+            .unwrap();
+
+        let operations = session.get_transaction_operations(&transaction_id);
+        assert!(operations.is_ok());
+        let operations = operations.unwrap();
+        assert_eq!(operations.len(), 1);
+        assert!(matches!(operations[0], Operation::Insert(_, _)));
     }
 
     fn alice() -> Principal {
