@@ -4,13 +4,14 @@ use ic_dbms_macros::Encode;
 
 use crate::dbms::query::QueryResult;
 use crate::dbms::table::{
-    ColumnDef, ForeignKeyDef, TableRecord, TableSchema, UntypedInsertRecord, UntypedUpdateRecord,
+    ColumnDef, ForeignKeyDef, TableColumns, TableRecord, TableSchema, UntypedInsertRecord,
+    UntypedUpdateRecord,
 };
 use crate::dbms::types::{DataTypeKind, Text, Uint32};
 use crate::dbms::value::Value;
 use crate::memory::{SCHEMA_REGISTRY, TableRegistry};
 use crate::prelude::{Filter, InsertRecord, QueryError, UpdateRecord};
-use crate::tests::UserRecord;
+use crate::tests::{User, UserRecord};
 
 /// A simple post struct for testing purposes.
 ///
@@ -117,12 +118,17 @@ impl TableSchema for Post {
 impl TableRecord for PostRecord {
     type Schema = Post;
 
-    fn from_values(values: &[(ColumnDef, Value)]) -> Self {
+    fn from_values(values: TableColumns) -> Self {
         let mut id: Option<Uint32> = None;
         let mut title: Option<Text> = None;
         let mut content: Option<Text> = None;
 
-        for (column, value) in values {
+        let post_values = values
+            .iter()
+            .find(|(table_name, _)| *table_name == Self::Schema::table_name())
+            .map(|(_, cols)| cols);
+
+        for (column, value) in post_values.unwrap_or(&vec![]) {
             match column.name {
                 "id" => {
                     if let Value::Uint32(v) = value {
@@ -139,15 +145,24 @@ impl TableRecord for PostRecord {
                         content = Some(v.clone());
                     }
                 }
-                _ => {}
+                _ => { /* Ignore unknown columns */ }
             }
         }
+
+        let has_user = values
+            .iter()
+            .any(|(table_name, _)| *table_name == User::table_name());
+        let user = if has_user {
+            Some(UserRecord::from_values(values))
+        } else {
+            None
+        };
 
         Self {
             id,
             title,
             content,
-            user: None, // Eager loading is done separately
+            user,
         }
     }
 

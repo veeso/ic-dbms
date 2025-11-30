@@ -8,7 +8,8 @@ use thiserror::Error;
 
 pub use self::column_def::{ColumnDef, ForeignKeyDef};
 pub use self::record::{
-    InsertRecord, TableRecord, UntypedInsertRecord, UntypedUpdateRecord, UpdateRecord,
+    InsertRecord, TableColumns, TableName, TableRecord, UntypedInsertRecord, UntypedUpdateRecord,
+    UpdateRecord,
 };
 pub use self::schema::{TableFingerprint, TableSchema};
 

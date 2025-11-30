@@ -128,7 +128,7 @@ impl Encode for SchemaRegistry {
 mod tests {
 
     use super::*;
-    use crate::dbms::table::{ColumnDef, TableRecord};
+    use crate::dbms::table::{ColumnDef, TableColumns, TableRecord};
     use crate::prelude::{InsertRecord, UpdateRecord};
     use crate::tests::User;
 
@@ -208,7 +208,7 @@ mod tests {
     impl TableRecord for AnotherTableRecord {
         type Schema = AnotherTable;
 
-        fn from_values(_values: &[(ColumnDef, crate::dbms::value::Value)]) -> Self {
+        fn from_values(_values: TableColumns) -> Self {
             AnotherTableRecord
         }
 
