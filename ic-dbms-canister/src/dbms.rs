@@ -1,6 +1,6 @@
 //! This module exposes all the types related to the DBMS engine.
 
-use crate::dbms::table::{ColumnDef, TableRecord};
+use crate::dbms::table::{ColumnDef, TableColumns, TableRecord};
 use crate::dbms::transaction::TransactionId;
 use crate::dbms::value::Value;
 use crate::memory::{NextRecord, SCHEMA_REGISTRY, TableRegistry};
@@ -28,6 +28,14 @@ const DEFAULT_SELECT_LIMIT: usize = 128;
 /// - [`Database::insert`] - Execute an INSERT query.
 /// - [`Database::update`] - Execute an UPDATE query.
 /// - [`Database::delete`] - Execute a DELETE query.
+/// - [`Database::commit`] - Commit the current transaction.
+/// - [`Database::rollback`] - Rollback the current transaction.
+///
+/// The `transaction` field indicates whether the instance is operating within a transaction context.
+/// The [`Database`] can be instantiated for one-shot, with [`Database::oneshot`] operations (no transaction),
+/// or within a transaction context with [`Database::from_transaction`].
+///
+/// If a transaction is active, all operations will be part of that transaction until it is committed or rolled back.
 pub struct Database {
     /// Id of the loaded transaction, if any.
     transaction: Option<TransactionId>,
@@ -94,7 +102,7 @@ impl Database {
             // get queried fields
             let values = self.select_queried_fields::<T>(values, &query)?;
             // convert to record
-            let record = T::Record::from_values(&values);
+            let record = T::Record::from_values(values);
             // push to results
             results.push(record);
             // check whether reached limit
@@ -190,17 +198,17 @@ impl Database {
         &self,
         mut record_values: Vec<(ColumnDef, Value)>,
         query: &Query<T>,
-    ) -> IcDbmsResult<Vec<(ColumnDef, Value)>>
+    ) -> IcDbmsResult<TableColumns>
     where
         T: TableSchema,
     {
         // short-circuit if all selected
         if query.all_selected() {
-            return Ok(record_values);
+            return Ok(vec![(T::table_name(), record_values)]);
         }
         record_values.retain(|(col_def, _)| query.columns().contains(&col_def.name));
         // TODO: handle eager relations
-        Ok(record_values)
+        Ok(vec![(T::table_name(), record_values)])
     }
 
     /// Load the table registry for the given table schema.
@@ -310,13 +318,15 @@ mod tests {
         let selected_fields = dbms
             .select_queried_fields::<User>(record_values, &query)
             .expect("failed to select queried fields");
+        let user_fields = selected_fields
+            .into_iter()
+            .find(|(table_name, _)| *table_name == User::table_name())
+            .map(|(_, cols)| cols)
+            .unwrap_or_default();
 
-        assert_eq!(selected_fields.len(), 1);
-        assert_eq!(selected_fields[0].0.name, "name");
-        assert_eq!(
-            selected_fields[0].1,
-            Value::Text("Alice".to_string().into())
-        );
+        assert_eq!(user_fields.len(), 1);
+        assert_eq!(user_fields[0].0.name, "name");
+        assert_eq!(user_fields[0].1, Value::Text("Alice".to_string().into()));
     }
 
     #[test]

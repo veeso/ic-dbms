@@ -2,7 +2,8 @@ use ic_dbms_macros::Encode;
 
 use crate::dbms::query::QueryResult;
 use crate::dbms::table::{
-    ColumnDef, ForeignKeyDef, TableRecord, TableSchema, UntypedInsertRecord, UntypedUpdateRecord,
+    ColumnDef, ForeignKeyDef, TableColumns, TableRecord, TableSchema, UntypedInsertRecord,
+    UntypedUpdateRecord,
 };
 use crate::dbms::types::{DataTypeKind, Text, Uint32};
 use crate::dbms::value::Value;
@@ -138,11 +139,16 @@ impl UpdateRecord for UserUpdateRequest {
 impl TableRecord for UserRecord {
     type Schema = User;
 
-    fn from_values(values: &[(ColumnDef, crate::dbms::value::Value)]) -> Self {
+    fn from_values(values: TableColumns) -> Self {
         let mut id = None;
         let mut name = None;
 
-        for (col_def, value) in values {
+        let user_values = values
+            .iter()
+            .find(|(table_name, _)| *table_name == Self::Schema::table_name())
+            .map(|(_, cols)| cols);
+
+        for (col_def, value) in user_values.unwrap_or(&vec![]) {
             match col_def.name {
                 "id" => {
                     if let crate::dbms::value::Value::Uint32(v) = value {
