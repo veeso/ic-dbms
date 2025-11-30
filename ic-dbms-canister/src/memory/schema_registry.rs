@@ -70,7 +70,7 @@ impl SchemaRegistry {
 }
 
 impl Encode for SchemaRegistry {
-    const SIZE: DataSize = DataSize::Variable;
+    const SIZE: DataSize = DataSize::Dynamic;
 
     fn size(&self) -> MSize {
         // 8 bytes for len + (8 + (4 * 2)) bytes for each entry
@@ -185,7 +185,7 @@ mod tests {
     struct AnotherTable;
 
     impl Encode for AnotherTable {
-        const SIZE: DataSize = DataSize::Variable;
+        const SIZE: DataSize = DataSize::Dynamic;
 
         fn size(&self) -> MSize {
             0

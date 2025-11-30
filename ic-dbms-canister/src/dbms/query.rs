@@ -41,7 +41,7 @@ pub enum QueryError {
 
     /// Tried to reference a column that does not exist in the table schema.
     #[error("Unknown column: {0}")]
-    UnknownColumn(&'static str),
+    UnknownColumn(String),
 
     /// Tried to insert a record missing non-nullable fields.
     #[error("Missing non-nullable field: {0}")]
@@ -50,6 +50,7 @@ pub enum QueryError {
     /// Tried to cast or compare values of incompatible types (e.g. Integer vs Text).
     #[error("Type mismatch: expected {expected}, found {found}")]
     TypeMismatch {
+        column: &'static str,
         expected: &'static str,
         found: &'static str,
     },

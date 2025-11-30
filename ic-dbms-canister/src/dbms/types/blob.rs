@@ -19,7 +19,7 @@ impl fmt::Display for Blob {
 }
 
 impl Encode for Blob {
-    const SIZE: DataSize = DataSize::Variable;
+    const SIZE: DataSize = DataSize::Dynamic;
 
     fn size(&self) -> crate::memory::MSize {
         2 + self.0.len() as crate::memory::MSize

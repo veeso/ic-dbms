@@ -20,7 +20,7 @@ impl fmt::Display for Text {
 }
 
 impl Encode for Text {
-    const SIZE: DataSize = DataSize::Variable;
+    const SIZE: DataSize = DataSize::Dynamic;
 
     fn size(&self) -> crate::memory::MSize {
         2 + self.0.len() as crate::memory::MSize

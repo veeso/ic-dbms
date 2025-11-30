@@ -24,7 +24,7 @@ impl CandidType for Principal {
 }
 
 impl Encode for Principal {
-    const SIZE: DataSize = DataSize::Variable;
+    const SIZE: DataSize = DataSize::Dynamic;
 
     fn size(&self) -> crate::memory::MSize {
         1 + self.0.as_slice().len() as crate::memory::MSize

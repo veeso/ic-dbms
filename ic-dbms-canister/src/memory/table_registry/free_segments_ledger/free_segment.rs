@@ -118,7 +118,7 @@ impl FreeSegmentsTable {
 }
 
 impl Encode for FreeSegmentsTable {
-    const SIZE: DataSize = DataSize::Variable;
+    const SIZE: DataSize = DataSize::Dynamic;
 
     fn size(&self) -> MSize {
         // 4 bytes for the length + size of each record.
