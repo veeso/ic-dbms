@@ -24,7 +24,7 @@ pub enum DataSize {
     /// A fixed size in bytes.
     Fixed(MSize),
     /// A variable size.
-    Variable,
+    Dynamic,
 }
 
 impl DataSize {
@@ -32,7 +32,7 @@ impl DataSize {
     pub fn get_fixed_size(&self) -> Option<MSize> {
         match self {
             DataSize::Fixed(size) => Some(*size),
-            DataSize::Variable => None,
+            DataSize::Dynamic => None,
         }
     }
 }
@@ -46,7 +46,7 @@ mod tests {
         let size = DataSize::Fixed(10);
         assert_eq!(size.get_fixed_size(), Some(10));
 
-        let variable_size = DataSize::Variable;
+        let variable_size = DataSize::Dynamic;
         assert_eq!(variable_size.get_fixed_size(), None);
     }
 }

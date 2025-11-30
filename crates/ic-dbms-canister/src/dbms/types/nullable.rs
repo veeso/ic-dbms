@@ -112,7 +112,7 @@ impl<T> Encode for Nullable<T>
 where
     T: DataType,
 {
-    const SIZE: DataSize = DataSize::Variable;
+    const SIZE: DataSize = DataSize::Dynamic;
 
     fn size(&self) -> crate::memory::MSize {
         match self {

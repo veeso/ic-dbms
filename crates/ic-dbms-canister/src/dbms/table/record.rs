@@ -91,8 +91,8 @@ mod tests {
     #[test]
     fn test_should_insert_make_into_untyped() {
         let typed = UserInsertRequest {
-            id: 1,
-            name: "Alice".to_string(),
+            id: 1.into(),
+            name: "Alice".to_string().into(),
         };
 
         let untyped = typed.into_untyped();
@@ -105,15 +105,15 @@ mod tests {
         );
 
         let from_untyped = UserInsertRequest::from_untyped(untyped).unwrap();
-        assert_eq!(from_untyped.id, 1);
-        assert_eq!(from_untyped.name, "Alice".to_string());
+        assert_eq!(from_untyped.id.0, 1);
+        assert_eq!(from_untyped.name.0, "Alice".to_string());
     }
 
     #[test]
     fn test_should_insert_make_from_untyped() {
         let typed = UserUpdateRequest {
-            id: Some(2),
-            name: Some("Bob".to_string()),
+            id: Some(2.into()),
+            name: Some("Bob".to_string().into()),
             where_clause: Some(Filter::Eq("id", Value::Uint32(1.into()))),
         };
         let untyped = typed.into_untyped();
@@ -131,8 +131,8 @@ mod tests {
         );
 
         let from_untyped = UserUpdateRequest::from_untyped(untyped).unwrap();
-        assert_eq!(from_untyped.id, Some(2));
-        assert_eq!(from_untyped.name, Some("Bob".to_string()));
+        assert_eq!(from_untyped.id, Some(2.into()));
+        assert_eq!(from_untyped.name, Some("Bob".to_string().into()));
         assert_eq!(
             from_untyped.where_clause,
             Some(Filter::Eq("id", Value::Uint32(1.into())))

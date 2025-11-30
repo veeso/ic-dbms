@@ -14,7 +14,7 @@ pub struct PageRecord {
 }
 
 impl Encode for PageTable {
-    const SIZE: DataSize = DataSize::Variable;
+    const SIZE: DataSize = DataSize::Dynamic;
 
     fn size(&self) -> MSize {
         // 4 bytes for len + (12 bytes per page)

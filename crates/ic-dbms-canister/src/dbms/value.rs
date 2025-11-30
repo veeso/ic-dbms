@@ -58,6 +58,25 @@ impl Value {
     pub fn is_null(&self) -> bool {
         matches!(self, Value::Null)
     }
+
+    /// Returns the type name of the value as a string.
+    pub fn type_name(&self) -> &'static str {
+        match self {
+            Value::Blob(_) => "Blob",
+            Value::Boolean(_) => "Boolean",
+            Value::Date(_) => "Date",
+            Value::DateTime(_) => "DateTime",
+            Value::Decimal(_) => "Decimal",
+            Value::Int32(_) => "Int32",
+            Value::Int64(_) => "Int64",
+            Value::Null => "Null",
+            Value::Principal(_) => "Principal",
+            Value::Text(_) => "Text",
+            Value::Uint32(_) => "Uint32",
+            Value::Uint64(_) => "Uint64",
+            Value::Uuid(_) => "Uuid",
+        }
+    }
 }
 
 #[cfg(test)]
@@ -173,5 +192,17 @@ mod tests {
         );
         let value: Value = uuid.clone().into();
         assert_eq!(value.as_uuid(), Some(&uuid));
+    }
+
+    #[test]
+    fn test_value_type_name() {
+        let int_value: Value = types::Int32(42).into();
+        assert_eq!(int_value.type_name(), "Int32");
+
+        let text_value: Value = types::Text("Hello".to_string()).into();
+        assert_eq!(text_value.type_name(), "Text");
+
+        let null_value = Value::Null;
+        assert_eq!(null_value.type_name(), "Null");
     }
 }

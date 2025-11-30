@@ -71,7 +71,7 @@ impl AccessControlList {
 }
 
 impl Encode for AccessControlList {
-    const SIZE: DataSize = DataSize::Variable;
+    const SIZE: DataSize = DataSize::Dynamic;
 
     fn size(&self) -> MSize {
         // 4 bytes for len + sum of each principal's length (1 byte for length + bytes)

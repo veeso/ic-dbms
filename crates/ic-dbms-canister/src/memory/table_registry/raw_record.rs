@@ -28,7 +28,7 @@ impl<E> Encode for RawRecord<E>
 where
     E: Encode,
 {
-    const SIZE: crate::memory::DataSize = crate::memory::DataSize::Variable;
+    const SIZE: crate::memory::DataSize = crate::memory::DataSize::Dynamic;
 
     fn size(&self) -> MSize {
         super::RAW_RECORD_HEADER_SIZE + self.length // 1 (start) + 2 bytes for length + data size
