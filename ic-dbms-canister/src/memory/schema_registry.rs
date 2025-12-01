@@ -39,13 +39,18 @@ impl SchemaRegistry {
     where
         TS: TableSchema,
     {
+        // check if already registered
+        let fingerprint = TS::fingerprint();
+        if let Some(pages) = self.tables.get(&fingerprint) {
+            return Ok(*pages);
+        }
+
         // allocate table registry page
         let (pages_list_page, free_segments_page) = MEMORY_MANAGER.with_borrow_mut(|m| {
             Ok::<(Page, Page), MemoryError>((m.allocate_page()?, m.allocate_page()?))
         })?;
 
         // insert into tables map
-        let fingerprint = TS::fingerprint();
         let pages = TableRegistryPage {
             pages_list_page,
             free_segments_page,
@@ -180,6 +185,21 @@ mod tests {
                 .expect("failed to get second table registry page after reload"),
             another_registry_page
         );
+    }
+
+    #[test]
+    fn test_should_not_register_same_table_twice() {
+        let mut registry = SchemaRegistry::default();
+
+        let first_page = registry
+            .register_table::<User>()
+            .expect("failed to register table first time");
+        let second_page = registry
+            .register_table::<User>()
+            .expect("failed to register table second time");
+
+        assert_eq!(first_page, second_page);
+        assert_eq!(registry.tables.len(), 1);
     }
 
     struct AnotherTable;
