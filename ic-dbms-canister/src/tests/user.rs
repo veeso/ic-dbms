@@ -1,13 +1,10 @@
 use ic_dbms_macros::Encode;
 
-use crate::dbms::query::QueryResult;
-use crate::dbms::table::{
-    ColumnDef, TableColumns, TableRecord, TableSchema, UntypedInsertRecord, UntypedUpdateRecord,
-};
+use crate::dbms::table::{ColumnDef, TableColumns, TableRecord, TableSchema};
 use crate::dbms::types::{DataTypeKind, Text, Uint32};
 use crate::dbms::value::Value;
 use crate::memory::{Encode, SCHEMA_REGISTRY, TableRegistry};
-use crate::prelude::{Filter, InsertRecord, NoForeignFetcher, QueryError, UpdateRecord};
+use crate::prelude::{Filter, InsertRecord, NoForeignFetcher, UpdateRecord};
 
 /// A simple user struct for testing purposes.
 #[derive(Debug, Encode, Clone, PartialEq, Eq)]
@@ -42,32 +39,6 @@ impl InsertRecord for UserInsertRequest {
             (Self::Schema::columns()[0], Value::Uint32(self.id)),
             (Self::Schema::columns()[1], Value::Text(self.name)),
         ]
-    }
-
-    fn from_untyped(untyped: UntypedInsertRecord) -> QueryResult<Self> {
-        let mut id = None;
-        let mut name = None;
-
-        for (field_name, value) in untyped.fields {
-            match field_name.as_str() {
-                "id" => {
-                    if let crate::dbms::value::Value::Uint32(v) = value {
-                        id = Some(v);
-                    }
-                }
-                "name" => {
-                    if let crate::dbms::value::Value::Text(v) = value {
-                        name = Some(v);
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        Ok(UserInsertRequest {
-            id: id.ok_or(QueryError::MissingNonNullableField("id"))?,
-            name: name.ok_or(QueryError::MissingNonNullableField("name"))?,
-        })
     }
 }
 
@@ -106,33 +77,6 @@ impl UpdateRecord for UserUpdateRequest {
 
     fn where_clause(&self) -> Option<Filter> {
         self.where_clause.clone()
-    }
-
-    fn from_untyped(untyped: UntypedUpdateRecord) -> QueryResult<Self> {
-        let mut id = None;
-        let mut name = None;
-
-        for (field_name, value) in untyped.update_fields {
-            match field_name.as_str() {
-                "id" => {
-                    if let crate::dbms::value::Value::Uint32(v) = value {
-                        id = Some(v);
-                    }
-                }
-                "name" => {
-                    if let crate::dbms::value::Value::Text(v) = value {
-                        name = Some(v);
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        Ok(UserUpdateRequest {
-            id,
-            name,
-            where_clause: untyped.where_clause,
-        })
     }
 }
 

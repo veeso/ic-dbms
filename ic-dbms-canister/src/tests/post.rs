@@ -3,11 +3,7 @@
 use ic_dbms_macros::Encode;
 
 use crate::IcDbmsError;
-use crate::dbms::query::QueryResult;
-use crate::dbms::table::{
-    ColumnDef, ForeignKeyDef, TableColumns, TableRecord, TableSchema, UntypedInsertRecord,
-    UntypedUpdateRecord,
-};
+use crate::dbms::table::{ColumnDef, ForeignKeyDef, TableColumns, TableRecord, TableSchema};
 use crate::dbms::types::{DataTypeKind, Text, Uint32};
 use crate::dbms::value::Value;
 use crate::memory::{SCHEMA_REGISTRY, TableRegistry};
@@ -236,145 +232,11 @@ impl InsertRecord for PostInsertRequest {
             (Self::Schema::columns()[3], Value::Uint32(self.user_id)),
         ]
     }
-
-    fn from_untyped(untyped: UntypedInsertRecord) -> QueryResult<Self> {
-        let mut id: Option<Uint32> = None;
-        let mut title: Option<Text> = None;
-        let mut content: Option<Text> = None;
-        let mut user_id: Option<Uint32> = None;
-
-        for (field, value) in untyped.fields {
-            match field.as_str() {
-                "id" => {
-                    if let Value::Uint32(v) = value {
-                        id = Some(v);
-                    } else {
-                        return Err(QueryError::TypeMismatch {
-                            column: "id",
-                            expected: "Uint32",
-                            found: value.type_name(),
-                        });
-                    }
-                }
-                "title" => {
-                    if let Value::Text(v) = value {
-                        title = Some(v);
-                    } else {
-                        return Err(QueryError::TypeMismatch {
-                            column: "title",
-                            expected: "Text",
-                            found: value.type_name(),
-                        });
-                    }
-                }
-                "content" => {
-                    if let Value::Text(v) = value {
-                        content = Some(v);
-                    } else {
-                        return Err(QueryError::TypeMismatch {
-                            column: "content",
-                            expected: "Text",
-                            found: value.type_name(),
-                        });
-                    }
-                }
-                "user_id" => {
-                    if let Value::Uint32(v) = value {
-                        user_id = Some(v);
-                    } else {
-                        return Err(QueryError::TypeMismatch {
-                            column: "user_id",
-                            expected: "Uint32",
-                            found: value.type_name(),
-                        });
-                    }
-                }
-                _ => {
-                    return Err(QueryError::UnknownColumn(field));
-                }
-            }
-        }
-
-        Ok(Self {
-            id: id.ok_or(QueryError::MissingNonNullableField("id"))?,
-            title: title.ok_or(QueryError::MissingNonNullableField("title"))?,
-            content: content.ok_or(QueryError::MissingNonNullableField("content"))?,
-            user_id: user_id.ok_or(QueryError::MissingNonNullableField("user_id"))?,
-        })
-    }
 }
 
 impl UpdateRecord for PostUpdateRequest {
     type Record = PostRecord;
     type Schema = Post;
-
-    fn from_untyped(untyped: UntypedUpdateRecord) -> QueryResult<Self> {
-        let mut id: Option<Uint32> = None;
-        let mut title: Option<Text> = None;
-        let mut content: Option<Text> = None;
-        let mut user_id: Option<Uint32> = None;
-        let where_clause = untyped.where_clause;
-
-        for (field, value) in untyped.update_fields {
-            match field.as_str() {
-                "id" => {
-                    if let Value::Uint32(v) = value {
-                        id = Some(v);
-                    } else {
-                        return Err(QueryError::TypeMismatch {
-                            column: "id",
-                            expected: "Uint32",
-                            found: value.type_name(),
-                        });
-                    }
-                }
-                "title" => {
-                    if let Value::Text(v) = value {
-                        title = Some(v);
-                    } else {
-                        return Err(QueryError::TypeMismatch {
-                            column: "title",
-                            expected: "Text",
-                            found: value.type_name(),
-                        });
-                    }
-                }
-                "content" => {
-                    if let Value::Text(v) = value {
-                        content = Some(v);
-                    } else {
-                        return Err(QueryError::TypeMismatch {
-                            column: "content",
-                            expected: "Text",
-                            found: value.type_name(),
-                        });
-                    }
-                }
-                "user_id" => {
-                    if let Value::Uint32(v) = value {
-                        user_id = Some(v);
-                    } else {
-                        return Err(QueryError::TypeMismatch {
-                            column: "user_id",
-                            expected: "Uint32",
-                            found: value.type_name(),
-                        });
-                    }
-                }
-                _ => {
-                    return Err(QueryError::UnknownColumn(field));
-                }
-            }
-        }
-
-        Ok(Self {
-            id,
-            title,
-            content,
-            user_id,
-            where_clause,
-        })
-    }
 
     fn update_values(&self) -> Vec<(ColumnDef, Value)> {
         let mut updates = Vec::new();

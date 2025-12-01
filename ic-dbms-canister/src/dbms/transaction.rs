@@ -5,25 +5,21 @@ mod session;
 
 pub use self::overlay::DatabaseOverlay;
 pub use self::session::{TRANSACTION_SESSION, TransactionId, TransactionSession};
-use crate::dbms::table::{UntypedInsertRecord, UntypedUpdateRecord};
-use crate::prelude::Filter;
 
 /// A transaction represents a sequence of operations performed as a single logical unit of work.
 #[derive(Debug, Default, Clone)]
-pub struct Transaction {
-    operations: Vec<Operation>,
-    pub overlay: DatabaseOverlay,
-}
+pub struct Transaction(DatabaseOverlay);
 
-/// An operation within a [`Transaction`].
-#[derive(Debug, Clone)]
-pub enum Operation {
-    /// An insert operation. The first element is the table name, and the second is the record to be inserted.
-    Insert(&'static str, UntypedInsertRecord),
-    /// An update operation. The first element is the table name, and the second is the record to be updated.
-    Update(&'static str, UntypedUpdateRecord),
-    /// A delete operation. The first element is the table name, and the second is an optional filter to specify which records to delete.
-    Delete(&'static str, Option<Filter>),
+impl Transaction {
+    /// Get a reference to the [`DatabaseOverlay`] associated with this transaction.
+    pub fn overlay(&self) -> &DatabaseOverlay {
+        &self.0
+    }
+
+    /// Get a mutable reference to the [`DatabaseOverlay`] associated with this transaction.
+    pub fn overlay_mut(&mut self) -> &mut DatabaseOverlay {
+        &mut self.0
+    }
 }
 
 /// An enum representing possible errors that can occur during transaction operations.

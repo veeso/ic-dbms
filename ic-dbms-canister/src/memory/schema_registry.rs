@@ -246,12 +246,6 @@ mod tests {
         fn into_values(self) -> Vec<(ColumnDef, crate::dbms::value::Value)> {
             vec![]
         }
-
-        fn from_untyped(
-            _untyped: crate::dbms::table::UntypedInsertRecord,
-        ) -> crate::dbms::query::QueryResult<Self> {
-            unimplemented!()
-        }
     }
 
     struct AnotherTableUpdate;
@@ -266,12 +260,6 @@ mod tests {
 
         fn where_clause(&self) -> Option<crate::prelude::Filter> {
             None
-        }
-
-        fn from_untyped(
-            _untyped: crate::dbms::table::UntypedUpdateRecord,
-        ) -> crate::dbms::query::QueryResult<Self> {
-            unimplemented!()
         }
     }
 

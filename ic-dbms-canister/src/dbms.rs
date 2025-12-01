@@ -84,7 +84,7 @@ impl Database {
         let table_reader = table_registry.read();
         // get database overlay
         let mut table_overlay = if self.transaction.is_some() {
-            self.transaction()?.overlay
+            self.overlay()?
         } else {
             DatabaseOverlay::default()
         };
@@ -203,6 +203,11 @@ impl Database {
         TRANSACTION_SESSION.with_borrow(|ts| ts.get_transaction(txid).cloned())
     }
 
+    /// Retrieves the current [`DatabaseOverlay`].
+    fn overlay(&self) -> IcDbmsResult<DatabaseOverlay> {
+        Ok(self.transaction()?.overlay().clone())
+    }
+
     /// Returns whether the read given record matches the provided filter.
     fn record_matches_filter(
         &self,
@@ -316,7 +321,7 @@ mod tests {
             let tx = ts
                 .get_transaction_mut(&transaction_id)
                 .expect("should have tx");
-            tx.overlay
+            tx.overlay_mut()
                 .insert::<User>(vec![
                     (
                         ColumnDef {
