@@ -1,6 +1,7 @@
 //! This module exposes all the types related to the DBMS engine.
 
 pub mod foreign_fetcher;
+mod integrity;
 pub mod query;
 pub mod table;
 pub mod transaction;
@@ -8,6 +9,7 @@ pub mod types;
 pub mod value;
 
 use self::foreign_fetcher::ForeignFetcher;
+use crate::dbms::integrity::InsertIntegrityValidator;
 use crate::dbms::table::{ColumnDef, TableColumns, TableRecord, ValuesSource};
 use crate::dbms::transaction::{DatabaseOverlay, Transaction, TransactionId};
 use crate::dbms::value::Value;
@@ -138,6 +140,10 @@ impl Database {
         T: TableSchema,
         T::Insert: InsertRecord<Schema = T>,
     {
+        // check whether the insert is valid
+        let record_values = record.into_values();
+        InsertIntegrityValidator::<T>::new(self).validate(&record_values)?;
+
         // TODO: check whether we are in a transaction context
         todo!()
     }
