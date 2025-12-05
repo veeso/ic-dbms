@@ -54,6 +54,9 @@ pub trait UpdateRecord: Sized {
     /// The table schema associated with this record.
     type Schema: TableSchema<Record = Self::Record>;
 
+    /// Creates an update record from a list of column [`Value`]s and an optional [`Filter`] for the where clause.
+    fn from_values(values: &[(ColumnDef, Value)], where_clause: Option<Filter>) -> Self;
+
     /// Get the list of column [`Value`]s to be updated.
     fn update_values(&self) -> Vec<(ColumnDef, Value)>;
 

@@ -264,7 +264,7 @@ mod tests {
 
         let pk_to_update = Value::Uint32(1.into());
         let updated_name = "UpdatedName".to_string();
-        let updates = vec![("name".to_string(), Value::Text(updated_name.clone().into()))];
+        let updates = vec![("name", Value::Text(updated_name.clone().into()))];
         table_overlay.update(pk_to_update.clone(), updates);
 
         let table_reader = registry.read::<User>();

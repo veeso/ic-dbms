@@ -48,7 +48,7 @@ impl DatabaseOverlay {
     }
 
     /// Update a record in the overlay for the specified table.
-    pub fn update<T>(&mut self, pk: Value, updates: Vec<(String, Value)>)
+    pub fn update<T>(&mut self, pk: Value, updates: Vec<(&'static str, Value)>)
     where
         T: TableSchema,
     {
@@ -148,7 +148,7 @@ mod tests {
     fn test_should_update() {
         let mut overlay = DatabaseOverlay::default();
         let pk = Value::Uint32(1.into());
-        let updates = vec![("name".to_string(), Value::Text("Bob".to_string().into()))];
+        let updates = vec![("name", Value::Text("Bob".to_string().into()))];
         overlay.update::<User>(pk.clone(), updates.clone());
 
         let table_overlay = overlay

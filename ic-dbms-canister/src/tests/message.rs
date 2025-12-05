@@ -40,6 +40,7 @@ pub struct MessageInsertRequest {
 }
 
 /// An update request for the `posts` table.
+#[derive(Clone)]
 pub struct MessageUpdateRequest {
     pub id: Option<Uint32>,
     pub text: Option<Text>,
@@ -370,6 +371,56 @@ impl InsertRecord for MessageInsertRequest {
 impl UpdateRecord for MessageUpdateRequest {
     type Record = MessageRecord;
     type Schema = Message;
+
+    fn from_values(values: &[(ColumnDef, Value)], where_clause: Option<Filter>) -> Self {
+        let mut id: Option<Uint32> = None;
+        let mut text: Option<Text> = None;
+        let mut sender_id: Option<Uint32> = None;
+        let mut recipient_id: Option<Uint32> = None;
+        let mut read_at: Option<Nullable<DateTime>> = None;
+
+        for (column, value) in values {
+            match column.name {
+                "id" => {
+                    if let Value::Uint32(v) = value {
+                        id = Some(*v);
+                    }
+                }
+                "text" => {
+                    if let Value::Text(v) = value {
+                        text = Some(v.clone());
+                    }
+                }
+                "sender_id" => {
+                    if let Value::Uint32(v) = value {
+                        sender_id = Some(*v);
+                    }
+                }
+                "recipient_id" => {
+                    if let Value::Uint32(v) = value {
+                        recipient_id = Some(*v);
+                    }
+                }
+                "read_at" => {
+                    if let Value::DateTime(v) = value {
+                        read_at = Some(Nullable::Value(*v));
+                    } else if let Value::Null = value {
+                        read_at = Some(Nullable::Null);
+                    }
+                }
+                _ => { /* Ignore unknown columns */ }
+            }
+        }
+
+        Self {
+            id,
+            text,
+            sender_id,
+            recipient_id,
+            read_at,
+            where_clause,
+        }
+    }
 
     fn update_values(&self) -> Vec<(ColumnDef, Value)> {
         let mut updates = Vec::new();

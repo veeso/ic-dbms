@@ -17,6 +17,7 @@ use crate::dbms::table::{ColumnDef, ValuesSource};
 use crate::dbms::value::Value;
 use crate::prelude::{
     DatabaseSchema, InsertIntegrityValidator, InsertRecord as _, QueryError, TableSchema as _,
+    UpdateRecord as _,
 };
 
 /// Loads fixtures into the database for testing purposes.
@@ -103,6 +104,29 @@ impl DatabaseSchema for TestDatabaseSchema {
             dbms.delete::<Post>(delete_behavior, filter)
         } else if table_name == Message::table_name() {
             dbms.delete::<Message>(delete_behavior, filter)
+        } else {
+            Err(crate::IcDbmsError::Query(QueryError::TableNotFound(
+                table_name,
+            )))
+        }
+    }
+
+    fn update(
+        &self,
+        dbms: &Database,
+        table_name: &'static str,
+        patch_values: &[(ColumnDef, Value)],
+        filter: Option<crate::prelude::Filter>,
+    ) -> crate::IcDbmsResult<u64> {
+        if table_name == User::table_name() {
+            let update_request = UserUpdateRequest::from_values(patch_values, filter);
+            dbms.update::<User>(update_request)
+        } else if table_name == Post::table_name() {
+            let update_request = PostUpdateRequest::from_values(patch_values, filter);
+            dbms.update::<Post>(update_request)
+        } else if table_name == Message::table_name() {
+            let update_request = MessageUpdateRequest::from_values(patch_values, filter);
+            dbms.update::<Message>(update_request)
         } else {
             Err(crate::IcDbmsError::Query(QueryError::TableNotFound(
                 table_name,

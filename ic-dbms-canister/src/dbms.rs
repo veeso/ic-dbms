@@ -17,7 +17,7 @@ use crate::dbms::value::Value;
 use crate::memory::{SCHEMA_REGISTRY, TableRegistry};
 use crate::prelude::{
     DatabaseSchema, Filter, InsertRecord, Query, QueryError, TRANSACTION_SESSION, TableError,
-    TableSchema, TransactionError,
+    TableSchema, TransactionError, UpdateRecord,
 };
 use crate::utils::trap;
 use crate::{IcDbmsError, IcDbmsResult};
@@ -160,17 +160,66 @@ impl Database {
     ///
     /// # Arguments
     ///
-    /// - `record` - The UPDATE record to be executed.
+    /// - `patch` - The UPDATE patch to be applied.
+    /// - `filter` - An optional [`Filter`] to specify which records to update.
     ///
     /// # Returns
     ///
     /// The number of rows updated.
-    pub fn update<T>(&self, record: T::Update, filter: Option<Filter>) -> IcDbmsResult<u64>
+    pub fn update<T>(&self, patch: T::Update) -> IcDbmsResult<u64>
     where
         T: TableSchema,
         T::Update: table::UpdateRecord<Schema = T>,
     {
-        todo!()
+        // get all records matching the filter
+        let query = Query::<T>::builder().filter(patch.where_clause()).build();
+        let records = self.select::<T>(query)?;
+        let count = records.len() as u64;
+
+        if self.transaction.is_some() {
+            let filter = patch.where_clause().clone();
+            let pks = self.existing_primary_keys_for_filter::<T>(filter.clone())?;
+            // insert a new `update` into the transaction
+            self.with_transaction_mut(|tx| tx.update::<T>(patch, filter, pks))?;
+
+            return Ok(count);
+        }
+
+        let patch = patch.update_values();
+        // convert updates to values
+        // for each record apply update; delete and insert
+        let res = self.atomic(|db| {
+            for record in records {
+                let mut record_values = record.to_values();
+                // apply patch
+                for (col_def, value) in &patch {
+                    if let Some((_, record_value)) = record_values
+                        .iter_mut()
+                        .find(|(record_col_def, _)| record_col_def.name == col_def.name)
+                    {
+                        *record_value = value.clone();
+                    }
+                }
+                // create insert record
+                let insert_record = T::Insert::from_values(&record_values)?;
+                // delete old record
+                let pk = record_values
+                    .iter()
+                    .find(|(col_def, _)| col_def.primary_key)
+                    .expect("primary key not found") // this can't fail.
+                    .1
+                    .clone();
+                db.delete::<T>(
+                    DeleteBehavior::Break, // we just want to delete the old record
+                    Some(Filter::eq(T::primary_key(), pk)),
+                )?;
+                // insert new record
+                db.insert::<T>(insert_record)?;
+            }
+            Ok(count)
+        });
+
+        Ok(res)
     }
 
     /// Executes a DELETE query.
@@ -188,21 +237,7 @@ impl Database {
         T: TableSchema,
     {
         if self.transaction.is_some() {
-            // insert a new `delete` into the transaction
-            // get all pks matching the filter
-            let pk = T::primary_key();
-            let fields = self.select(Query::<T>::builder().filter(filter.clone()).build())?;
-            let pks = fields
-                .into_iter()
-                .map(|record| {
-                    record
-                        .to_values()
-                        .into_iter()
-                        .find(|(col_def, _value)| col_def.name == pk)
-                        .expect("primary key not found") // this can't fail.
-                        .1
-                })
-                .collect::<Vec<Value>>();
+            let pks = self.existing_primary_keys_for_filter::<T>(filter.clone())?;
             let count = pks.len() as u64;
 
             self.with_transaction_mut(|tx| tx.delete::<T>(behaviour, filter, pks))?;
@@ -251,9 +286,8 @@ impl Database {
                             ));
                         }
                     }
-                    DeleteBehavior::SetNull => {
-                        // TODO: use update here
-                        todo!();
+                    DeleteBehavior::Break => {
+                        // do nothing
                     }
                 }
                 // eventually delete the record
@@ -284,20 +318,27 @@ impl Database {
         // iterate over operations and apply them;
         // for each operation, first validate, then apply
         // using `self.atomic` when applying to ensure consistency
-        for op in transaction.operations() {
+        for op in transaction.operations {
             match op {
                 TransactionOp::Insert { table, values } => {
                     // validate
-                    self.schema.validate_insert(self, table, values)?;
+                    self.schema.validate_insert(self, table, &values)?;
                     // insert
-                    self.atomic(|db| db.schema.insert(db, table, values));
+                    self.atomic(|db| db.schema.insert(db, table, &values));
                 }
                 TransactionOp::Delete {
                     table,
                     behaviour,
                     filter,
                 } => {
-                    self.atomic(|db| db.schema.delete(db, table, *behaviour, filter.clone()));
+                    self.atomic(|db| db.schema.delete(db, table, behaviour, filter));
+                }
+                TransactionOp::Update {
+                    table,
+                    patch,
+                    filter,
+                } => {
+                    self.atomic(|db| db.schema.update(db, table, &patch, filter));
                 }
             }
         }
@@ -470,6 +511,31 @@ impl Database {
         Ok(queried_fields)
     }
 
+    /// Retrieves existing primary keys for records matching the given filter.
+    fn existing_primary_keys_for_filter<T>(
+        &self,
+        filter: Option<Filter>,
+    ) -> IcDbmsResult<Vec<Value>>
+    where
+        T: TableSchema,
+    {
+        let pk = T::primary_key();
+        let fields = self.select(Query::<T>::builder().filter(filter).build())?;
+        let pks = fields
+            .into_iter()
+            .map(|record| {
+                record
+                    .to_values()
+                    .into_iter()
+                    .find(|(col_def, _value)| col_def.name == pk)
+                    .expect("primary key not found") // this can't fail.
+                    .1
+            })
+            .collect::<Vec<Value>>();
+
+        Ok(pks)
+    }
+
     /// Load the table registry for the given table schema.
     fn load_table_registry<T>(&self) -> IcDbmsResult<TableRegistry>
     where
@@ -493,7 +559,7 @@ mod tests {
     use crate::dbms::types::{Text, Uint32};
     use crate::tests::{
         Message, POSTS_FIXTURES, Post, TestDatabaseSchema, USERS_FIXTURES, User, UserInsertRequest,
-        load_fixtures,
+        UserUpdateRequest, load_fixtures,
     };
 
     #[test]
@@ -1107,6 +1173,85 @@ mod tests {
             .select(message_query)
             .expect("failed to select messages");
         assert_eq!(messages.len(), 0);
+
+        // transaction should have been removed
+        TRANSACTION_SESSION.with_borrow(|ts| {
+            let tx_res = ts.get_transaction(&transaction_id);
+            assert!(tx_res.is_err());
+        });
+    }
+
+    #[test]
+    fn test_should_update_one_shot() {
+        load_fixtures();
+
+        let dbms = Database::oneshot(TestDatabaseSchema);
+        let filter = Filter::eq("id", Value::Uint32(3u32.into()));
+
+        let patch = UserUpdateRequest {
+            id: None,
+            name: Some(Text("UpdatedName".to_string())),
+            where_clause: Some(filter.clone()),
+        };
+
+        let update_count = dbms.update::<User>(patch).expect("failed to update user");
+        assert_eq!(update_count, 1);
+
+        // verify user is updated
+        let query = Query::<User>::builder().and_where(filter).build();
+        let users = dbms.select(query).expect("failed to select users");
+        assert_eq!(users.len(), 1);
+        let user = &users[0];
+        assert_eq!(user.id.expect("should have id").0, 3);
+        assert_eq!(
+            user.name.as_ref().expect("should have name").0,
+            "UpdatedName".to_string()
+        );
+    }
+
+    #[test]
+    fn test_should_update_within_transaction() {
+        load_fixtures();
+
+        // create a transaction
+        let transaction_id =
+            TRANSACTION_SESSION.with_borrow_mut(|ts| ts.begin_transaction(Principal::anonymous()));
+        let mut dbms = Database::from_transaction(TestDatabaseSchema, transaction_id.clone());
+
+        let filter = Filter::eq("id", Value::Uint32(4u32.into()));
+        let patch = UserUpdateRequest {
+            id: None,
+            name: Some(Text("TxUpdatedName".to_string())),
+            where_clause: Some(filter.clone()),
+        };
+
+        let update_count = dbms.update::<User>(patch).expect("failed to update user");
+        assert_eq!(update_count, 1);
+
+        // user should not be visible outside the transaction
+        let oneshot_dbms = Database::oneshot(TestDatabaseSchema);
+        let query = Query::<User>::builder().and_where(filter.clone()).build();
+        let users = oneshot_dbms
+            .select(query.clone())
+            .expect("failed to select users");
+        let user = &users[0];
+        assert_eq!(
+            user.name.as_ref().expect("should have name").0,
+            USERS_FIXTURES[4]
+        );
+
+        // commit transaction
+        let commit_result = dbms.commit();
+        assert!(commit_result.is_ok());
+
+        // now user should be updated
+        let users_after_commit = oneshot_dbms.select(query).expect("failed to select users");
+        assert_eq!(users_after_commit.len(), 1);
+        let user = &users_after_commit[0];
+        assert_eq!(
+            user.name.as_ref().expect("should have name").0,
+            "TxUpdatedName".to_string()
+        );
 
         // transaction should have been removed
         TRANSACTION_SESSION.with_borrow(|ts| {

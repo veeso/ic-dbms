@@ -265,6 +265,13 @@ mod tests {
         type Record = AnotherTableRecord;
         type Schema = AnotherTable;
 
+        fn from_values(
+            _values: &[(ColumnDef, crate::dbms::value::Value)],
+            _where_clause: Option<crate::prelude::Filter>,
+        ) -> Self {
+            AnotherTableUpdate
+        }
+
         fn update_values(&self) -> Vec<(ColumnDef, crate::dbms::value::Value)> {
             vec![]
         }

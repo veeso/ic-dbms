@@ -14,7 +14,7 @@ pub struct TableOverlay {
 #[derive(Debug, Clone)]
 pub(super) enum Operation {
     Insert(Value, Vec<(ColumnDef, Value)>),
-    Update(Value, Vec<(String, Value)>),
+    Update(Value, Vec<(&'static str, Value)>),
     Delete(Value),
 }
 
@@ -36,7 +36,7 @@ impl TableOverlay {
     }
 
     /// Updates a record in the overlay.
-    pub fn update(&mut self, pk: Value, updates: Vec<(String, Value)>) {
+    pub fn update(&mut self, pk: Value, updates: Vec<(&'static str, Value)>) {
         self.operations.push(Operation::Update(pk, updates));
     }
 
@@ -92,7 +92,7 @@ impl TableOverlay {
                 for (col_name, new_value) in updates {
                     if let Some((_, value)) = existing_row
                         .iter_mut()
-                        .find(|(col_def, _)| col_def.name == col_name)
+                        .find(|(col_def, _)| col_def.name == *col_name)
                     {
                         *value = new_value.clone();
                     }
@@ -162,13 +162,10 @@ mod tests {
         // update name
         overlay.update(
             pk.clone(),
-            vec![("name".to_string(), Value::Text("Bob".to_string().into()))],
+            vec![("name", Value::Text("Bob".to_string().into()))],
         );
         // update age
-        overlay.update(
-            pk.clone(),
-            vec![("age".to_string(), Value::Uint32(30.into()))],
-        );
+        overlay.update(pk.clone(), vec![("age", Value::Uint32(30.into()))]);
 
         // get patched row
         let row = overlay.patch_row(row).expect("should be Some");
@@ -286,10 +283,7 @@ mod tests {
         );
 
         // update second row
-        overlay.update(
-            second_pk.clone(),
-            vec![("age".to_string(), Value::Uint32(33.into()))],
-        );
+        overlay.update(second_pk.clone(), vec![("age", Value::Uint32(33.into()))]);
 
         // insert a third
         let third_pk = Value::Uint32(3.into());
@@ -335,7 +329,7 @@ mod tests {
         // update second row (again)
         overlay.update(
             second_pk.clone(),
-            vec![("name".to_string(), Value::Text("Robert".to_string().into()))],
+            vec![("name", Value::Text("Robert".to_string().into()))],
         );
 
         let inserted_rows: Vec<_> = overlay.iter_inserted().collect();

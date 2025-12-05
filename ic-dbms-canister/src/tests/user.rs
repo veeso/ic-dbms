@@ -85,6 +85,33 @@ impl UpdateRecord for UserUpdateRequest {
     type Record = UserRecord;
     type Schema = User;
 
+    fn from_values(values: &[(ColumnDef, Value)], where_clause: Option<Filter>) -> Self {
+        let mut id = None;
+        let mut name = None;
+
+        for (col_def, value) in values {
+            match col_def.name {
+                "id" => {
+                    if let Value::Uint32(v) = value {
+                        id = Some(*v);
+                    }
+                }
+                "name" => {
+                    if let Value::Text(v) = value {
+                        name = Some(v.clone());
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        UserUpdateRequest {
+            id,
+            name,
+            where_clause,
+        }
+    }
+
     fn update_values(&self) -> Vec<(ColumnDef, crate::dbms::value::Value)> {
         let mut values = vec![];
         if let Some(id) = self.id {
