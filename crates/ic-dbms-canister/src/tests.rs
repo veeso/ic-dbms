@@ -12,8 +12,10 @@ pub use self::message::{
 pub use self::post::{POSTS_FIXTURES, Post, PostInsertRequest, PostRecord, PostUpdateRequest};
 #[allow(unused_imports)]
 pub use self::user::{USERS_FIXTURES, User, UserInsertRequest, UserRecord, UserUpdateRequest};
+use crate::dbms::Database;
 use crate::dbms::table::{ColumnDef, ValuesSource};
 use crate::dbms::value::Value;
+use crate::prelude::{InsertIntegrityValidator, IntegrityValidator, QueryError, TableSchema as _};
 
 /// Loads fixtures into the database for testing purposes.
 ///
@@ -40,4 +42,27 @@ fn self_reference_values(
         .map(|(_, value)| (ValuesSource::This, value.clone())
     )
     .collect()
+}
+
+pub struct TestIntegrityValidator;
+
+impl IntegrityValidator for TestIntegrityValidator {
+    fn validate_insert(
+        &self,
+        dbms: &Database,
+        table_name: &'static str,
+        record_values: &[(ColumnDef, Value)],
+    ) -> crate::IcDbmsResult<()> {
+        if table_name == User::table_name() {
+            InsertIntegrityValidator::<User>::new(dbms).validate(record_values)
+        } else if table_name == Post::table_name() {
+            InsertIntegrityValidator::<Post>::new(dbms).validate(record_values)
+        } else if table_name == Message::table_name() {
+            InsertIntegrityValidator::<Message>::new(dbms).validate(record_values)
+        } else {
+            Err(crate::IcDbmsError::Query(QueryError::TableNotFound(
+                table_name,
+            )))
+        }
+    }
 }
