@@ -5,8 +5,8 @@ pub enum DeleteBehavior {
     Restrict,
     /// Cascade delete to related records.
     Cascade,
-    /// Set foreign key fields to null in related records.
-    /// Note: This requires the foreign key fields to be nullable. If they are not nullable,
-    /// a [`crate::prelude::QueryError::ForeignKeyConstraintViolation`] error will be raised.
-    SetNull,
+    /// Break the foreign key references.
+    ///
+    /// Don't use this option unless you are sure what you're doing!
+    Break,
 }

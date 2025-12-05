@@ -74,12 +74,12 @@ impl Filter {
     }
 
     /// Chain two filters with AND.
-    pub(crate) fn and(self, other: Filter) -> Self {
+    pub fn and(self, other: Filter) -> Self {
         Filter::And(Box::new(self), Box::new(other))
     }
 
     /// Chain two filters with OR.
-    pub(crate) fn or(self, other: Filter) -> Self {
+    pub fn or(self, other: Filter) -> Self {
         Filter::Or(Box::new(self), Box::new(other))
     }
 

@@ -313,6 +313,47 @@ impl UpdateRecord for PostUpdateRequest {
     type Record = PostRecord;
     type Schema = Post;
 
+    fn from_values(values: &[(ColumnDef, Value)], where_clause: Option<Filter>) -> Self {
+        let mut id: Option<Uint32> = None;
+        let mut title: Option<Text> = None;
+        let mut content: Option<Text> = None;
+        let mut user_id: Option<Uint32> = None;
+
+        for (column, value) in values {
+            match column.name {
+                "id" => {
+                    if let Value::Uint32(v) = value {
+                        id = Some(*v);
+                    }
+                }
+                "title" => {
+                    if let Value::Text(v) = value {
+                        title = Some(v.clone());
+                    }
+                }
+                "content" => {
+                    if let Value::Text(v) = value {
+                        content = Some(v.clone());
+                    }
+                }
+                "user_id" => {
+                    if let Value::Uint32(v) = value {
+                        user_id = Some(*v);
+                    }
+                }
+                _ => { /* Ignore unknown columns */ }
+            }
+        }
+
+        Self {
+            id,
+            title,
+            content,
+            user_id,
+            where_clause,
+        }
+    }
+
     fn update_values(&self) -> Vec<(ColumnDef, Value)> {
         let mut updates = Vec::new();
 

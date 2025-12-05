@@ -43,6 +43,17 @@ pub trait DatabaseSchema {
         filter: Option<Filter>,
     ) -> IcDbmsResult<u64>;
 
+    /// Performs an update operation for the given table name, patch values, and optional filter.
+    ///
+    /// Use [`Database::update`] internally to perform the operation.
+    fn update(
+        &self,
+        dbms: &Database,
+        table_name: &'static str,
+        patch_values: &[(ColumnDef, Value)],
+        filter: Option<Filter>,
+    ) -> IcDbmsResult<u64>;
+
     /// Validates an insert operation for the given table name and record values.
     ///
     /// Use a [`crate::prelude::InsertIntegrityValidator`] to perform the validation.
