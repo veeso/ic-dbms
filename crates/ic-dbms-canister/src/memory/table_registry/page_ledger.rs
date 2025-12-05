@@ -217,7 +217,7 @@ mod tests {
         );
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     struct TestRecord {
         data: [u8; 100],
     }

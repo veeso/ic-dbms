@@ -85,11 +85,7 @@ impl ForeignFetcher for PostForeignFetcher {
             }
         };
 
-        let values = User::columns()
-            .iter()
-            .zip(user.to_values())
-            .map(|(col_def, value)| (*col_def, value))
-            .collect();
+        let values = user.to_values();
         Ok(vec![(
             ValuesSource::Foreign {
                 table,
@@ -220,21 +216,25 @@ impl TableRecord for PostRecord {
         }
     }
 
-    fn to_values(&self) -> Vec<Value> {
-        vec![
-            match self.id {
-                Some(v) => Value::Uint32(v),
-                None => Value::Null,
-            },
-            match &self.title {
-                Some(v) => Value::Text(v.clone()),
-                None => Value::Null,
-            },
-            match &self.content {
-                Some(v) => Value::Text(v.clone()),
-                None => Value::Null,
-            },
-        ]
+    fn to_values(&self) -> Vec<(ColumnDef, Value)> {
+        Self::Schema::columns()
+            .iter()
+            .zip(vec![
+                match self.id {
+                    Some(v) => Value::Uint32(v),
+                    None => Value::Null,
+                },
+                match &self.title {
+                    Some(v) => Value::Text(v.clone()),
+                    None => Value::Null,
+                },
+                match &self.content {
+                    Some(v) => Value::Text(v.clone()),
+                    None => Value::Null,
+                },
+            ])
+            .map(|(col_def, value)| (*col_def, value))
+            .collect()
     }
 }
 

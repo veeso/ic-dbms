@@ -85,11 +85,7 @@ impl ForeignFetcher for MessageForeignFetcher {
             }
         };
 
-        let values = User::columns()
-            .iter()
-            .zip(user.to_values())
-            .map(|(col_def, value)| (*col_def, value))
-            .collect();
+        let values = user.to_values();
         println!(
             "MessageForeignFetcher: fetched user values: {:?}; table: {table}; column: {local_column}",
             values
@@ -267,21 +263,25 @@ impl TableRecord for MessageRecord {
         }
     }
 
-    fn to_values(&self) -> Vec<Value> {
-        vec![
-            match self.id {
-                Some(v) => Value::Uint32(v),
-                None => Value::Null,
-            },
-            match &self.text {
-                Some(v) => Value::Text(v.clone()),
-                None => Value::Null,
-            },
-            match &self.read_at {
-                Some(Nullable::Value(v)) => Value::DateTime(*v),
-                Some(Nullable::Null) | None => Value::Null,
-            },
-        ]
+    fn to_values(&self) -> Vec<(ColumnDef, Value)> {
+        Self::Schema::columns()
+            .iter()
+            .zip(vec![
+                match self.id {
+                    Some(v) => Value::Uint32(v),
+                    None => Value::Null,
+                },
+                match &self.text {
+                    Some(v) => Value::Text(v.clone()),
+                    None => Value::Null,
+                },
+                match &self.read_at {
+                    Some(Nullable::Value(v)) => Value::DateTime(*v),
+                    Some(Nullable::Null) | None => Value::Null,
+                },
+            ])
+            .map(|(col_def, value)| (*col_def, value))
+            .collect()
     }
 }
 

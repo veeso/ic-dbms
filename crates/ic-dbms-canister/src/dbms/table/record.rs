@@ -27,7 +27,7 @@ pub trait TableRecord {
     fn from_values(values: TableColumns) -> Self;
 
     /// Converts the record into a list of column [`Value`]s.
-    fn to_values(&self) -> Vec<Value>;
+    fn to_values(&self) -> Vec<(ColumnDef, Value)>;
 }
 
 /// This trait represents a record for inserting into a table.

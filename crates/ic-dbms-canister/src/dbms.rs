@@ -10,6 +10,7 @@ pub mod types;
 pub mod value;
 
 use self::foreign_fetcher::ForeignFetcher;
+use crate::dbms::query::DeleteBehavior;
 use crate::dbms::table::{ColumnDef, TableColumns, TableRecord, ValuesSource};
 use crate::dbms::transaction::{DatabaseOverlay, Transaction, TransactionId, TransactionOp};
 use crate::dbms::value::Value;
@@ -164,7 +165,7 @@ impl Database {
     /// # Returns
     ///
     /// The number of rows updated.
-    pub fn update<T>(&self, record: T::Update) -> IcDbmsResult<u64>
+    pub fn update<T>(&self, record: T::Update, filter: Option<Filter>) -> IcDbmsResult<u64>
     where
         T: TableSchema,
         T::Update: table::UpdateRecord<Schema = T>,
@@ -176,18 +177,93 @@ impl Database {
     ///
     /// # Arguments
     ///
-    /// - `filter` - An optional [`prelude::Filter`] to specify which records to delete.
+    /// - `behaviour` - The [`DeleteBehavior`] to apply for foreign key constraints.
+    /// - `filter` - An optional [`Filter`] to specify which records to delete.
     ///
     /// # Returns
     ///
     /// The number of rows deleted.
-    pub fn delete<T>(&self, filter: Option<Filter>) -> IcDbmsResult<u64>
+    pub fn delete<T>(&self, behaviour: DeleteBehavior, filter: Option<Filter>) -> IcDbmsResult<u64>
     where
         T: TableSchema,
     {
-        // TODO: check whether we are in a transaction context
-        // TODO: cascade for foreign keys
-        todo!()
+        if self.transaction.is_some() {
+            // insert a new `delete` into the transaction
+            // get all pks matching the filter
+            let pk = T::primary_key();
+            let fields = self.select(Query::<T>::builder().filter(filter.clone()).build())?;
+            let pks = fields
+                .into_iter()
+                .map(|record| {
+                    record
+                        .to_values()
+                        .into_iter()
+                        .find(|(col_def, _value)| col_def.name == pk)
+                        .expect("primary key not found") // this can't fail.
+                        .1
+                })
+                .collect::<Vec<Value>>();
+            let count = pks.len() as u64;
+
+            self.with_transaction_mut(|tx| tx.delete::<T>(behaviour, filter, pks))?;
+
+            return Ok(count);
+        }
+
+        // delete must be atomic
+        let res = self.atomic(|db| {
+            // delete directly from the database
+            // select all records matching the filter
+            // read table
+            let mut table_registry = db.load_table_registry::<T>()?;
+            let mut records = vec![];
+            // iter all records
+            // FIXME: this may be huge, we should do better
+            {
+                let mut table_reader = table_registry.read::<T>();
+                while let Some(values) = table_reader.try_next()? {
+                    let record_values = values.record.clone().to_values();
+                    if let Some(filter) = &filter {
+                        if !db.record_matches_filter(&record_values, filter)? {
+                            continue;
+                        }
+                    }
+                    records.push((values, record_values));
+                }
+            }
+            // deleted records
+            let mut count = records.len() as u64;
+            for (record, record_values) in records {
+                // match delete behaviour
+                match behaviour {
+                    DeleteBehavior::Cascade => {
+                        // delete recursively foreign keys if cascade
+                        count += self.delete_foreign_keys_cascade::<T>(&record_values)?;
+                    }
+                    DeleteBehavior::Restrict => {
+                        if self.delete_foreign_keys_cascade::<T>(&record_values)? > 0 {
+                            // it's okay; we panic here because we are in an atomic closure
+                            return Err(IcDbmsError::Query(
+                                QueryError::ForeignKeyConstraintViolation {
+                                    referencing_table: T::table_name(),
+                                    field: T::primary_key(),
+                                },
+                            ));
+                        }
+                    }
+                    DeleteBehavior::SetNull => {
+                        // TODO: use update here
+                        todo!();
+                    }
+                }
+                // eventually delete the record
+                table_registry.delete(record.record, record.page, record.offset)?;
+            }
+
+            Ok(count)
+        });
+
+        Ok(res)
     }
 
     /// Commits the current transaction.
@@ -215,6 +291,13 @@ impl Database {
                     self.schema.validate_insert(self, table, values)?;
                     // insert
                     self.atomic(|db| db.schema.insert(db, table, values));
+                }
+                TransactionOp::Delete {
+                    table,
+                    behaviour,
+                    filter,
+                } => {
+                    self.atomic(|db| db.schema.delete(db, table, *behaviour, filter.clone()));
                 }
             }
         }
@@ -277,6 +360,38 @@ impl Database {
             Ok(res) => res,
             Err(err) => trap(err.to_string()),
         }
+    }
+
+    /// Deletes foreign key related records recursively if the delete behavior is [`DeleteBehavior::Cascade`].
+    fn delete_foreign_keys_cascade<T>(
+        &self,
+        record_values: &[(ColumnDef, Value)],
+    ) -> IcDbmsResult<u64>
+    where
+        T: TableSchema,
+    {
+        let mut count = 0;
+        // verify referenced tables for foreign key constraints
+        for (table, columns) in self.schema.referenced_tables(T::table_name()) {
+            for column in columns.iter() {
+                // prepare filter
+                let pk = record_values
+                    .iter()
+                    .find(|(col_def, _)| col_def.primary_key)
+                    .ok_or(IcDbmsError::Query(QueryError::UnknownColumn(
+                        column.to_string(),
+                    )))?
+                    .1
+                    .clone();
+                // make filter to find records in the referenced table
+                let filter = Filter::eq(column, pk);
+                let res = self
+                    .schema
+                    .delete(self, table, DeleteBehavior::Cascade, Some(filter))?;
+                count += res;
+            }
+        }
+        Ok(count)
     }
 
     /// Retrieves the current [`DatabaseOverlay`].
@@ -846,6 +961,152 @@ mod tests {
             .build();
         let users = oneshot_dbms.select(query).expect("failed to select users");
         assert_eq!(users.len(), 0);
+
+        // transaction should have been removed
+        TRANSACTION_SESSION.with_borrow(|ts| {
+            let tx_res = ts.get_transaction(&transaction_id);
+            assert!(tx_res.is_err());
+        });
+    }
+
+    #[test]
+    fn test_should_delete_one_shot() {
+        load_fixtures();
+
+        // insert user with id 100
+        let new_user = UserInsertRequest {
+            id: Uint32(100u32),
+            name: Text("DeleteUser".to_string()),
+        };
+        assert!(
+            Database::oneshot(TestDatabaseSchema)
+                .insert::<User>(new_user)
+                .is_ok()
+        );
+
+        let dbms = Database::oneshot(TestDatabaseSchema);
+        let query = Query::<User>::builder()
+            .and_where(Filter::eq("id", Value::Uint32(100u32.into())))
+            .build();
+        let delete_count = dbms
+            .delete::<User>(
+                DeleteBehavior::Restrict,
+                Some(Filter::eq("id", Value::Uint32(100u32.into()))),
+            )
+            .expect("failed to delete user");
+        assert_eq!(delete_count, 1);
+
+        // verify user is deleted
+        let users = dbms.select(query).expect("failed to select users");
+        assert_eq!(users.len(), 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Foreign key constraint violation")]
+    fn test_should_not_delete_with_fk_restrict() {
+        load_fixtures();
+
+        // user 1 has post and messages for sure.
+        let dbms = Database::oneshot(TestDatabaseSchema);
+        dbms.delete::<User>(
+            DeleteBehavior::Restrict,
+            Some(Filter::eq("id", Value::Uint32(1u32.into()))),
+        )
+        .expect("failed to delete user");
+    }
+
+    #[test]
+    fn test_should_delete_with_fk_cascade() {
+        load_fixtures();
+
+        // user 1 has posts and messages for sure.
+        let dbms = Database::oneshot(TestDatabaseSchema);
+        let delete_count = dbms
+            .delete::<User>(
+                DeleteBehavior::Cascade,
+                Some(Filter::eq("id", Value::Uint32(1u32.into()))),
+            )
+            .expect("failed to delete user");
+        assert!(delete_count > 0);
+
+        // verify user is deleted
+        let query = Query::<User>::builder()
+            .and_where(Filter::eq("id", Value::Uint32(1u32.into())))
+            .build();
+        let users = dbms.select(query).expect("failed to select users");
+        assert_eq!(users.len(), 0);
+
+        // check posts are deleted (post ID 2)
+        let post_query = Query::<Post>::builder()
+            .and_where(Filter::eq("user_id", Value::Uint32(1u32.into())))
+            .build();
+        let posts = dbms.select(post_query).expect("failed to select posts");
+        assert_eq!(posts.len(), 0);
+
+        // check messages are deleted (message ID 1)
+        let message_query = Query::<Message>::builder()
+            .and_where(Filter::eq("sender_id", Value::Uint32(1u32.into())))
+            .or_where(Filter::eq("recipient_id", Value::Uint32(1u32.into())))
+            .build();
+        let messages = dbms
+            .select(message_query)
+            .expect("failed to select messages");
+        assert_eq!(messages.len(), 0);
+    }
+
+    #[test]
+    fn test_should_delete_within_transaction() {
+        load_fixtures();
+
+        // create a transaction
+        let transaction_id =
+            TRANSACTION_SESSION.with_borrow_mut(|ts| ts.begin_transaction(Principal::anonymous()));
+        let mut dbms = Database::from_transaction(TestDatabaseSchema, transaction_id.clone());
+
+        let delete_count = dbms
+            .delete::<User>(
+                DeleteBehavior::Cascade,
+                Some(Filter::eq("id", Value::Uint32(2u32.into()))),
+            )
+            .expect("failed to delete user");
+        assert!(delete_count > 0);
+
+        // user should not be visible outside the transaction
+        let oneshot_dbms = Database::oneshot(TestDatabaseSchema);
+        let query = Query::<User>::builder()
+            .and_where(Filter::eq("id", Value::Uint32(2u32.into())))
+            .build();
+        let users = oneshot_dbms
+            .select(query.clone())
+            .expect("failed to select users");
+        assert_eq!(users.len(), 1);
+
+        // commit transaction
+        let commit_result = dbms.commit();
+        assert!(commit_result.is_ok());
+
+        // now user should be deleted
+        let users_after_commit = oneshot_dbms.select(query).expect("failed to select users");
+        assert_eq!(users_after_commit.len(), 0);
+
+        // check posts are deleted
+        let post_query = Query::<Post>::builder()
+            .and_where(Filter::eq("user_id", Value::Uint32(2u32.into())))
+            .build();
+        let posts = oneshot_dbms
+            .select(post_query)
+            .expect("failed to select posts");
+        assert_eq!(posts.len(), 0);
+
+        // check messages are deleted
+        let message_query = Query::<Message>::builder()
+            .and_where(Filter::eq("sender_id", Value::Uint32(2u32.into())))
+            .or_where(Filter::eq("recipient_id", Value::Uint32(2u32.into())))
+            .build();
+        let messages = oneshot_dbms
+            .select(message_query)
+            .expect("failed to select messages");
+        assert_eq!(messages.len(), 0);
 
         // transaction should have been removed
         TRANSACTION_SESSION.with_borrow(|ts| {

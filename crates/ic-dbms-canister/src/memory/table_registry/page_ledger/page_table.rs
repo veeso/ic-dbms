@@ -1,7 +1,7 @@
 use crate::memory::{DataSize, Encode, MSize, Page};
 
 /// The list of pages in the page ledger
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct PageTable {
     pub pages: Vec<PageRecord>,
 }

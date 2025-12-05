@@ -1,7 +1,9 @@
 use crate::IcDbmsResult;
 use crate::dbms::Database;
+use crate::dbms::query::DeleteBehavior;
 use crate::dbms::table::ColumnDef;
 use crate::dbms::value::Value;
+use crate::prelude::Filter;
 
 /// This trait provides the schema operation for the current database.
 ///
@@ -10,6 +12,16 @@ use crate::dbms::value::Value;
 /// This is required because all of the [`Database`] operations rely on `T`, a [`crate::prelude::TableSchema`], but we can't store them inside
 /// of transactions without knowing the concrete type at compile time.
 pub trait DatabaseSchema {
+    /// Returns the foreign key definitions referencing other tables for the given table name.
+    ///
+    /// So if a table `Post` has a foreign key referencing the `User` table, calling
+    /// `referenced_tables("User")` would return a list containing:
+    /// `[("Post`, &["user_id"])]`.
+    fn referenced_tables(
+        &self,
+        table: &'static str,
+    ) -> &'static [(&'static str, &'static [&'static str])];
+
     /// Performs an insert operation for the given table name and record values.
     ///
     /// Use [`Database::insert`] internally to perform the operation.
@@ -19,6 +31,17 @@ pub trait DatabaseSchema {
         table_name: &'static str,
         record_values: &[(ColumnDef, Value)],
     ) -> IcDbmsResult<()>;
+
+    /// Performs a delete operation for the given table name, delete behavior, and optional filter.
+    ///
+    /// Use [`Database::delete`] internally to perform the operation.
+    fn delete(
+        &self,
+        dbms: &Database,
+        table_name: &'static str,
+        delete_behavior: DeleteBehavior,
+        filter: Option<Filter>,
+    ) -> IcDbmsResult<u64>;
 
     /// Validates an insert operation for the given table name and record values.
     ///

@@ -5,6 +5,7 @@ use crate::memory::{Encode, MSize, MemoryError};
 pub const RAW_RECORD_HEADER_MAGIC_NUMBER: u8 = 0xFF;
 
 /// A raw record stored in memory, consisting of its length and data.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RawRecord<E>
 where
     E: Encode,
@@ -82,7 +83,7 @@ mod tests {
         assert_eq!(raw_record.data, decoded.data);
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Clone, Copy)]
     struct TestRecord {
         a: u8,
         b: u16,

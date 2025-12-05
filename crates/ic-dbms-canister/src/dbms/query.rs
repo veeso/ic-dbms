@@ -1,6 +1,7 @@
 //! This module exposes all the types related to queries that can be performed on the DBMS.
 
 mod builder;
+mod delete;
 mod filter;
 mod table_ops;
 
@@ -9,6 +10,7 @@ use std::marker::PhantomData;
 use thiserror::Error;
 
 pub use self::builder::QueryBuilder;
+pub use self::delete::DeleteBehavior;
 pub use self::filter::Filter;
 pub use self::table_ops::TableOps;
 use crate::dbms::table::TableSchema;

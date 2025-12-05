@@ -150,22 +150,21 @@ impl TableRecord for UserRecord {
         UserRecord { id, name }
     }
 
-    fn to_values(&self) -> Vec<crate::dbms::value::Value> {
-        let mut values = Vec::new();
-
-        if let Some(id) = self.id {
-            values.push(crate::dbms::value::Value::Uint32(id));
-        } else {
-            values.push(crate::dbms::value::Value::Null);
-        }
-
-        if let Some(name) = &self.name {
-            values.push(crate::dbms::value::Value::Text(name.clone()));
-        } else {
-            values.push(crate::dbms::value::Value::Null);
-        }
-
-        values
+    fn to_values(&self) -> Vec<(ColumnDef, crate::dbms::value::Value)> {
+        Self::Schema::columns()
+            .iter()
+            .zip(vec![
+                match self.id {
+                    Some(v) => Value::Uint32(v),
+                    None => Value::Null,
+                },
+                match &self.name {
+                    Some(v) => Value::Text(v.clone()),
+                    None => Value::Null,
+                },
+            ])
+            .map(|(col_def, value)| (*col_def, value))
+            .collect()
     }
 }
 

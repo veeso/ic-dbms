@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use crate::memory::{MSize, MemoryResult};
 
 /// This trait defines the encoding and decoding behaviour for data types used in the DBMS canister.
-pub trait Encode {
+pub trait Encode: Clone {
     const SIZE: DataSize;
 
     /// Encodes the data type into a vector of bytes.

@@ -203,6 +203,7 @@ mod tests {
         assert_eq!(registry.tables.len(), 1);
     }
 
+    #[derive(Clone)]
     struct AnotherTable;
 
     impl Encode for AnotherTable {
@@ -233,7 +234,7 @@ mod tests {
             AnotherTableRecord
         }
 
-        fn to_values(&self) -> Vec<crate::dbms::value::Value> {
+        fn to_values(&self) -> Vec<(ColumnDef, crate::dbms::value::Value)> {
             vec![]
         }
     }
