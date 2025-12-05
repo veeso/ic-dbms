@@ -1,6 +1,10 @@
 # Publish all
 [group('publish')]
-publish_all: publish_ic_dbms_macros publish_ic_dbms_types publish_ic_dbms_canister
+publish_all: publish_ic_dbms_macros publish_ic_dbms_api publish_ic_dbms_canister
+
+[group('publish')]
+publish_ic_dbms_api:
+  cargo publish -p ic-dbms-api
 
 [group('publish')]
 publish_ic_dbms_canister:
@@ -9,7 +13,3 @@ publish_ic_dbms_canister:
 [group('publish')]
 publish_ic_dbms_macros:
   cargo publish -p ic-dbms-macros
-
-[group('publish')]
-publish_ic_dbms_types:
-  cargo publish -p ic-dbms-types
