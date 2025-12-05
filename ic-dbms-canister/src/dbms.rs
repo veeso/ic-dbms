@@ -1,7 +1,7 @@
 //! This module exposes all the types related to the DBMS engine.
 
 pub mod foreign_fetcher;
-mod integrity;
+pub mod integrity;
 pub mod query;
 pub mod table;
 pub mod transaction;
@@ -15,8 +15,8 @@ use crate::dbms::transaction::{DatabaseOverlay, Transaction, TransactionId};
 use crate::dbms::value::Value;
 use crate::memory::{SCHEMA_REGISTRY, TableRegistry};
 use crate::prelude::{
-    Filter, InsertRecord, Query, QueryError, TRANSACTION_SESSION, TableError, TableSchema,
-    TransactionError,
+    Filter, InsertRecord, IntegrityValidator, Query, QueryError, TRANSACTION_SESSION, TableError,
+    TableSchema, TransactionError,
 };
 use crate::{IcDbmsError, IcDbmsResult};
 
@@ -42,27 +42,28 @@ const DEFAULT_SELECT_LIMIT: usize = 128;
 ///
 /// If a transaction is active, all operations will be part of that transaction until it is committed or rolled back.
 pub struct Database {
+    /// Integrity validator,
+    integrity_validator: Box<dyn IntegrityValidator>,
     /// Id of the loaded transaction, if any.
     transaction: Option<TransactionId>,
 }
 
-impl From<TransactionId> for Database {
-    fn from(transaction_id: TransactionId) -> Self {
-        Self {
-            transaction: Some(transaction_id),
-        }
-    }
-}
-
 impl Database {
     /// Load an instance of the [`Database`] for one-shot operations (no transaction).
-    pub fn oneshot() -> Self {
-        Self { transaction: None }
+    pub fn oneshot(integrity_validator: impl IntegrityValidator + 'static) -> Self {
+        Self {
+            integrity_validator: Box::new(integrity_validator),
+            transaction: None,
+        }
     }
 
     /// Load an instance of the [`Database`] within a transaction context.
-    pub fn from_transaction(transaction_id: TransactionId) -> Self {
+    pub fn from_transaction(
+        integrity_validator: impl IntegrityValidator + 'static,
+        transaction_id: TransactionId,
+    ) -> Self {
         Self {
+            integrity_validator: Box::new(integrity_validator),
             transaction: Some(transaction_id),
         }
     }
@@ -138,7 +139,8 @@ impl Database {
     {
         // check whether the insert is valid
         let record_values = record.clone().into_values();
-        InsertIntegrityValidator::<T>::new(self).validate(&record_values)?;
+        self.integrity_validator
+            .validate_insert(self, T::table_name(), &record_values)?;
 
         if self.transaction.is_some() {
             // TODO: handle insert tx; should we use `dyn TableSchema` here?
@@ -338,22 +340,23 @@ mod tests {
     use super::*;
     use crate::dbms::types::{Text, Uint32};
     use crate::tests::{
-        Message, POSTS_FIXTURES, Post, USERS_FIXTURES, User, UserInsertRequest, load_fixtures,
+        Message, POSTS_FIXTURES, Post, TestIntegrityValidator, USERS_FIXTURES, User,
+        UserInsertRequest, load_fixtures,
     };
 
     #[test]
     fn test_should_init_dbms() {
-        let dbms = Database::oneshot();
+        let dbms = Database::oneshot(TestIntegrityValidator);
         assert!(dbms.transaction.is_none());
 
-        let tx_dbms = Database::from_transaction(Nat::from(1u64));
+        let tx_dbms = Database::from_transaction(TestIntegrityValidator, Nat::from(1u64));
         assert!(tx_dbms.transaction.is_some());
     }
 
     #[test]
     fn test_should_select_all_users() {
         load_fixtures();
-        let dbms = Database::oneshot();
+        let dbms = Database::oneshot(TestIntegrityValidator);
         let query = Query::<User>::builder().all().build();
         let users = dbms.select(query).expect("failed to select users");
 
@@ -406,7 +409,7 @@ mod tests {
         });
 
         // select by pk
-        let dbms = Database::from_transaction(transaction_id);
+        let dbms = Database::from_transaction(TestIntegrityValidator, transaction_id);
         let query = Query::<User>::builder()
             .and_where(Filter::eq("id", Value::Uint32(999.into())))
             .build();
@@ -424,7 +427,7 @@ mod tests {
     #[test]
     fn test_should_select_users_with_offset_and_limit() {
         load_fixtures();
-        let dbms = Database::oneshot();
+        let dbms = Database::oneshot(TestIntegrityValidator);
         let query = Query::<User>::builder().offset(2).limit(3).build();
         let users = dbms.select(query).expect("failed to select users");
 
@@ -443,7 +446,7 @@ mod tests {
     #[test]
     fn test_should_select_users_with_offset_and_filter() {
         load_fixtures();
-        let dbms = Database::oneshot();
+        let dbms = Database::oneshot(TestIntegrityValidator);
         let query = Query::<User>::builder()
             .offset(1)
             .and_where(Filter::gt("id", Value::Uint32(4.into())))
@@ -465,7 +468,7 @@ mod tests {
     #[test]
     fn test_should_select_post_with_relation() {
         load_fixtures();
-        let dbms = Database::oneshot();
+        let dbms = Database::oneshot(TestIntegrityValidator);
         let query = Query::<Post>::builder()
             .all()
             .with(User::table_name())
@@ -498,7 +501,7 @@ mod tests {
 
     #[test]
     fn test_should_fail_loading_unexisting_column_on_select() {
-        let dbms = Database::oneshot();
+        let dbms = Database::oneshot(TestIntegrityValidator);
         let query = Query::<User>::builder().field("unexisting_column").build();
         let result = dbms.select(query);
         assert!(result.is_err());
@@ -506,7 +509,7 @@ mod tests {
 
     #[test]
     fn test_should_select_queried_fields() {
-        let dbms = Database::oneshot();
+        let dbms = Database::oneshot(TestIntegrityValidator);
 
         let record_values = User::columns()
             .iter()
@@ -535,7 +538,7 @@ mod tests {
     #[test]
     fn test_should_select_queried_fields_with_relations() {
         load_fixtures();
-        let dbms = Database::oneshot();
+        let dbms = Database::oneshot(TestIntegrityValidator);
 
         let record_values = Post::columns()
             .iter()
@@ -603,7 +606,7 @@ mod tests {
             .with("users")
             .build();
 
-        let dbms = Database::oneshot();
+        let dbms = Database::oneshot(TestIntegrityValidator);
         let messages = dbms.select(query).expect("failed to select messages");
         assert_eq!(messages.len(), 1);
         let message = &messages[0];
@@ -634,7 +637,7 @@ mod tests {
 
     #[test]
     fn test_should_fail_loading_unexisting_relation() {
-        let dbms = Database::oneshot();
+        let dbms = Database::oneshot(TestIntegrityValidator);
 
         let record_values = Post::columns()
             .iter()
@@ -657,7 +660,7 @@ mod tests {
 
     #[test]
     fn test_should_get_whether_record_matches_filter() {
-        let dbms = Database::oneshot();
+        let dbms = Database::oneshot(TestIntegrityValidator);
 
         let record_values = User::columns()
             .iter()
@@ -685,7 +688,7 @@ mod tests {
     fn test_should_load_table_registry() {
         init_user_table();
 
-        let dbms = Database::oneshot();
+        let dbms = Database::oneshot(TestIntegrityValidator);
         let table_registry = dbms.load_table_registry::<User>();
         assert!(table_registry.is_ok());
     }
@@ -694,7 +697,7 @@ mod tests {
     fn test_should_insert_record_without_transaction() {
         load_fixtures();
 
-        let dbms = Database::oneshot();
+        let dbms = Database::oneshot(TestIntegrityValidator);
         let new_user = UserInsertRequest {
             id: Uint32(100u32),
             name: Text("NewUser".to_string()),
@@ -721,7 +724,7 @@ mod tests {
     fn test_should_validate_user_insert_conflict() {
         load_fixtures();
 
-        let dbms = Database::oneshot();
+        let dbms = Database::oneshot(TestIntegrityValidator);
         let new_user = UserInsertRequest {
             id: Uint32(1u32),
             name: Text("NewUser".to_string()),
