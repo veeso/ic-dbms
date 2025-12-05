@@ -99,6 +99,12 @@ where
         self
     }
 
+    /// Sets a filter for the query, replacing any existing filter.
+    pub fn filter(mut self, filter: Option<Filter>) -> Self {
+        self.query.filter = filter;
+        self
+    }
+
     /// Adds a filter to the query, combining with existing filters using AND.
     pub fn and_where(mut self, filter: Filter) -> Self {
         self.query.filter = match self.query.filter {

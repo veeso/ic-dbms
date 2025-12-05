@@ -252,7 +252,7 @@ mod tests {
         assert!(record.is_some());
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     struct TestRecord {
         data: [u8; 100],
     }
@@ -278,7 +278,7 @@ mod tests {
         }
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     struct BigTestRecord {
         data: [u8; 200],
     }

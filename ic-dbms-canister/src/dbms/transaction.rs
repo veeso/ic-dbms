@@ -6,9 +6,10 @@ mod session;
 pub use self::overlay::DatabaseOverlay;
 pub use self::session::{TRANSACTION_SESSION, TransactionId, TransactionSession};
 use crate::IcDbmsResult;
+use crate::dbms::query::DeleteBehavior;
 use crate::dbms::table::ColumnDef;
 use crate::dbms::value::Value;
-use crate::prelude::TableSchema;
+use crate::prelude::{Filter, TableSchema};
 
 /// A transaction represents a sequence of operations performed as a single logical unit of work.
 #[derive(Debug, Default)]
@@ -29,6 +30,28 @@ impl Transaction {
         self.ops.push(TransactionOp::Insert {
             table: T::table_name(),
             values,
+        });
+        Ok(())
+    }
+
+    /// Insert a new `delete` operation into the transaction.
+    pub fn delete<T>(
+        &mut self,
+        behaviour: DeleteBehavior,
+        filter: Option<Filter>,
+        primary_keys: Vec<Value>,
+    ) -> IcDbmsResult<()>
+    where
+        T: TableSchema,
+    {
+        for pk in primary_keys {
+            self.overlay.delete::<T>(pk);
+        }
+
+        self.ops.push(TransactionOp::Delete {
+            table: T::table_name(),
+            behaviour,
+            filter,
         });
         Ok(())
     }
@@ -62,5 +85,10 @@ pub enum TransactionOp {
     Insert {
         table: &'static str,
         values: Vec<(ColumnDef, Value)>,
+    },
+    Delete {
+        table: &'static str,
+        behaviour: DeleteBehavior,
+        filter: Option<Filter>,
     },
 }

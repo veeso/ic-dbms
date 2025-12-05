@@ -49,6 +49,25 @@ fn self_reference_values(
 pub struct TestDatabaseSchema;
 
 impl DatabaseSchema for TestDatabaseSchema {
+    #[allow(clippy::if_same_then_else)]
+    fn referenced_tables(
+        &self,
+        table: &'static str,
+    ) -> &'static [(&'static str, &'static [&'static str])] {
+        if table == User::table_name() {
+            &[
+                ("posts", &["user_id"]),
+                ("messages", &["sender_id", "recipient_id"]),
+            ]
+        } else if table == Post::table_name() {
+            &[]
+        } else if table == Message::table_name() {
+            &[]
+        } else {
+            &[]
+        }
+    }
+
     fn insert(
         &self,
         dbms: &Database,
@@ -64,6 +83,26 @@ impl DatabaseSchema for TestDatabaseSchema {
         } else if table_name == Message::table_name() {
             let insert_request = MessageInsertRequest::from_values(record_values)?;
             dbms.insert::<Message>(insert_request)
+        } else {
+            Err(crate::IcDbmsError::Query(QueryError::TableNotFound(
+                table_name,
+            )))
+        }
+    }
+
+    fn delete(
+        &self,
+        dbms: &Database,
+        table_name: &'static str,
+        delete_behavior: crate::dbms::query::DeleteBehavior,
+        filter: Option<crate::prelude::Filter>,
+    ) -> crate::IcDbmsResult<u64> {
+        if table_name == User::table_name() {
+            dbms.delete::<User>(delete_behavior, filter)
+        } else if table_name == Post::table_name() {
+            dbms.delete::<Post>(delete_behavior, filter)
+        } else if table_name == Message::table_name() {
+            dbms.delete::<Message>(delete_behavior, filter)
         } else {
             Err(crate::IcDbmsError::Query(QueryError::TableNotFound(
                 table_name,

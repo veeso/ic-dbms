@@ -394,7 +394,7 @@ mod tests {
         });
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, Clone, PartialEq)]
     struct FixedSizeData {
         a: u16,
         b: u32,
