@@ -6,6 +6,12 @@
 //!
 //! This crate exposes all the types which may be used by an external canister to interact with
 //! an IC DBMS Canister instance.
+//!
+//! You can import all the useful types and traits by using the prelude module:
+//!
+//! ```rust
+//! use ic_dbms_api::prelude::*;
+//! ```
 
 #![doc(html_playground_url = "https://play.rust-lang.org")]
 #![doc(
