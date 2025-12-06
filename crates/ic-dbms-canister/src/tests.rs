@@ -4,7 +4,10 @@ mod message;
 mod post;
 mod user;
 
-use ic_dbms_api::prelude::{ColumnDef, Database as _, Value, ValuesSource};
+use ic_dbms_api::prelude::{
+    ColumnDef, Database as _, InsertRecord as _, QueryError, TableSchema as _, UpdateRecord as _,
+    Value, ValuesSource,
+};
 
 #[allow(unused_imports)]
 pub use self::message::{
@@ -15,10 +18,7 @@ pub use self::post::{POSTS_FIXTURES, Post, PostInsertRequest, PostRecord, PostUp
 #[allow(unused_imports)]
 pub use self::user::{USERS_FIXTURES, User, UserInsertRequest, UserRecord, UserUpdateRequest};
 use crate::dbms::IcDbmsDatabase;
-use crate::prelude::{
-    DatabaseSchema, InsertIntegrityValidator, InsertRecord as _, QueryError, TableSchema as _,
-    UpdateRecord as _,
-};
+use crate::prelude::{DatabaseSchema, InsertIntegrityValidator};
 
 /// Loads fixtures into the database for testing purposes.
 ///
@@ -116,7 +116,7 @@ impl DatabaseSchema for TestDatabaseSchema {
         dbms: &IcDbmsDatabase,
         table_name: &'static str,
         patch_values: &[(ColumnDef, Value)],
-        filter: Option<crate::prelude::Filter>,
+        filter: Option<ic_dbms_api::prelude::Filter>,
     ) -> ic_dbms_api::prelude::IcDbmsResult<u64> {
         if table_name == User::table_name() {
             let update_request = UserUpdateRequest::from_values(patch_values, filter);

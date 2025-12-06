@@ -2,10 +2,9 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 
 use candid::{Nat, Principal};
-use ic_dbms_api::prelude::{IcDbmsError, IcDbmsResult, TransactionId};
+use ic_dbms_api::prelude::{IcDbmsError, IcDbmsResult, QueryError, TransactionId};
 
 use super::Transaction;
-use crate::prelude::QueryError;
 
 thread_local! {
     pub static TRANSACTION_SESSION: RefCell<TransactionSession> = RefCell::new(TransactionSession::default());

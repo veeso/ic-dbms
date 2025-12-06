@@ -3,12 +3,13 @@ mod table;
 
 use std::collections::HashMap;
 
-use ic_dbms_api::prelude::{ColumnDef, IcDbmsError, IcDbmsResult, TableName, Value};
+use ic_dbms_api::prelude::{
+    ColumnDef, IcDbmsError, IcDbmsResult, QueryError, TableName, TableSchema, Value,
+};
 
 pub use self::reader::DatabaseOverlayReader;
 use self::table::TableOverlay;
 use crate::memory::TableReader;
-use crate::prelude::{QueryError, TableSchema};
 
 /// The database overlay is used to manage uncommitted changes during a transaction.
 ///

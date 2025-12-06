@@ -1,11 +1,11 @@
 use ic_dbms_api::prelude::{
-    ColumnDef, DataTypeKind, Encode, IcDbmsError, TableColumns, TableRecord, TableSchema, Text,
-    Uint32, Value, ValuesSource,
+    ColumnDef, DataTypeKind, Encode, Filter, IcDbmsError, InsertRecord, NoForeignFetcher,
+    QueryError, TableColumns, TableRecord, TableSchema, Text, Uint32, UpdateRecord, Value,
+    ValuesSource,
 };
 use ic_dbms_macros::Encode;
 
 use crate::memory::{SCHEMA_REGISTRY, TableRegistry};
-use crate::prelude::{Filter, InsertRecord, NoForeignFetcher, QueryError, UpdateRecord};
 
 /// A simple user struct for testing purposes.
 #[derive(Debug, Encode, Clone, PartialEq, Eq)]

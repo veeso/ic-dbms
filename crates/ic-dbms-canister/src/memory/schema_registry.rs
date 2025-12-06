@@ -133,10 +133,12 @@ impl Encode for SchemaRegistry {
 #[cfg(test)]
 mod tests {
 
-    use ic_dbms_api::prelude::{ColumnDef, IcDbmsResult, TableColumns, TableRecord};
+    use ic_dbms_api::prelude::{
+        ColumnDef, IcDbmsResult, InsertRecord, NoForeignFetcher, TableColumns, TableRecord,
+        UpdateRecord,
+    };
 
     use super::*;
-    use crate::prelude::{InsertRecord, NoForeignFetcher, UpdateRecord};
     use crate::tests::User;
 
     #[test]
@@ -268,7 +270,7 @@ mod tests {
 
         fn from_values(
             _values: &[(ColumnDef, ic_dbms_api::prelude::Value)],
-            _where_clause: Option<crate::prelude::Filter>,
+            _where_clause: Option<ic_dbms_api::prelude::Filter>,
         ) -> Self {
             AnotherTableUpdate
         }
@@ -277,7 +279,7 @@ mod tests {
             vec![]
         }
 
-        fn where_clause(&self) -> Option<crate::prelude::Filter> {
+        fn where_clause(&self) -> Option<ic_dbms_api::prelude::Filter> {
             None
         }
     }

@@ -1,8 +1,7 @@
-use ic_dbms_api::prelude::{ColumnDef, IcDbmsResult, Value};
+use ic_dbms_api::prelude::{ColumnDef, IcDbmsResult, TableSchema, Value};
 
 use crate::dbms::transaction::overlay::table::TableOverlay;
 use crate::memory::TableReader;
-use crate::prelude::TableSchema;
 
 /// A reader for the database with overlay applied.
 pub struct DatabaseOverlayReader<'a, T>
