@@ -1,9 +1,9 @@
 use ic_dbms_api::prelude::{
-    ColumnDef, Database as _, ForeignKeyDef, IcDbmsError, IcDbmsResult, Value,
+    ColumnDef, Database as _, Filter, ForeignFetcher, ForeignKeyDef, IcDbmsError, IcDbmsResult,
+    Query, QueryError, TableSchema, Value,
 };
 
 use crate::dbms::IcDbmsDatabase;
-use crate::prelude::{Filter, ForeignFetcher, Query, QueryError, TableSchema};
 
 /// Integrity validator for insert operations.
 pub struct InsertIntegrityValidator<'a, T>

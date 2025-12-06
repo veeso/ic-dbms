@@ -3,11 +3,12 @@
 mod overlay;
 mod session;
 
-use ic_dbms_api::prelude::{ColumnDef, DeleteBehavior, IcDbmsResult, Value};
+use ic_dbms_api::prelude::{
+    ColumnDef, DeleteBehavior, Filter, IcDbmsResult, TableSchema, UpdateRecord as _, Value,
+};
 
 pub use self::overlay::DatabaseOverlay;
 pub use self::session::{TRANSACTION_SESSION, TransactionSession};
-use crate::prelude::{Filter, TableSchema, UpdateRecord as _};
 
 /// A transaction represents a sequence of operations performed as a single logical unit of work.
 #[derive(Debug, Default)]

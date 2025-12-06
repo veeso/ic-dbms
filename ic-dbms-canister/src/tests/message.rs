@@ -1,13 +1,11 @@
 use ic_dbms_api::prelude::{
-    ColumnDef, DataTypeKind, Database, DateTime, ForeignKeyDef, IcDbmsError, IcDbmsResult,
-    Nullable, TableColumns, Text, Uint32, Value, ValuesSource,
+    ColumnDef, DataTypeKind, Database, DateTime, Filter, ForeignFetcher, ForeignKeyDef,
+    IcDbmsError, IcDbmsResult, InsertRecord, Nullable, Query, QueryError, TableColumns,
+    TableRecord, TableSchema, Text, Uint32, UpdateRecord, Value, ValuesSource,
 };
 use ic_dbms_macros::Encode;
 
 use crate::memory::{SCHEMA_REGISTRY, TableRegistry};
-use crate::prelude::{
-    Filter, ForeignFetcher, InsertRecord, Query, QueryError, TableRecord, TableSchema, UpdateRecord,
-};
 use crate::tests::{User, UserRecord, self_reference_values};
 
 /// A simple message struct for testing purposes.

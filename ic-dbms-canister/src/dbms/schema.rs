@@ -1,7 +1,6 @@
-use ic_dbms_api::prelude::{ColumnDef, DeleteBehavior, IcDbmsResult, Value};
+use ic_dbms_api::prelude::{ColumnDef, DeleteBehavior, Filter, IcDbmsResult, Value};
 
 use crate::dbms::IcDbmsDatabase;
-use crate::prelude::Filter;
 
 /// This trait provides the schema operation for the current database.
 ///
