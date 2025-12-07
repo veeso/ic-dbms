@@ -24,6 +24,7 @@ use proc_macro::TokenStream;
 use syn::{DeriveInput, parse_macro_input};
 
 mod encode;
+mod table;
 mod utils;
 
 /// Automatically implements the `Encode`` trait for a struct.
@@ -118,4 +119,412 @@ mod utils;
 pub fn derive_encode(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     self::encode::encode(input)
+        .expect("Failed to derive `Encode`")
+        .into()
+}
+
+/// Given a struct representing a database table, automatically implements
+/// the `TableSchema` trait with all the necessary types to work with the ic-dbms-canister.
+/// So given this struct:
+///
+/// ```rust,ignore
+/// #[derive(Table, Encode)]
+/// #[table = "posts"]
+/// struct Post {
+///     #[primary_key]
+///     id: Uint32,
+///     title: Text,
+///     content: Text,
+///     #[foreign_key(entity = "User", table = "users", column = "id")]
+///     author_id: Uint32,
+/// }
+/// ```
+///
+/// What we expect as output is:
+///
+/// - To implement the `TableSchema` trait for the struct as follows:
+///
+///     ```rust,ignore
+///     impl TableSchema for Post {
+///         type Insert = PostInsertRequest;
+///         type Record = PostRecord;
+///         type Update = PostUpdateRequest;
+///         type ForeignFetcher = PostForeignFetcher;
+///
+///         fn columns() -> &'static [ColumnDef] {
+///             &[
+///                 ColumnDef {
+///                     name: "id",
+///                     data_type: DataTypeKind::Uint32,
+///                     nullable: false,
+///                     primary_key: true,
+///                     foreign_key: None,
+///                 },
+///                 ColumnDef {
+///                     name: "title",
+///                     data_type: DataTypeKind::Text,
+///                     nullable: false,
+///                     primary_key: false,
+///                     foreign_key: None,
+///                 },
+///                 ColumnDef {
+///                     name: "content",
+///                     data_type: DataTypeKind::Text,
+///                     nullable: false,
+///                     primary_key: false,
+///                     foreign_key: None,
+///                 },
+///                 ColumnDef {
+///                     name: "user_id",
+///                     data_type: DataTypeKind::Uint32,
+///                     nullable: false,
+///                     primary_key: false,
+///                     foreign_key: Some(ForeignKeyDef {
+///                         local_column: "user_id",
+///                         foreign_table: "users",
+///                         foreign_column: "id",
+///                     }),
+///                 },
+///             ]
+///         }
+///
+///         fn table_name() -> &'static str {
+///             "posts"
+///         }
+///
+///         fn primary_key() -> &'static str {
+///             "id"
+///         }
+///
+///         fn to_values(self) -> Vec<(ColumnDef, Value)> {
+///             vec![
+///                 (Self::columns()[0], Value::Uint32(self.id)),
+///                 (Self::columns()[1], Value::Text(self.title)),
+///                 (Self::columns()[2], Value::Text(self.content)),
+///                 (Self::columns()[3], Value::Uint32(self.user_id)),
+///             ]
+///         }
+///     }
+///     ```
+///
+/// - Implement the associated `Record` type
+///
+///     ```rust,ignore
+///     pub struct PostRecord {
+///         pub id: Option<Uint32>,
+///         pub title: Option<Text>,
+///         pub content: Option<Text>,
+///         pub user: Option<UserRecord>,
+///     }
+///
+///     impl TableRecord for PostRecord {
+///         type Schema = Post;
+///     
+///         fn from_values(values: TableColumns) -> Self {
+///             let mut id: Option<Uint32> = None;
+///             let mut title: Option<Text> = None;
+///             let mut content: Option<Text> = None;
+///     
+///             let post_values = values
+///                 .iter()
+///                 .find(|(table_name, _)| *table_name == ValuesSource::This)
+///                 .map(|(_, cols)| cols);
+///             
+///             for (column, value) in post_values.unwrap_or(&vec![]) {
+///                 match column.name {
+///                     "id" => {
+///                         if let Value::Uint32(v) = value {
+///                             id = Some(*v);
+///                         }
+///                     }
+///                     "title" => {
+///                         if let Value::Text(v) = value {
+///                             title = Some(v.clone());
+///                         }
+///                     }
+///                     "content" => {
+///                         if let Value::Text(v) = value {
+///                             content = Some(v.clone());
+///                         }
+///                     }
+///                     _ => { /* Ignore unknown columns */ }
+///                 }
+///             }
+///     
+///             let has_user = values.iter().any(|(source, _)| {
+///                 *source
+///                     == ValuesSource::Foreign {
+///                         table: User::table_name(),
+///                         column: "user_id",
+///                     }
+///             });
+///             let user = if has_user {
+///                 Some(UserRecord::from_values(self_reference_values(
+///                     &values,
+///                     User::table_name(),
+///                     "user_id",
+///                 )))
+///             } else {
+///                 None
+///             };
+///     
+///             Self {
+///                 id,
+///                 title,
+///                 content,
+///                 user,
+///             }
+///         }
+///     
+///         fn to_values(&self) -> Vec<(ColumnDef, Value)> {
+///             Self::Schema::columns()
+///                 .iter()
+///                 .zip(vec![
+///                     match self.id {
+///                         Some(v) => Value::Uint32(v),
+///                         None => Value::Null,
+///                     },
+///                     match &self.title {
+///                         Some(v) => Value::Text(v.clone()),
+///                         None => Value::Null,
+///                     },
+///                     match &self.content {
+///                         Some(v) => Value::Text(v.clone()),
+///                         None => Value::Null,
+///                     },
+///                 ])
+///                 .map(|(col_def, value)| (*col_def, value))
+///                 .collect()
+///         }
+///     }
+///     ```
+///
+/// - Implement the associated `InsertRecord` type
+///
+///     ```rust,ignore
+///     #[derive(Clone)]
+///     pub struct PostInsertRequest {
+///         pub id: Uint32,
+///         pub title: Text,
+///         pub content: Text,
+///         pub user_id: Uint32,
+///     }
+///
+///     impl InsertRecord for PostInsertRequest {
+///         type Record = PostRecord;
+///         type Schema = Post;
+///
+///         fn from_values(values: &[(ColumnDef, Value)]) -> ic_dbms_api::prelude::IcDbmsResult<Self> {
+///             let mut id: Option<Uint32> = None;
+///             let mut title: Option<Text> = None;
+///             let mut content: Option<Text> = None;
+///             let mut user_id: Option<Uint32> = None;
+///
+///             for (column, value) in values {
+///                 match column.name {
+///                     "id" => {
+///                         if let Value::Uint32(v) = value {
+///                             id = Some(*v);
+///                         }
+///                     }
+///                     "title" => {
+///                         if let Value::Text(v) = value {
+///                             title = Some(v.clone());
+///                         }
+///                     }
+///                     "content" => {
+///                         if let Value::Text(v) = value {
+///                             content = Some(v.clone());
+///                         }
+///                     }
+///                     "user_id" => {
+///                         if let Value::Uint32(v) = value {
+///                             user_id = Some(*v);
+///                         }
+///                     }
+///                     _ => { /* Ignore unknown columns */ }
+///                 }
+///             }
+///
+///             Ok(Self {
+///                 id: id.ok_or(IcDbmsError::Query(QueryError::MissingNonNullableField(
+///                     "id",
+///                 )))?,
+///                 title: title.ok_or(IcDbmsError::Query(QueryError::MissingNonNullableField(
+///                     "title",
+///                 )))?,
+///                 content: content.ok_or(IcDbmsError::Query(QueryError::MissingNonNullableField(
+///                     "content",
+///                 )))?,
+///                 user_id: user_id.ok_or(IcDbmsError::Query(QueryError::MissingNonNullableField(
+///                     "user_id",
+///                 )))?,
+///             })
+///         }
+///
+///         fn into_values(self) -> Vec<(ColumnDef, Value)> {
+///             vec![
+///                 (Self::Schema::columns()[0], Value::Uint32(self.id)),
+///                 (Self::Schema::columns()[1], Value::Text(self.title)),
+///                 (Self::Schema::columns()[2], Value::Text(self.content)),
+///                 (Self::Schema::columns()[3], Value::Uint32(self.user_id)),
+///             ]
+///         }
+///
+///         fn into_record(self) -> Self::Schema {
+///             Post {
+///                 id: self.id,
+///                 title: self.title,
+///                 content: self.content,
+///                 user_id: self.user_id,
+///             }
+///         }
+///     }
+///     ```
+///
+/// - Implement the associated `UpdateRecord` type
+///
+///     ```rust,ignore
+///     pub struct PostUpdateRequest {
+///         pub id: Option<Uint32>,
+///         pub title: Option<Text>,
+///         pub content: Option<Text>,
+///         pub user_id: Option<Uint32>,
+///         pub where_clause: Option<Filter>,
+///     }
+///
+///     impl UpdateRecord for PostUpdateRequest {
+///         type Record = PostRecord;
+///         type Schema = Post;
+///
+///         fn from_values(values: &[(ColumnDef, Value)], where_clause: Option<Filter>) -> Self {
+///             let mut id: Option<Uint32> = None;
+///             let mut title: Option<Text> = None;
+///             let mut content: Option<Text> = None;
+///             let mut user_id: Option<Uint32> = None;
+///
+///             for (column, value) in values {
+///                 match column.name {
+///                     "id" => {
+///                         if let Value::Uint32(v) = value {
+///                             id = Some(*v);
+///                         }
+///                     }
+///                     "title" => {
+///                         if let Value::Text(v) = value {
+///                             title = Some(v.clone());
+///                         }
+///                     }
+///                     "content" => {
+///                         if let Value::Text(v) = value {
+///                             content = Some(v.clone());
+///                         }
+///                     }
+///                     "user_id" => {
+///                         if let Value::Uint32(v) = value {
+///                             user_id = Some(*v);
+///                         }
+///                     }
+///                     _ => { /* Ignore unknown columns */ }
+///                 }
+///             }
+///
+///             Self {
+///                 id,
+///                 title,
+///                 content,
+///                 user_id,
+///                 where_clause,
+///             }
+///         }
+///
+///         fn update_values(&self) -> Vec<(ColumnDef, Value)> {
+///             let mut updates = Vec::new();
+///
+///             if let Some(id) = self.id {
+///                 updates.push((Self::Schema::columns()[0], Value::Uint32(id)));
+///             }
+///             if let Some(title) = &self.title {
+///                 updates.push((Self::Schema::columns()[1], Value::Text(title.clone())));
+///             }
+///             if let Some(content) = &self.content {
+///                 updates.push((Self::Schema::columns()[2], Value::Text(content.clone())));
+///             }
+///             if let Some(user_id) = self.user_id {
+///                 updates.push((Self::Schema::columns()[3], Value::Uint32(user_id)));
+///             }
+///
+///             updates
+///         }
+///
+///         fn where_clause(&self) -> Option<Filter> {
+///             self.where_clause.clone()
+///         }
+///     }
+///     ```
+///
+/// - If has foreign keys, implement the associated `ForeignFetched` (otherwise use `NoForeignFetcher`):
+///
+///     ```rust,ignore
+///     pub struct PostForeignFetcher;
+///
+///     impl ForeignFetcher for PostForeignFetcher {
+///         fn fetch(
+///             &self,
+///             database: &impl Database,
+///             table: &'static str,
+///             local_column: &'static str,
+///             pk_value: Value,
+///         ) -> ic_dbms_api::prelude::IcDbmsResult<TableColumns> {
+///             if table != User::table_name() {
+///                 return Err(IcDbmsError::Query(QueryError::InvalidQuery(format!(
+///                     "ForeignFetcher: unknown table '{table}' for {table_name} foreign fetcher",
+///                     table_name = Post::table_name()
+///                 ))));
+///             }
+///
+///             // query all records from the foreign table
+///             let mut users = database.select(
+///                 Query::<User>::builder()
+///                     .all()
+///                     .limit(1)
+///                     .and_where(Filter::Eq(User::primary_key(), pk_value.clone()))
+///                     .build(),
+///             )?;
+///             let user = match users.pop() {
+///                 Some(user) => user,
+///                 None => {
+///                     return Err(IcDbmsError::Query(QueryError::BrokenForeignKeyReference {
+///                         table: User::table_name(),
+///                         key: pk_value,
+///                     }));
+///                 }
+///             };
+///
+///             let values = user.to_values();
+///             Ok(vec![(
+///                 ValuesSource::Foreign {
+///                     table,
+///                     column: local_column,
+///                 },
+///                 values,
+///             )])
+///         }
+///     }
+///     ```
+///
+/// So for each struct deriving `Table`, we will generate the following type. Given `${StructName}`, we will generate:
+///
+/// - `${StructName}Record` - implementing `TableRecord`
+/// - `${StructName}InsertRequest` - implementing `InsertRecord`
+/// - `${StructName}UpdateRequest` - implementing `UpdateRecord`
+/// - `${StructName}ForeignFetcher` (only if foreign keys are present)
+///
+/// Also, we will implement the `TableSchema` trait for the struct itself and derive `Encode` for `${StructName}`.
+#[proc_macro_derive(Table, attributes(table, primary_key, foreign_key))]
+pub fn derive_table(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    self::table::table(input)
+        .expect("failed to derive `Table`")
+        .into()
 }

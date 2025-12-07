@@ -6,7 +6,7 @@ mod user;
 
 use ic_dbms_api::prelude::{
     ColumnDef, Database as _, InsertRecord as _, QueryError, TableSchema as _, UpdateRecord as _,
-    Value, ValuesSource,
+    Value,
 };
 
 #[allow(unused_imports)]
@@ -31,22 +31,6 @@ pub fn load_fixtures() {
     message::load_fixtures();
 }
 
-/// Helper function which takes a list of `(ValuesSource, Value)` tuples, take only those with
-/// [`ValuesSource::Foreign`] matching the provided table and column names, and returns a vector of
-/// the corresponding `Value`s. with the [`ValuesSource`] set to [`ValuesSource::This`].
-fn self_reference_values(
-    values: &[(ValuesSource, Vec<(ColumnDef, Value)>)],
-    table: &'static str,
-    local_column: &'static str,
-) -> Vec<(ValuesSource, Vec<(ColumnDef, Value)>)> {
-    values
-        .iter()
-        .filter(|(source, _)| matches!(source, ValuesSource::Foreign { table: t, column } if *t == table && *column == local_column))
-        .map(|(_, value)| (ValuesSource::This, value.clone())
-    )
-    .collect()
-}
-
 pub struct TestDatabaseSchema;
 
 impl DatabaseSchema for TestDatabaseSchema {
@@ -56,10 +40,7 @@ impl DatabaseSchema for TestDatabaseSchema {
         table: &'static str,
     ) -> &'static [(&'static str, &'static [&'static str])] {
         if table == User::table_name() {
-            &[
-                ("posts", &["user_id"]),
-                ("messages", &["sender_id", "recipient_id"]),
-            ]
+            &[("posts", &["user"]), ("messages", &["sender", "recipient"])]
         } else if table == Post::table_name() {
             &[]
         } else if table == Message::table_name() {

@@ -751,7 +751,10 @@ mod tests {
                 .expect("failed to load user")
                 .pop()
                 .expect("should have user");
-            assert_eq!(post.user.expect("should have loaded user"), author);
+            assert_eq!(
+                post.user.expect("should have loaded user"),
+                Box::new(author)
+            );
         }
     }
 
@@ -833,7 +836,7 @@ mod tests {
                 *table_name
                     == ValuesSource::Foreign {
                         table: User::table_name(),
-                        column: "user_id",
+                        column: "user",
                     }
             })
             .map(|(_, cols)| cols)
@@ -1132,11 +1135,13 @@ mod tests {
 
         // user 1 has post and messages for sure.
         let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
-        dbms.delete::<User>(
-            DeleteBehavior::Restrict,
-            Some(Filter::eq("id", Value::Uint32(1u32.into()))),
-        )
-        .expect("failed to delete user");
+        let res = dbms
+            .delete::<User>(
+                DeleteBehavior::Restrict,
+                Some(Filter::eq("id", Value::Uint32(1u32.into()))),
+            )
+            .expect("failed to delete user");
+        println!("Delete result (should not show): {}", res);
     }
 
     #[test]
@@ -1151,7 +1156,8 @@ mod tests {
                 Some(Filter::eq("id", Value::Uint32(1u32.into()))),
             )
             .expect("failed to delete user");
-        assert!(delete_count > 0);
+        println!("Delete count: {}", delete_count);
+        assert!(delete_count > 1); // at least user + posts + messages
 
         // verify user is deleted
         let query = Query::<User>::builder()
