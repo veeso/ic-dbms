@@ -1,4 +1,3 @@
-use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use syn::{DataStruct, DeriveInput};
 
@@ -12,9 +11,12 @@ pub fn encode(
         generics,
         ..
     }: DeriveInput,
-) -> TokenStream {
+) -> syn::Result<TokenStream2> {
     let syn::Data::Struct(struct_data) = data else {
-        panic!("Cannot derive Encode for {ident}; it can only be derived for structs");
+        return Err(syn::Error::new_spanned(
+            ident,
+            "`Encode` can only be derived for structs",
+        ));
     };
 
     let data_size = impl_size_const(&struct_data);
@@ -23,7 +25,7 @@ pub fn encode(
     let decode = impl_decode(&struct_data);
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-    quote::quote! {
+    Ok(quote::quote! {
         impl #impl_generics ::ic_dbms_api::prelude::Encode for #ident #ty_generics #where_clause {
             const SIZE: ::ic_dbms_api::prelude::DataSize = #data_size;
 
@@ -33,8 +35,7 @@ pub fn encode(
 
             #decode
         }
-    }
-    .into()
+    })
 }
 
 /// Generate implementation of `SIZE` const value.

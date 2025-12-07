@@ -23,7 +23,7 @@ The user can just define the data entity by defining the tables
 
 ```rust
 #[derive(Table)]
-#[table(name = "users")]
+#[table = "users"]
 struct User {
     #[primary_key]
     id: Uint64,
@@ -41,14 +41,14 @@ You can also define relationships between tables:
 
 ```rust
 #[derive(Table)]
-#[table(name = "posts")]
+#[table = "posts"]
 struct Post {
     #[primary_key]
     id: Uint32,
     title: Text,
     content: Text,
-    #[foreign_key(table = "User", column = "id")]
-    author_id: Uint32,
+    #[foreign_key(entity = "User", table = "users", column = "id")]
+    author: Uint32,
 }
 ```
 
