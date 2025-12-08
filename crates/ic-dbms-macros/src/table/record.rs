@@ -174,7 +174,7 @@ fn impl_from_values(metadata: &TableMetadata) -> TokenStream2 {
             if has_fk_values {
                 #field_name = Some(Box::new(
                     #fk_from_record_path(
-                        ::ic_dbms_canister::utils::self_reference_values(
+                        ::ic_dbms_canister::prelude::self_reference_values(
                             &values,
                             #table_name,
                             #local_column,

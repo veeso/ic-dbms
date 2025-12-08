@@ -17,8 +17,9 @@
 // makes the crate accessible as `ic_dbms_canister` in macros
 extern crate self as ic_dbms_canister;
 
-pub mod dbms;
-pub mod memory;
+pub mod api;
+mod dbms;
+mod memory;
 pub mod prelude;
 #[cfg(test)]
 mod tests;

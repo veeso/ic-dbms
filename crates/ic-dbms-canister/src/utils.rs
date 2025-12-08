@@ -1,5 +1,6 @@
 mod trap;
 
+use candid::Principal;
 use ic_dbms_api::prelude::{ColumnDef, Value, ValuesSource};
 
 pub use self::trap::trap;
@@ -18,6 +19,19 @@ pub fn self_reference_values(
         .map(|(_, value)| (ValuesSource::This, value.clone())
     )
     .collect()
+}
+
+/// Returns the caller's principal.
+pub fn caller() -> Principal {
+    #[cfg(target_family = "wasm")]
+    {
+        ic_cdk::api::msg_caller()
+    }
+    #[cfg(not(target_family = "wasm"))]
+    {
+        // dummy principal for non-wasm targets (e.g., during unit tests)
+        Principal::from_text("ghsi2-tqaaa-aaaan-aaaca-cai").expect("it should be valid")
+    }
 }
 
 #[cfg(test)]
