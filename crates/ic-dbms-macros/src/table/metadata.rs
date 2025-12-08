@@ -66,7 +66,7 @@ impl TableMetadata {
     pub fn foreign_fetcher_ident(&self) -> TokenStream2 {
         match self.foreign_fetcher.as_ref() {
             Some(ident) => quote::quote! { #ident },
-            None => quote::quote! { ::ic_dbms_api::prelude::NoForeignFetcher },
+            None => quote::quote! { ::ic_dbms_canister::prelude::NoForeignFetcher },
         }
     }
 }
@@ -275,10 +275,10 @@ fn get_fields(
 
         // Step 3: costruisci un Path valido
         let data_type_kind: syn::Path = syn::parse_quote! {
-            ::ic_dbms_api::prelude::DataTypeKind::#field_type_ident
+            ::ic_dbms_canister::prelude::DataTypeKind::#field_type_ident
         };
         let value_type: syn::Path = syn::parse_quote! {
-            ::ic_dbms_api::prelude::Value::#field_type_ident
+            ::ic_dbms_canister::prelude::Value::#field_type_ident
         };
 
         fields.push(Field {
