@@ -13,7 +13,7 @@ pub fn generate_foreign_fetcher(metadata: &TableMetadata) -> TokenStream2 {
         #[derive(Default)]
         pub struct #foreign_fetcher;
 
-        impl ::ic_dbms_api::prelude::ForeignFetcher for #foreign_fetcher {
+        impl ::ic_dbms_canister::prelude::ForeignFetcher for #foreign_fetcher {
             #fetch_impl
         }
     }
@@ -30,16 +30,16 @@ fn impl_fetch(metadata: &TableMetadata) -> TokenStream2 {
         match_arms.push(quote::quote! {
             #table_name => {
                 let mut results = database.select(
-                    ::ic_dbms_api::prelude::Query::<#entity_to_query>::builder()
+                    ::ic_dbms_canister::prelude::Query::<#entity_to_query>::builder()
                         .all()
                         .limit(1)
-                        .and_where(::ic_dbms_api::prelude::Filter::Eq(#pk_call, pk_value.clone()))
+                        .and_where(::ic_dbms_canister::prelude::Filter::Eq(#pk_call, pk_value.clone()))
                         .build(),
                 )?;
                 let record = match results.pop() {
                     Some(record) => record,
                     None => {
-                        return Err(::ic_dbms_api::prelude::IcDbmsError::Query(::ic_dbms_api::prelude::QueryError::BrokenForeignKeyReference {
+                        return Err(::ic_dbms_canister::prelude::IcDbmsError::Query(::ic_dbms_canister::prelude::QueryError::BrokenForeignKeyReference {
                             table: #table_name,
                             key: pk_value,
                         }));
@@ -47,7 +47,7 @@ fn impl_fetch(metadata: &TableMetadata) -> TokenStream2 {
                 };
                 let values = record.to_values();
                 Ok(vec![(
-                    ::ic_dbms_api::prelude::ValuesSource::Foreign {
+                    ::ic_dbms_canister::prelude::ValuesSource::Foreign {
                         table,
                         column: local_column,
                     },
@@ -62,13 +62,13 @@ fn impl_fetch(metadata: &TableMetadata) -> TokenStream2 {
     quote::quote! {
         fn fetch(
             &self,
-            database: &impl ::ic_dbms_api::prelude::Database,
+            database: &impl ::ic_dbms_canister::prelude::Database,
             table: &'static str,
             local_column: &'static str,
-            pk_value: ::ic_dbms_api::prelude::Value,
-        ) -> ic_dbms_api::prelude::IcDbmsResult<::ic_dbms_api::prelude::TableColumns> {
-            use ::ic_dbms_api::prelude::TableSchema as _;
-            use ::ic_dbms_api::prelude::TableRecord as _;
+            pk_value: ::ic_dbms_canister::prelude::Value,
+        ) -> ic_dbms_api::prelude::IcDbmsResult<::ic_dbms_canister::prelude::TableColumns> {
+            use ::ic_dbms_canister::prelude::TableSchema as _;
+            use ::ic_dbms_canister::prelude::TableRecord as _;
 
             match table {
                 #(#match_arms)*

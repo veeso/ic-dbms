@@ -1,5 +1,3 @@
-use ic_dbms_macros::Encode;
-
 use crate::dbms::table::{ColumnDef, TableColumns, TableRecord, TableSchema, ValuesSource};
 use crate::dbms::types::{DataTypeKind, Text, Uint32};
 use crate::dbms::value::Value;
@@ -9,10 +7,36 @@ use crate::prelude::{
 };
 
 /// A simple user struct for testing purposes.
-#[derive(Debug, Encode, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct User {
     pub id: Uint32,
     pub name: Text,
+}
+
+impl Encode for User {
+    const SIZE: crate::prelude::DataSize = crate::prelude::DataSize::Dynamic;
+
+    fn size(&self) -> crate::prelude::MSize {
+        self.id.size() + self.name.size()
+    }
+
+    fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
+        let mut bytes = Vec::with_capacity(self.size() as usize);
+        bytes.extend_from_slice(&self.id.encode());
+        bytes.extend_from_slice(&self.name.encode());
+        std::borrow::Cow::Owned(bytes)
+    }
+
+    fn decode(data: std::borrow::Cow<[u8]>) -> crate::prelude::MemoryResult<Self>
+    where
+        Self: Sized,
+    {
+        let mut offset = 0;
+        let id = Uint32::decode(std::borrow::Cow::Borrowed(&data[offset..]))?;
+        offset += id.size() as usize;
+        let name = Text::decode(std::borrow::Cow::Borrowed(&data[offset..]))?;
+        Ok(User { id, name })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

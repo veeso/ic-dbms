@@ -1,6 +1,7 @@
 //! Re-exports all the most commonly used items from this crate.
 
-pub use ic_dbms_macros::Table;
+pub use ic_dbms_api::prelude::*;
+pub use ic_dbms_macros::{Encode, Table};
 
 pub use crate::dbms::IcDbmsDatabase;
 pub use crate::dbms::integrity::InsertIntegrityValidator;

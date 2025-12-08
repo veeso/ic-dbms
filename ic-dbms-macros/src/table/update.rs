@@ -49,7 +49,7 @@ fn generate_update_request_struct(metadata: &TableMetadata) -> TokenStream2 {
     quote::quote! {
         pub struct #update_request_ident {
             #(#fields)*
-            pub where_clause: Option<::ic_dbms_api::prelude::Filter>,
+            pub where_clause: Option<::ic_dbms_canister::prelude::Filter>,
         }
     }
 }
@@ -62,14 +62,14 @@ fn impl_update_record(struct_name: &Ident, metadata: &TableMetadata) -> TokenStr
     let into_values_impl = impl_update_values(metadata);
 
     quote::quote! {
-        impl ::ic_dbms_api::prelude::UpdateRecord for #update_request_ident {
+        impl ::ic_dbms_canister::prelude::UpdateRecord for #update_request_ident {
             type Record = #record_ident;
             type Schema = #struct_name;
 
             #from_values_impl
             #into_values_impl
 
-            fn where_clause(&self) -> Option<::ic_dbms_api::prelude::Filter> {
+            fn where_clause(&self) -> Option<::ic_dbms_canister::prelude::Filter> {
                 self.where_clause.clone()
             }
         }
@@ -150,9 +150,9 @@ fn impl_from_values(metadata: &TableMetadata) -> TokenStream2 {
             match_arms.push(quote::quote! {
                 #field_name_str => {
                     if let #value_type(v) = value {
-                        #field_name = Some(::ic_dbms_api::prelude::Nullable::Value(v.clone()));
-                    } else if let ::ic_dbms_api::prelude::Value::Null = value {
-                        #field_name = Some(::ic_dbms_api::prelude::Nullable::Null);
+                        #field_name = Some(::ic_dbms_canister::prelude::Nullable::Value(v.clone()));
+                    } else if let ::ic_dbms_canister::prelude::Value::Null = value {
+                        #field_name = Some(::ic_dbms_canister::prelude::Nullable::Null);
                     }
                 }
             })
@@ -177,7 +177,7 @@ fn impl_from_values(metadata: &TableMetadata) -> TokenStream2 {
 
     quote::quote! {
         #[allow(clippy::copy_clone)]
-        fn from_values(values: &[(::ic_dbms_api::prelude::ColumnDef, ::ic_dbms_api::prelude::Value)], where_clause: Option<::ic_dbms_api::prelude::Filter>) -> Self {
+        fn from_values(values: &[(::ic_dbms_canister::prelude::ColumnDef, ::ic_dbms_canister::prelude::Value)], where_clause: Option<::ic_dbms_canister::prelude::Filter>) -> Self {
             #(#field_initializers)*
 
             for (column, value) in values {
@@ -237,8 +237,8 @@ fn impl_update_values(metadata: &TableMetadata) -> TokenStream2 {
     }
 
     quote::quote! {
-        fn update_values(&self) -> Vec<(::ic_dbms_api::prelude::ColumnDef, ::ic_dbms_api::prelude::Value)> {
-            use ::ic_dbms_api::prelude::TableSchema as _;
+        fn update_values(&self) -> Vec<(::ic_dbms_canister::prelude::ColumnDef, ::ic_dbms_canister::prelude::Value)> {
+            use ::ic_dbms_canister::prelude::TableSchema as _;
 
             let mut updates = Vec::new();
 
