@@ -1,3 +1,6 @@
+use candid::CandidType;
+use serde::Serialize;
+
 use crate::dbms::query::QueryResult;
 use crate::dbms::table::ColumnDef;
 use crate::dbms::types::Text;
@@ -5,7 +8,7 @@ use crate::dbms::value::Value;
 use crate::prelude::QueryError;
 
 /// [`super::Query`] filters.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, CandidType, Serialize)]
 pub enum Filter {
     Eq(&'static str, Value),
     Ne(&'static str, Value),

@@ -6,6 +6,8 @@ mod filter;
 
 use std::marker::PhantomData;
 
+use candid::CandidType;
+use serde::Serialize;
 use thiserror::Error;
 
 pub use self::builder::QueryBuilder;
@@ -86,7 +88,7 @@ pub enum QueryError {
 }
 
 /// An enum representing the fields to select in a query.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, CandidType, Serialize)]
 pub enum Select {
     #[default]
     All,
@@ -94,14 +96,14 @@ pub enum Select {
 }
 
 /// An enum representing the direction of ordering in a query.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, CandidType, Serialize)]
 pub enum OrderDirection {
     Ascending,
     Descending,
 }
 
 /// A struct representing a query in the DBMS.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, CandidType, Serialize)]
 pub struct Query<T>
 where
     T: TableSchema,
