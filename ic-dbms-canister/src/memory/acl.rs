@@ -59,6 +59,10 @@ impl AccessControlList {
             self.allowed.swap_remove(pos);
             self.write()?;
         }
+        // trap if empty ACL
+        if self.allowed.is_empty() {
+            crate::trap!("ACL cannot be empty");
+        }
 
         Ok(())
     }
@@ -151,11 +155,22 @@ mod tests {
         let principal = Principal::from_text("aaaaa-aa").unwrap();
         assert!(!acl.is_allowed(&principal));
         acl.add_principal(principal).unwrap();
+        let other = Principal::from_text("ryjl3-tyaaa-aaaaa-aaaba-cai").unwrap();
+        acl.add_principal(other).unwrap();
         assert!(acl.is_allowed(&principal));
-        assert_eq!(acl.allowed.len(), 1); // only one principal added
-        acl.remove_principal(&principal).unwrap();
-        assert!(!acl.is_allowed(&principal));
-        assert_eq!(acl.allowed.len(), 0); // principal removed
+        assert!(acl.is_allowed(&other));
+        assert_eq!(acl.allowed.len(), 2);
+        acl.remove_principal(&other).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "ACL cannot be empty")]
+    fn test_remove_last_principal_traps() {
+        let mut acl = AccessControlList::default();
+        let principal = Principal::from_text("aaaaa-aa").unwrap();
+        acl.add_principal(principal).unwrap();
+        assert!(acl.is_allowed(&principal));
+        acl.remove_principal(&principal).unwrap(); // should trap
     }
 
     #[test]

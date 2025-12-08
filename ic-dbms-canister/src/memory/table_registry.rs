@@ -6,7 +6,7 @@ mod write_at;
 
 use self::free_segments_ledger::FreeSegmentsLedger;
 use self::page_ledger::PageLedger;
-pub use self::table_reader::{NextRecord, TableReader};
+pub use self::table_reader::TableReader;
 use self::write_at::WriteAt;
 use crate::memory::table_registry::raw_record::RawRecord;
 use crate::memory::{
@@ -29,6 +29,7 @@ pub struct TableRegistry {
     page_ledger: PageLedger,
 }
 
+#[allow(dead_code)]
 impl TableRegistry {
     /// Loads the table registry from memory
     pub fn load(table_pages: TableRegistryPage) -> MemoryResult<Self> {
@@ -176,6 +177,7 @@ mod tests {
 
     use super::*;
     use crate::memory::table_registry::free_segments_ledger::FreeSegment;
+    use crate::memory::table_registry::table_reader::NextRecord;
     use crate::tests::User;
 
     #[test]

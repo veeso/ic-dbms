@@ -8,7 +8,7 @@ use ic_dbms_api::prelude::{
 };
 
 pub use self::overlay::DatabaseOverlay;
-pub use self::session::{TRANSACTION_SESSION, TransactionSession};
+pub use self::session::TRANSACTION_SESSION;
 
 /// A transaction represents a sequence of operations performed as a single logical unit of work.
 #[derive(Debug, Default)]
