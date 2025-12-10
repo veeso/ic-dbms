@@ -2,7 +2,7 @@
 
 ![logo](../assets/images/cargo/logo-128.png)
 
-[![license-mit](https://img.shields.io/crates/l/ic-dbms-canister.svg)](https://opensource.org/licenses/MIT)
+[![license-mit](https://img.shields.io/crates/l/ic-dbms-client.svg)](https://opensource.org/licenses/MIT)
 [![repo-stars](https://img.shields.io/github/stars/veeso/ic-dbms?style=flat)](https://github.com/veeso/ic-dbms/stargazers)
 [![downloads](https://img.shields.io/crates/d/ic-dbms-client.svg)](https://crates.io/crates/ic-dbms-client)
 [![latest-version](https://img.shields.io/crates/v/ic-dbms-client.svg)](https://crates.io/crates/ic-dbms-client)
