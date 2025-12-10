@@ -1,5 +1,5 @@
 [package]
-name = "ic-dbms-api"
+name = "ic-dbms-client"
 version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }
@@ -8,25 +8,20 @@ license = { workspace = true }
 keywords = { workspace = true }
 categories = { workspace = true }
 repository = { workspace = true }
-documentation = "https://docs.rs/ic-dbms-api/"
-description = "Public API types for ic-dbms-canister. This crate provides shared types for interacting and implementing the ic-dbms-canister."
+documentation = "https://docs.rs/ic-dbms-client/"
+description = "ic-dbms-canister client library for interacting with the ic-dbms-canister."
 include = [
   "examples/**/*",
   "src/**/*",
   "../LICENSE",
-  "../README.md",
+  "README.md",
   "../CHANGELOG.md",
   "../assets/images/cargo/logo-128.png",
 ]
-readme = "../README.md"
+readme = "README.md"
 
 [dependencies]
 candid = { workspace = true }
-getrandom = { workspace = true }
 ic-cdk = { workspace = true }
-ic-dbms-macros = { version = "0.0", path = "../ic-dbms-macros" }
-like = { workspace = true }
-rust_decimal = { workspace = true }
-serde = { workspace = true }
+ic-dbms-api = { path = "../ic-dbms-api", version = "0.0" }
 thiserror = { workspace = true }
-uuid = { workspace = true }
