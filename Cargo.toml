@@ -24,6 +24,7 @@ getrandom = { version = "0.3", default-features = false }
 ic-cdk = "0.19"
 ic-cdk-macros = "0.19"
 like = "0.3"
+pocket-ic = "11"
 proc-macro2 = "1"
 quote = "1"
 rust_decimal = "1"

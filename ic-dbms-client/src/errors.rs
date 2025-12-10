@@ -10,4 +10,24 @@ pub enum IcDbmCanisterClientError {
     Candid(#[from] ic_cdk::call::CandidDecodeFailed),
     #[error("IC DBMS Canister error: {0}")]
     Canister(#[from] ic_dbms_api::prelude::IcDbmsError),
+    #[error("Pocket IC error: {0}")]
+    #[cfg(feature = "pocket-ic")]
+    PocketIc(#[from] PocketIcError),
+}
+
+/// Errors that can occur when using the pocket-ic client.
+#[cfg(feature = "pocket-ic")]
+#[derive(thiserror::Error, Debug)]
+pub enum PocketIcError {
+    #[error("Pocket IC call failed: {0}")]
+    Candid(#[from] candid::Error),
+    #[error("Pocket IC reject response: {0}")]
+    Reject(pocket_ic::RejectResponse),
+}
+
+#[cfg(feature = "pocket-ic")]
+impl From<pocket_ic::RejectResponse> for PocketIcError {
+    fn from(reject: pocket_ic::RejectResponse) -> Self {
+        PocketIcError::Reject(reject)
+    }
 }
