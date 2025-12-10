@@ -17,7 +17,7 @@ pub trait DatabaseSchema {
     fn referenced_tables(
         &self,
         table: &'static str,
-    ) -> &'static [(&'static str, &'static [&'static str])];
+    ) -> Vec<(&'static str, &'static [&'static str])>;
 
     /// Performs an insert operation for the given table name and record values.
     ///

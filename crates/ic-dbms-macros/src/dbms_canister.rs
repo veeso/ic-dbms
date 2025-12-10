@@ -2,7 +2,7 @@ mod metadata;
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::format_ident;
-use syn::DeriveInput;
+use syn::{DeriveInput, Ident};
 
 use self::metadata::TableMetadata;
 
@@ -10,12 +10,18 @@ pub fn dbms_canister(input: DeriveInput) -> syn::Result<TokenStream2> {
     let metadata = self::metadata::collect_canister_metadata(&input.attrs)?;
 
     let init_fn = impl_init(&metadata.tables);
+    let inspect_fn = impl_inspect();
     let acl_api = impl_acl_api();
+    let transaction_api = impl_transaction_api();
     let tables_api = impl_tables_api(&metadata.tables);
+    let database_schema_impl = impl_database_schema(&metadata.referenced_tables, &metadata.tables);
 
     Ok(quote::quote! {
+        #database_schema_impl
         #init_fn
+        #inspect_fn
         #acl_api
+        #transaction_api
         #tables_api
     })
 }
@@ -78,6 +84,15 @@ fn impl_acl_api() -> TokenStream2 {
     }
 }
 
+fn impl_inspect() -> TokenStream2 {
+    quote::quote! {
+        #[::ic_cdk::inspect_message]
+        fn inspect() {
+            ::ic_dbms_canister::api::inspect()
+        }
+    }
+}
+
 fn impl_tables_api(tables: &[TableMetadata]) -> TokenStream2 {
     let mut table_apis = vec![];
     for table in tables {
@@ -89,10 +104,31 @@ fn impl_tables_api(tables: &[TableMetadata]) -> TokenStream2 {
     }
 }
 
+fn impl_transaction_api() -> TokenStream2 {
+    quote::quote! {
+        #[::ic_cdk::update]
+        fn begin_transaction() -> ::ic_dbms_api::prelude::TransactionId {
+            ::ic_dbms_canister::api::begin_transaction()
+        }
+
+        #[::ic_cdk::update]
+        fn commit_transaction(transaction_id: ::ic_dbms_api::prelude::TransactionId) -> ::ic_dbms_api::prelude::IcDbmsResult<()> {
+            ::ic_dbms_canister::api::commit(transaction_id, CanisterDatabaseSchema)
+        }
+
+        #[::ic_cdk::update]
+        fn rollback_transaction(transaction_id: ::ic_dbms_api::prelude::TransactionId) -> ::ic_dbms_api::prelude::IcDbmsResult<()> {
+            ::ic_dbms_canister::api::rollback(transaction_id, CanisterDatabaseSchema)
+        }
+    }
+}
+
 fn impl_table_api(table: &TableMetadata) -> TokenStream2 {
     let table_name = &table.name;
     let entity = &table.table;
     let record = &table.record;
+    let insert = &table.insert;
+    let update = &table.update;
     let select_fn_name = format_ident!("select_{}", table_name);
     let insert_fn_name = format_ident!("insert_{}", table_name);
     let update_fn_name = format_ident!("update_{}", table_name);
@@ -101,7 +137,170 @@ fn impl_table_api(table: &TableMetadata) -> TokenStream2 {
     quote::quote! {
         #[::ic_cdk::query]
         fn #select_fn_name(query: ::ic_dbms_api::prelude::Query<#entity>, transaction_id: Option<::ic_dbms_api::prelude::TransactionId>) -> ::ic_dbms_api::prelude::IcDbmsResult<Vec<#record>> {
-            ::ic_dbms_canister::api::select(query, transaction_id, todo!())
+            ::ic_dbms_canister::api::select(query, transaction_id, CanisterDatabaseSchema)
+        }
+
+        #[::ic_cdk::update]
+        fn #insert_fn_name(record: #insert, transaction_id: Option<::ic_dbms_api::prelude::TransactionId>) -> ::ic_dbms_api::prelude::IcDbmsResult<()> {
+            ::ic_dbms_canister::api::insert::<#entity>(record, transaction_id, CanisterDatabaseSchema)
+        }
+
+        #[::ic_cdk::update]
+        fn #update_fn_name(patch: #update, transaction_id: Option<::ic_dbms_api::prelude::TransactionId>) -> ::ic_dbms_api::prelude::IcDbmsResult<u64> {
+            ::ic_dbms_canister::api::update::<#entity>(patch, transaction_id, CanisterDatabaseSchema)
+        }
+
+        #[::ic_cdk::update]
+        fn #delete_fn_name(delete_behavior: ::ic_dbms_api::prelude::DeleteBehavior, filter: Option<::ic_dbms_api::prelude::Filter>, transaction_id: Option<::ic_dbms_api::prelude::TransactionId>) -> ::ic_dbms_api::prelude::IcDbmsResult<u64> {
+            ::ic_dbms_canister::api::delete::<#entity>(delete_behavior, filter, transaction_id, CanisterDatabaseSchema)
+        }
+    }
+}
+
+fn impl_database_schema(referenced_tables: &Ident, tables: &[TableMetadata]) -> TokenStream2 {
+    let referenced_tables_fn = quote::quote! {
+        fn referenced_tables(
+            &self,
+            table: &'static str,
+        ) -> Vec<(&'static str, &'static [&'static str])> {
+            #referenced_tables
+                .iter()
+                .filter(|(t, _, _)| *t == table)
+                .map(|(_, reference, refs)| (*reference, *refs))
+                .collect::<Vec<(&'static str, &'static [&'static str])>>()
+        }
+    };
+
+    let mut insert_match_arms = vec![];
+    for table in tables {
+        let insert_name = &table.insert;
+        let table_name = &table.table;
+        insert_match_arms.push(quote::quote! {
+            name if name == #table_name::table_name() => {
+                let insert_request = #insert_name::from_values(record_values)?;
+                dbms.insert::<#table_name>(insert_request)
+            }
+        });
+    }
+
+    let insert_tables_fn = quote::quote! {
+        fn insert(
+            &self,
+            dbms: &::ic_dbms_canister::prelude::IcDbmsDatabase,
+            table_name: &'static str,
+            record_values: &[(::ic_dbms_api::prelude::ColumnDef, ::ic_dbms_api::prelude::Value)],
+        ) -> ::ic_dbms_api::prelude::IcDbmsResult<()> {
+            use ::ic_dbms_api::prelude::TableSchema as _;
+            use ::ic_dbms_api::prelude::InsertRecord as _;
+            use ::ic_dbms_api::prelude::Database as _;
+
+            match table_name {
+                #(#insert_match_arms)*
+                _ => Err(::ic_dbms_api::prelude::IcDbmsError::Query(
+                    ::ic_dbms_api::prelude::QueryError::TableNotFound(table_name.to_string()),
+                )),
+            }
+        }
+    };
+
+    let mut delete_tables_arms = vec![];
+    for table in tables {
+        let table_name = &table.table;
+        delete_tables_arms.push(quote::quote! {
+            name if name == #table_name::table_name() => {
+                dbms.delete::<#table_name>(delete_behavior, filter)
+            }
+        });
+    }
+
+    let delete_tables_fn = quote::quote! {
+        fn delete(
+            &self,
+            dbms: &::ic_dbms_canister::prelude::IcDbmsDatabase,
+            table_name: &'static str,
+            delete_behavior: ::ic_dbms_api::prelude::DeleteBehavior,
+            filter: Option<::ic_dbms_api::prelude::Filter>,
+        ) -> ::ic_dbms_api::prelude::IcDbmsResult<u64> {
+            use ::ic_dbms_api::prelude::TableSchema as _;
+            use ::ic_dbms_api::prelude::Database as _;
+            match table_name {
+                #(#delete_tables_arms)*
+                _ => Err(::ic_dbms_api::prelude::IcDbmsError::Query(
+                    ::ic_dbms_api::prelude::QueryError::TableNotFound(table_name.to_string()),
+                )),
+            }
+        }
+    };
+
+    let mut update_tables_arms = vec![];
+    for table in tables {
+        let table_name = &table.table;
+        let update_name = &table.update;
+        update_tables_arms.push(quote::quote! {
+            name if name == #table_name::table_name() => {
+                let update_request = #update_name::from_values(patch_values, filter);
+                dbms.update::<#table_name>(update_request)
+            }
+        });
+    }
+
+    let update_tables_fn = quote::quote! {
+        fn update(
+            &self,
+            dbms: &::ic_dbms_canister::prelude::IcDbmsDatabase,
+            table_name: &'static str,
+            patch_values: &[(::ic_dbms_api::prelude::ColumnDef, ::ic_dbms_api::prelude::Value)],
+            filter: Option<::ic_dbms_api::prelude::Filter>,
+        ) -> ::ic_dbms_api::prelude::IcDbmsResult<u64> {
+            use ::ic_dbms_api::prelude::TableSchema as _;
+            use ::ic_dbms_api::prelude::UpdateRecord as _;
+            use ::ic_dbms_api::prelude::Database as _;
+
+            match table_name {
+                #(#update_tables_arms)*
+                _ => Err(::ic_dbms_api::prelude::IcDbmsError::Query(
+                    ::ic_dbms_api::prelude::QueryError::TableNotFound(table_name.to_string()),
+                )),
+            }
+        }
+    };
+
+    let mut validate_insert_arms = vec![];
+    for table in tables {
+        let table_name = &table.table;
+        validate_insert_arms.push(quote::quote! {
+            name if name == #table_name::table_name() => {
+                ::ic_dbms_canister::prelude::InsertIntegrityValidator::<#table_name>::new(dbms).validate(record_values)
+            }
+        });
+    }
+
+    let validate_insert_fn = quote::quote! {
+        fn validate_insert(
+            &self,
+            dbms: &::ic_dbms_canister::prelude::IcDbmsDatabase,
+            table_name: &'static str,
+            record_values: &[(::ic_dbms_api::prelude::ColumnDef, ::ic_dbms_api::prelude::Value)],
+        ) -> ::ic_dbms_api::prelude::IcDbmsResult<()> {
+            use ::ic_dbms_api::prelude::TableSchema as _;
+            match table_name {
+                #(#validate_insert_arms)*
+                _ => Err(::ic_dbms_api::prelude::IcDbmsError::Query(
+                    ::ic_dbms_api::prelude::QueryError::TableNotFound(table_name.to_string()),
+                )),
+            }
+        }
+    };
+
+    quote::quote! {
+        pub struct CanisterDatabaseSchema;
+
+        impl ::ic_dbms_canister::prelude::DatabaseSchema for CanisterDatabaseSchema {
+            #referenced_tables_fn
+            #insert_tables_fn
+            #delete_tables_fn
+            #update_tables_fn
+            #validate_insert_fn
         }
     }
 }

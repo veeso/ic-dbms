@@ -47,7 +47,7 @@ fn generate_insert_request_struct(metadata: &TableMetadata) -> TokenStream2 {
     let insert_request_ident = &metadata.insert;
 
     quote::quote! {
-        #[derive(Clone, candid::CandidType, serde::Serialize)]
+        #[derive(Clone, candid::CandidType, serde::Serialize, serde::Deserialize)]
         pub struct #insert_request_ident {
             #(#fields)*
         }

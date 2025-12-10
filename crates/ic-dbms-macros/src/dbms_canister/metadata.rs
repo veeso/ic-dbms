@@ -2,9 +2,11 @@ use syn::Ident;
 
 const ATTRIBUTE_TABLES: &str = "tables";
 const ATTRIBUTE_ENTITIES: &str = "entities";
+const ATTRIBUTE_REFERENCED_TABLES: &str = "referenced_tables";
 
 pub struct CanisterMetadata {
     pub tables: Vec<TableMetadata>,
+    pub referenced_tables: Ident,
 }
 
 pub struct TableMetadata {
@@ -21,6 +23,7 @@ pub fn collect_canister_metadata(attrs: &[syn::Attribute]) -> syn::Result<Canist
 
     let mut names = vec![];
     let mut entities = vec![];
+    let mut referenced_tables = None;
 
     for attr in attrs {
         if attr.path().is_ident(ATTRIBUTE_ENTITIES) {
@@ -50,6 +53,19 @@ pub fn collect_canister_metadata(attrs: &[syn::Attribute]) -> syn::Result<Canist
                 Ok(())
             })
             .expect("invalid syntax in #[tables]");
+        } else if attr.path().is_ident(ATTRIBUTE_REFERENCED_TABLES) {
+            attr.parse_nested_meta(|meta| {
+                let ident = meta
+                    .path
+                    .get_ident()
+                    .cloned()
+                    .ok_or_else(|| meta.error("expected identifier"))?;
+
+                referenced_tables = Some(ident);
+
+                Ok(())
+            })
+            .expect("invalid syntax in #[referenced_tables]");
         }
     }
 
@@ -64,11 +80,21 @@ pub fn collect_canister_metadata(attrs: &[syn::Attribute]) -> syn::Result<Canist
         ));
     }
 
+    if referenced_tables.is_none() {
+        return Err(syn::Error::new(
+            proc_macro2::Span::call_site(),
+            "missing #[referenced_tables] attribute".to_string(),
+        ));
+    }
+
     for (ident, name) in entities.into_iter().zip(names.into_iter()) {
         tables.push(collect_table_metadata(ident, name)?);
     }
 
-    Ok(CanisterMetadata { tables })
+    Ok(CanisterMetadata {
+        tables,
+        referenced_tables: referenced_tables.unwrap(),
+    })
 }
 
 /// Collects metadata for a database table from its name.

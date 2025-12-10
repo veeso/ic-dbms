@@ -2,7 +2,7 @@
 
 use candid::CandidType;
 use ic_dbms_api::prelude::{Nullable, Table, Text, Uint32, Uint64};
-//use ic_dbms_canister::prelude::DbmsCanister;
+use ic_dbms_canister::prelude::DbmsCanister;
 use serde::Deserialize;
 
 #[derive(Clone, Table, CandidType, Deserialize)]
@@ -30,11 +30,16 @@ struct User {
 }
      */
 
-//#[derive(DbmsCanister)]
-//#[allow(dead_code)]
-//#[entities(User)]
-//#[tables(users)]
-//struct Canister;
+const REFERENCED_TABLES: &[(&str, &str, &[&str])] = &[
+    ("users", "users", &["father"]), // users references users (father)
+];
+
+#[derive(DbmsCanister)]
+#[allow(dead_code)]
+#[entities(User)]
+#[tables(users)]
+#[referenced_tables(REFERENCED_TABLES)]
+struct Canister;
 
 fn main() {
     println!("Hello, world!");

@@ -1,8 +1,8 @@
 use candid::CandidType;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// Defines the behavior for delete operations regarding foreign key constraints.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, CandidType, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, CandidType, Serialize, Deserialize)]
 pub enum DeleteBehavior {
     /// Delete only the records matching the filter.
     Restrict,
