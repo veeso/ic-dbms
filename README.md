@@ -58,8 +58,15 @@ struct Post {
 And once you have defined all your tables, you can instantiate the database canister:
 
 ```rust
-ic_dbms_canister!(User, Post);
+ic_dbms_canister::ic_dbms_canister!(
+    User => users,
+    Post => posts
+);
 ```
+
+The macro rule `ic_dbms_canister!` will generate all the necessary code to create a database canister with the defined tables.
+
+The syntax for `ic_dbms_canister!` is: `EntityName => table_name`.
 
 And you will have a fully functional database canister with all the CRUD operations implemented for you.
 
@@ -71,16 +78,7 @@ The canister API will be automatically generated based on the defined tables, wi
 
 ## Interacting with the Canister
 
-To interact with a `ic-dbms-canister`, you first of all need to import `ic-dbms-api` in your project:
-
-```toml
-[dependencies]
-ic-dbms-api = "0.1"
-```
-
-You can find the documentation for `ic-dbms-api` at <https://docs.rs/ic-dbms-api>.
-
-todo...
+See the [ic-dbms-client](./ic-dbms-client/README.md) for more information on how to interact with the canister.
 
 ## Features
 
