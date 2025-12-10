@@ -3,9 +3,7 @@ mod table;
 
 use std::collections::HashMap;
 
-use ic_dbms_api::prelude::{
-    ColumnDef, IcDbmsError, IcDbmsResult, QueryError, TableName, TableSchema, Value,
-};
+use ic_dbms_api::prelude::{ColumnDef, IcDbmsError, IcDbmsResult, QueryError, TableSchema, Value};
 
 pub use self::reader::DatabaseOverlayReader;
 use self::table::TableOverlay;
@@ -16,7 +14,7 @@ use crate::memory::TableReader;
 /// Basically it provides an overlay over the existing database state to track uncommitted changes.
 #[derive(Debug, Default, Clone)]
 pub struct DatabaseOverlay {
-    tables: HashMap<TableName, TableOverlay>,
+    tables: HashMap<String, TableOverlay>,
 }
 
 impl DatabaseOverlay {
@@ -29,7 +27,7 @@ impl DatabaseOverlay {
         T: TableSchema,
     {
         let table_name = T::table_name();
-        let table_overlay = self.tables.entry(table_name).or_default();
+        let table_overlay = self.tables.entry(table_name.to_string()).or_default();
         DatabaseOverlayReader::new(table_overlay, table_reader)
     }
 
@@ -41,7 +39,7 @@ impl DatabaseOverlay {
         let table_name = T::table_name();
         let pk = T::primary_key();
         let pk = Self::primary_key(pk, &values)?;
-        let overlay = self.tables.entry(table_name).or_default();
+        let overlay = self.tables.entry(table_name.to_string()).or_default();
         overlay.insert(pk, values);
 
         Ok(())
@@ -53,7 +51,7 @@ impl DatabaseOverlay {
         T: TableSchema,
     {
         let table_name = T::table_name();
-        let overlay = self.tables.entry(table_name).or_default();
+        let overlay = self.tables.entry(table_name.to_string()).or_default();
         overlay.update(pk, updates);
     }
 
@@ -63,7 +61,7 @@ impl DatabaseOverlay {
         T: TableSchema,
     {
         let table_name = T::table_name();
-        let overlay = self.tables.entry(table_name).or_default();
+        let overlay = self.tables.entry(table_name.to_string()).or_default();
         overlay.delete(pk);
     }
 
@@ -73,7 +71,9 @@ impl DatabaseOverlay {
                 return Ok(value.clone());
             }
         }
-        Err(IcDbmsError::Query(QueryError::MissingNonNullableField(pk)))
+        Err(IcDbmsError::Query(QueryError::MissingNonNullableField(
+            pk.to_string(),
+        )))
     }
 }
 
@@ -116,7 +116,7 @@ mod tests {
         // get entries for user table
         let table_overlay = overlay
             .tables
-            .get(&User::table_name())
+            .get(User::table_name())
             .expect("table not found");
         let record = table_overlay
             .operations
@@ -154,7 +154,7 @@ mod tests {
 
         let table_overlay = overlay
             .tables
-            .get(&User::table_name())
+            .get(User::table_name())
             .expect("table not found");
         let record = table_overlay
             .operations
@@ -175,7 +175,7 @@ mod tests {
 
         let table_overlay = overlay
             .tables
-            .get(&User::table_name())
+            .get(User::table_name())
             .expect("table not found");
 
         let record = table_overlay

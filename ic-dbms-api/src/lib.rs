@@ -24,6 +24,12 @@
 //!
 //! - [`ForeignFetcher`](crate::prelude::ForeignFetcher)
 //!
+//! ### Init
+//!
+//! - [`IcDbmsCanisterArgs`](crate::prelude::IcDbmsCanisterArgs)
+//! - [`IcDbmsCanisterInitArgs`](crate::prelude::IcDbmsCanisterInitArgs)
+//! - [`IcDbmsCanisterUpdateArgs`](crate::prelude::IcDbmsCanisterUpdateArgs)
+//!
 //! ### Query
 //!
 //! - [`DeleteBehavior`](crate::prelude::DeleteBehavior)
@@ -42,7 +48,6 @@
 //! - [`InsertRecord`](crate::prelude::InsertRecord)
 //! - [`TableColumns`](crate::prelude::TableColumns)
 //! - [`TableError`](crate::prelude::TableError)
-//! - [`TableName`](crate::prelude::TableName)
 //! - [`TableRecord`](crate::prelude::TableRecord)
 //! - [`UpdateRecord`](crate::prelude::UpdateRecord)
 //! - [`ValuesSource`](crate::prelude::ValuesSource)
@@ -98,6 +103,7 @@ extern crate self as ic_dbms_api;
 
 mod dbms;
 mod error;
+mod init;
 mod memory;
 pub mod prelude;
 #[cfg(test)]

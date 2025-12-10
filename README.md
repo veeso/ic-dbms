@@ -65,7 +65,9 @@ And you will have a fully functional database canister with all the CRUD operati
 
 The canister API will be automatically generated based on the defined tables, with the following methods:
 
-todo...
+```txt
+
+```
 
 ## Interacting with the Canister
 

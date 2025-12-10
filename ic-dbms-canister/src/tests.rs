@@ -67,7 +67,7 @@ impl DatabaseSchema for TestDatabaseSchema {
             dbms.insert::<Message>(insert_request)
         } else {
             Err(ic_dbms_api::prelude::IcDbmsError::Query(
-                QueryError::TableNotFound(table_name),
+                QueryError::TableNotFound(table_name.to_string()),
             ))
         }
     }
@@ -87,7 +87,7 @@ impl DatabaseSchema for TestDatabaseSchema {
             dbms.delete::<Message>(delete_behavior, filter)
         } else {
             Err(ic_dbms_api::prelude::IcDbmsError::Query(
-                QueryError::TableNotFound(table_name),
+                QueryError::TableNotFound(table_name.to_string()),
             ))
         }
     }
@@ -110,7 +110,7 @@ impl DatabaseSchema for TestDatabaseSchema {
             dbms.update::<Message>(update_request)
         } else {
             Err(ic_dbms_api::prelude::IcDbmsError::Query(
-                QueryError::TableNotFound(table_name),
+                QueryError::TableNotFound(table_name.to_string()),
             ))
         }
     }
@@ -129,7 +129,7 @@ impl DatabaseSchema for TestDatabaseSchema {
             InsertIntegrityValidator::<Message>::new(dbms).validate(record_values)
         } else {
             Err(ic_dbms_api::prelude::IcDbmsError::Query(
-                QueryError::TableNotFound(table_name),
+                QueryError::TableNotFound(table_name.to_string()),
             ))
         }
     }

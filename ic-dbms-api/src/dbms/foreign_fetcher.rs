@@ -22,7 +22,7 @@ pub trait ForeignFetcher: Default {
     fn fetch(
         &self,
         database: &impl Database,
-        table: &'static str,
+        table: &str,
         local_column: &'static str,
         pk_value: Value,
     ) -> IcDbmsResult<TableColumns>;
@@ -36,7 +36,7 @@ impl ForeignFetcher for NoForeignFetcher {
     fn fetch(
         &self,
         _database: &impl Database,
-        _table: &'static str,
+        _table: &str,
         _local_column: &'static str,
         _pk_value: Value,
     ) -> IcDbmsResult<TableColumns> {

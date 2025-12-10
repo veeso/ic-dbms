@@ -118,16 +118,16 @@ fn impl_insert_record(struct_name: &Ident, metadata: &TableMetadata) -> TokenStr
 ///    }
 ///    Ok(Self {
 ///        id: id.ok_or(IcDbmsError::Query(QueryError::MissingNonNullableField(
-///            "id",
+///            "id".to_string(),
 ///        )))?,
 ///        title: title.ok_or(IcDbmsError::Query(QueryError::MissingNonNullableField(
-///            "title",
+///            "title".to_string(),
 ///        )))?,
 ///        content: content.ok_or(IcDbmsError::Query(QueryError::MissingNonNullableField(
-///            "content",
+///            "content".to_string(),
 ///        )))?,
 ///        user_id: user_id.ok_or(IcDbmsError::Query(QueryError::MissingNonNullableField(
-///            "user_id",
+///            "user_id".to_string(),
 ///        )))?,
 ///    })
 ///}
@@ -182,7 +182,7 @@ fn impl_from_values(metadata: &TableMetadata) -> TokenStream2 {
         } else {
             struct_fields.push(quote::quote! {
                 #name: #name.ok_or(::ic_dbms_api::prelude::IcDbmsError::Query(::ic_dbms_api::prelude::QueryError::MissingNonNullableField(
-                    #name_str,
+                    #name_str.to_string(),
                 )))?,
             })
         }

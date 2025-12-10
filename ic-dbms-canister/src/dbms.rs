@@ -209,7 +209,7 @@ impl IcDbmsDatabase {
             queried_fields.extend(vec![(ValuesSource::This, record_values)]);
             return Ok(queried_fields);
         }
-        record_values.retain(|(col_def, _)| query.columns().contains(&col_def.name));
+        record_values.retain(|(col_def, _)| query.columns().contains(&col_def.name.to_string()));
         queried_fields.extend(vec![(ValuesSource::This, record_values)]);
         Ok(queried_fields)
     }
@@ -259,7 +259,7 @@ impl IcDbmsDatabase {
     fn sort_query_results(
         &self,
         results: &mut [Vec<(ValuesSource, Vec<(ColumnDef, Value)>)>],
-        column: &'static str,
+        column: &str,
         direction: OrderDirection,
     ) {
         results.sort_by(|a, b| {
@@ -350,7 +350,7 @@ impl Database for IcDbmsDatabase {
 
         // sort results if needed and map to records
         for (column, direction) in query.order_by {
-            self.sort_query_results(&mut results, column, direction);
+            self.sort_query_results(&mut results, &column, direction);
         }
 
         Ok(results.into_iter().map(T::Record::from_values).collect())
@@ -507,8 +507,8 @@ impl Database for IcDbmsDatabase {
                             // it's okay; we panic here because we are in an atomic closure
                             return Err(IcDbmsError::Query(
                                 QueryError::ForeignKeyConstraintViolation {
-                                    referencing_table: T::table_name(),
-                                    field: T::primary_key(),
+                                    referencing_table: T::table_name().to_string(),
+                                    field: T::primary_key().to_string(),
                                 },
                             ));
                         }
@@ -835,8 +835,8 @@ mod tests {
             .find(|(table_name, _)| {
                 *table_name
                     == ValuesSource::Foreign {
-                        table: User::table_name(),
-                        column: "user",
+                        table: User::table_name().to_string(),
+                        column: "user".to_string(),
                     }
             })
             .map(|(_, cols)| cols)
@@ -861,7 +861,7 @@ mod tests {
 
         let query: Query<Message> = Query::builder()
             .all()
-            .and_where(Filter::Eq("id", Value::Uint32(0.into())))
+            .and_where(Filter::Eq("id".to_string(), Value::Uint32(0.into())))
             .with("users")
             .build();
 

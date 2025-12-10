@@ -53,13 +53,13 @@ where
             .find(|(col_def, _)| col_def.name == pk_name)
             .map(|(_, value)| value.clone())
             .ok_or(IcDbmsError::Query(QueryError::MissingNonNullableField(
-                pk_name,
+                pk_name.to_string(),
             )))?;
 
         // select
         let query: Query<T> = Query::builder()
             .field(pk_name)
-            .and_where(Filter::Eq(pk_name, pk))
+            .and_where(Filter::Eq(pk_name.to_string(), pk))
             .build();
 
         let res = self.database.select(query)?;
@@ -93,8 +93,8 @@ where
         if res.is_empty() {
             Err(IcDbmsError::Query(
                 QueryError::ForeignKeyConstraintViolation {
-                    field: foreign_key.local_column,
-                    referencing_table: foreign_key.foreign_table,
+                    field: foreign_key.local_column.to_string(),
+                    referencing_table: foreign_key.foreign_table.to_string(),
                 },
             ))
         } else {
@@ -110,7 +110,7 @@ where
                 .any(|(col_def, _)| col_def.name == column.name)
             {
                 return Err(IcDbmsError::Query(QueryError::MissingNonNullableField(
-                    column.name,
+                    column.name.to_string(),
                 )));
             }
         }
@@ -190,9 +190,9 @@ mod tests {
         assert!(matches!(
             result,
             Err(IcDbmsError::Query(QueryError::BrokenForeignKeyReference {
-                table: "users",
+                table,
                 ..
-            }))
+            })) if table == User::table_name()
         ));
     }
 

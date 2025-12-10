@@ -35,7 +35,8 @@ where
     }
 
     /// Adds a field to select in the query.
-    pub fn field(mut self, field: &'static str) -> Self {
+    pub fn field(mut self, field: &str) -> Self {
+        let field = field.to_string();
         match &mut self.query.columns {
             crate::dbms::query::Select::All => {
                 self.query.columns = crate::dbms::query::Select::Columns(vec![field]);
@@ -66,7 +67,8 @@ where
     }
 
     /// Adds a relation to eagerly load with the main records.
-    pub fn with(mut self, table_relation: &'static str) -> Self {
+    pub fn with(mut self, table_relation: &str) -> Self {
+        let table_relation = table_relation.to_string();
         if !self.query.eager_relations.contains(&table_relation) {
             self.query.eager_relations.push(table_relation);
         }
@@ -74,16 +76,18 @@ where
     }
 
     /// Adds an ascending order by clause for the specified field.
-    pub fn order_by_asc(mut self, field: &'static str) -> Self {
-        self.query.order_by.push((field, OrderDirection::Ascending));
+    pub fn order_by_asc(mut self, field: &str) -> Self {
+        self.query
+            .order_by
+            .push((field.to_string(), OrderDirection::Ascending));
         self
     }
 
     /// Adds a descending order by clause for the specified field.
-    pub fn order_by_desc(mut self, field: &'static str) -> Self {
+    pub fn order_by_desc(mut self, field: &str) -> Self {
         self.query
             .order_by
-            .push((field, OrderDirection::Descending));
+            .push((field.to_string(), OrderDirection::Descending));
         self
     }
 
@@ -190,8 +194,8 @@ mod tests {
         assert_eq!(
             query.order_by,
             vec![
-                ("name", OrderDirection::Ascending),
-                ("created_at", OrderDirection::Descending)
+                ("name".to_string(), OrderDirection::Ascending),
+                ("created_at".to_string(), OrderDirection::Descending)
             ]
         );
     }
@@ -214,8 +218,8 @@ mod tests {
 
         let filter = query.filter.expect("should have filter");
         if let Filter::Or(left, right) = filter {
-            assert!(matches!(*left, Filter::Eq("id", Value::Uint32(_))));
-            assert!(matches!(*right, Filter::Like("name", _)));
+            assert!(matches!(*left, Filter::Eq(id, Value::Uint32(_)) if id == "id"));
+            assert!(matches!(*right, Filter::Like(name, _) if name == "name"));
         } else {
             panic!("Expected OR filter at the top level");
         }

@@ -258,7 +258,7 @@ mod tests {
         let patch = crate::tests::UserUpdateRequest {
             id: None,
             name: Some("Robert".to_string().into()),
-            where_clause: Some(Filter::Eq("id", Uint32::from(1u32).into())),
+            where_clause: Some(Filter::Eq("id".to_string(), Uint32::from(1u32).into())),
         };
         let res = update::<crate::tests::User>(patch, None, crate::tests::TestDatabaseSchema);
         assert!(res.is_ok());
@@ -271,7 +271,7 @@ mod tests {
         load_fixtures();
 
         // delete record
-        let filter = Some(Filter::Eq("id", Uint32::from(2u32).into()));
+        let filter = Some(Filter::Eq("id".to_string(), Uint32::from(2u32).into()));
         let res = delete::<crate::tests::User>(
             DeleteBehavior::Cascade,
             filter,

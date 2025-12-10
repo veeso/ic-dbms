@@ -1,18 +1,20 @@
 use std::array::TryFromSliceError;
 
+use candid::CandidType;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::memory::{MSize, Page, PageOffset};
 
 /// An enum representing possible memory-related errors.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, CandidType, Deserialize, Serialize)]
 pub enum MemoryError {
     /// Error when the data to be written is too large for the page.
     #[error("Data too large for page (page size: {page_size}, requested: {requested})")]
     DataTooLarge { page_size: u64, requested: u64 },
     /// Error when failing to decode data from bytes.
     #[error("Failed to decode data from bytes: {0}")]
-    DecodeError(#[from] DecodeError),
+    DecodeError(DecodeError),
     /// Error when failing to allocate a new page.
     #[error("Failed to allocate a new page")]
     FailedToAllocatePage,
@@ -31,7 +33,13 @@ pub enum MemoryError {
     },
     /// Error when failing to grow stable memory.
     #[error("Failed to grow stable memory: {0}")]
-    StableMemoryError(#[from] ic_cdk::stable::StableMemoryError),
+    StableMemoryError(String),
+}
+
+impl From<ic_cdk::stable::StableMemoryError> for MemoryError {
+    fn from(err: ic_cdk::stable::StableMemoryError) -> Self {
+        MemoryError::StableMemoryError(err.to_string())
+    }
 }
 
 impl From<TryFromSliceError> for MemoryError {
@@ -59,31 +67,49 @@ impl From<uuid::Error> for MemoryError {
 }
 
 /// An enum representing possible decoding errors.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, CandidType, Deserialize, Serialize)]
 pub enum DecodeError {
     /// Error when the raw record header is invalid.
     #[error("Bad raw record header")]
     BadRawRecordHeader,
     /// Principal error
     #[error("Principal error: {0}")]
-    PrincipalError(#[from] candid::types::principal::PrincipalError),
+    PrincipalError(String),
     /// Error when failing to convert from slice.
     #[error("Failed to convert from slice: {0}")]
-    TryFromSliceError(#[from] TryFromSliceError),
+    TryFromSliceError(String),
     /// Error when failing to convert from UTF-8 string.
     #[error("Failed to convert from UTF-8 string: {0}")]
-    Utf8Error(#[from] std::string::FromUtf8Error),
+    Utf8Error(String),
     /// Error when the data is too short to decode.
     #[error("Data too short to decode")]
     TooShort,
     /// UUID error
     #[error("UUID error: {0}")]
-    UuidError(uuid::Error),
+    UuidError(String),
 }
 
 impl From<uuid::Error> for DecodeError {
     fn from(err: uuid::Error) -> Self {
-        DecodeError::UuidError(err)
+        DecodeError::UuidError(err.to_string())
+    }
+}
+
+impl From<std::string::FromUtf8Error> for DecodeError {
+    fn from(err: std::string::FromUtf8Error) -> Self {
+        DecodeError::Utf8Error(err.to_string())
+    }
+}
+
+impl From<TryFromSliceError> for DecodeError {
+    fn from(err: TryFromSliceError) -> Self {
+        DecodeError::TryFromSliceError(err.to_string())
+    }
+}
+
+impl From<candid::types::principal::PrincipalError> for DecodeError {
+    fn from(err: candid::types::principal::PrincipalError) -> Self {
+        DecodeError::PrincipalError(err.to_string())
     }
 }
 

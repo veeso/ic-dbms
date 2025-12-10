@@ -30,8 +30,8 @@ mod tests {
 
         let values = vec![(
             ValuesSource::Foreign {
-                table: "users",
-                column: "id",
+                table: "users".to_string(),
+                column: "id".to_string(),
             },
             vec![(col, ic_dbms_api::prelude::Value::Uint64(42.into()))],
         )];

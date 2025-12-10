@@ -12,6 +12,7 @@ pub use crate::dbms::transaction::{TransactionError, TransactionId};
 pub use crate::dbms::types::*;
 pub use crate::dbms::value::Value;
 pub use crate::error::{IcDbmsError, IcDbmsResult};
+pub use crate::init::{IcDbmsCanisterArgs, IcDbmsCanisterInitArgs, IcDbmsCanisterUpgradeArgs};
 pub use crate::memory::{
     DataSize, DecodeError, Encode, MSize, MemoryError, MemoryResult, Page, PageOffset,
 };

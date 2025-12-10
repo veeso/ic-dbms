@@ -1,7 +1,9 @@
+use candid::CandidType;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// IcDbms Error type
-#[derive(Debug, Error)]
+#[derive(Debug, Error, CandidType, Serialize, Deserialize)]
 pub enum IcDbmsError {
     #[error("Memory error: {0}")]
     Memory(#[from] crate::memory::MemoryError),
