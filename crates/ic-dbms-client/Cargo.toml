@@ -25,3 +25,11 @@ candid = { workspace = true }
 ic-cdk = { workspace = true }
 ic-dbms-api = { path = "../ic-dbms-api", version = "0.0" }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+serde = { workspace = true }
+tokio = { version = "1.0", features = ["full"] }
+
+[[example]]
+name = "client"
+path = "examples/client.rs"

@@ -79,6 +79,12 @@ impl From<String> for Text {
     }
 }
 
+impl From<&str> for Text {
+    fn from(s: &str) -> Self {
+        Text(s.to_string())
+    }
+}
+
 impl DataType for Text {}
 
 #[cfg(test)]
