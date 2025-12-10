@@ -52,6 +52,16 @@
 //!
 //! ## Interact with an IC DBMS Canister
 //!
+//! ## Client
+//!
+//! All the client methods can be accessed  through the [`Client`](crate::prelude::Client) trait.
+//!
+//! The crate provides an implementation of the client for IC DBMS Canister, called [`IcDbmsCanisterClient`](crate::prelude::IcDbmsCanisterClient),
+//! which can be used on ic canisters.
+//!
+//! If you want to use the client in integration tests with `pocket-ic`, you can use the
+//! [`IcDbmsPocketIcClient`](crate::prelude::IcDbmsPocketIcClient) implementation, but first you need to enable the `pocket-ic` feature.
+//!
 //! ## Usage
 //!
 //! ### Add the dependencies

@@ -7,5 +7,9 @@ pub use ic_dbms_api::prelude::{
     UpdateRecord, Uuid, Value, ValuesSource,
 };
 
+#[cfg(feature = "pocket-ic")]
+pub use crate::client::IcDbmsPocketIcClient;
 pub use crate::client::{Client, IcDbmsCanisterClient};
+#[cfg(feature = "pocket-ic")]
+pub use crate::errors::PocketIcError;
 pub use crate::errors::{IcDbmCanisterClientError, IcDbmsCanisterClientResult};

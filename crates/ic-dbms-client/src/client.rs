@@ -1,4 +1,6 @@
 mod ic;
+#[cfg(feature = "pocket-ic")]
+mod pocket_ic;
 mod types;
 
 use candid::Principal;
@@ -7,6 +9,8 @@ use ic_dbms_api::prelude::{
 };
 
 pub use self::ic::IcDbmsCanisterClient;
+#[cfg(feature = "pocket-ic")]
+pub use self::pocket_ic::IcDbmsPocketIcClient;
 use crate::prelude::IcDbmsCanisterClientResult;
 
 /// Trait for implementing a ic-dbms-client.

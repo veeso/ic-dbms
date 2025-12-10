@@ -24,11 +24,16 @@ readme = "README.md"
 candid = { workspace = true }
 ic-cdk = { workspace = true }
 ic-dbms-api = { path = "../ic-dbms-api", version = "0.0" }
+pocket-ic = { workspace = true, optional = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
 serde = { workspace = true }
 tokio = { version = "1.0", features = ["full"] }
+
+[features]
+default = []
+pocket-ic = ["dep:pocket-ic"]
 
 [[example]]
 name = "client"
