@@ -19,6 +19,7 @@ extern crate self as ic_dbms_canister;
 
 pub mod api;
 mod dbms;
+mod macros;
 mod memory;
 pub mod prelude;
 #[cfg(test)]
