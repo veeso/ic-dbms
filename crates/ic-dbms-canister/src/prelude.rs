@@ -8,3 +8,4 @@ pub use crate::dbms::integrity::InsertIntegrityValidator;
 pub use crate::dbms::schema::DatabaseSchema;
 pub use crate::dbms::transaction::TRANSACTION_SESSION;
 pub use crate::memory::{ACL, SCHEMA_REGISTRY, SchemaRegistry};
+pub use crate::utils::get_referenced_tables;

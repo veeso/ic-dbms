@@ -534,7 +534,7 @@ pub fn derive_table(input: TokenStream) -> TokenStream {
 
 /// Automatically implements the api for the ic-dbms-canister with all the required methods to interact with the ACL and
 /// the defined tables.
-#[proc_macro_derive(DbmsCanister, attributes(tables, entities, referenced_tables))]
+#[proc_macro_derive(DbmsCanister, attributes(tables, entities))]
 pub fn derive_dbms_canister(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     self::dbms_canister::dbms_canister(input)

@@ -2,7 +2,7 @@ mod metadata;
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::format_ident;
-use syn::{DeriveInput, Ident};
+use syn::DeriveInput;
 
 use self::metadata::TableMetadata;
 
@@ -14,7 +14,7 @@ pub fn dbms_canister(input: DeriveInput) -> syn::Result<TokenStream2> {
     let acl_api = impl_acl_api();
     let transaction_api = impl_transaction_api();
     let tables_api = impl_tables_api(&metadata.tables);
-    let database_schema_impl = impl_database_schema(&metadata.referenced_tables, &metadata.tables);
+    let database_schema_impl = impl_database_schema(&metadata.tables);
 
     Ok(quote::quote! {
         #database_schema_impl
@@ -157,17 +157,28 @@ fn impl_table_api(table: &TableMetadata) -> TokenStream2 {
     }
 }
 
-fn impl_database_schema(referenced_tables: &Ident, tables: &[TableMetadata]) -> TokenStream2 {
+fn impl_database_schema(tables: &[TableMetadata]) -> TokenStream2 {
+    let mut tables_for_ref = vec![];
+    for table in tables {
+        let entity = &table.table;
+        tables_for_ref.push(quote::quote! {
+            (
+                #entity::table_name(),
+                #entity::columns(),
+            )
+        });
+    }
+
     let referenced_tables_fn = quote::quote! {
         fn referenced_tables(
             &self,
             table: &'static str,
-        ) -> Vec<(&'static str, &'static [&'static str])> {
-            #referenced_tables
-                .iter()
-                .filter(|(t, _, _)| *t == table)
-                .map(|(_, reference, refs)| (*reference, *refs))
-                .collect::<Vec<(&'static str, &'static [&'static str])>>()
+        ) -> Vec<(&'static str, Vec<&'static str>)> {
+            use ::ic_dbms_api::prelude::TableSchema as _;
+            let tables = &[
+                #(#tables_for_ref),*
+            ];
+            ::ic_dbms_canister::prelude::get_referenced_tables(table, tables)
         }
     };
 

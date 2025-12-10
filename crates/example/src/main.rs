@@ -30,15 +30,10 @@ struct User {
 }
      */
 
-const REFERENCED_TABLES: &[(&str, &str, &[&str])] = &[
-    ("users", "users", &["father"]), // users references users (father)
-];
-
 #[derive(DbmsCanister)]
 #[allow(dead_code)]
 #[entities(User)]
 #[tables(users)]
-#[referenced_tables(REFERENCED_TABLES)]
 struct Canister;
 
 fn main() {
