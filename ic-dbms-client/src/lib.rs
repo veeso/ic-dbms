@@ -64,12 +64,5 @@
 )]
 
 mod client;
+mod errors;
 pub mod prelude;
-
-pub type IcDbmsCanisterClientResult<T> = Result<T, IcDbmCanisterClientError>;
-
-#[derive(thiserror::Error, Debug)]
-pub enum IcDbmCanisterClientError {
-    #[error("IC DBMS Canister error: {0}")]
-    Canister(#[from] ic_dbms_api::prelude::IcDbmsError),
-}

@@ -13,6 +13,7 @@ build_library_wasm32:
   cargo build --target wasm32-unknown-unknown --release --package "ic-dbms-macros"
   cargo build --target wasm32-unknown-unknown --release --package "ic-dbms-api"
   cargo build --target wasm32-unknown-unknown --release --package "ic-dbms-canister"
+  cargo build --target wasm32-unknown-unknown --release --package "ic-dbms-client"
 
 # Build all
 [group('build')]

@@ -1,0 +1,13 @@
+/// Result type for IC DBMS Canister client operations.
+pub type IcDbmsCanisterClientResult<T> = Result<T, IcDbmCanisterClientError>;
+
+/// Errors that can occur when interacting with an IC DBMS Canister.
+#[derive(thiserror::Error, Debug)]
+pub enum IcDbmCanisterClientError {
+    #[error("IC Call failed: {0}")]
+    Call(#[from] ic_cdk::call::CallFailed),
+    #[error("Candid decode failed: {0}")]
+    Candid(#[from] ic_cdk::call::CandidDecodeFailed),
+    #[error("IC DBMS Canister error: {0}")]
+    Canister(#[from] ic_dbms_api::prelude::IcDbmsError),
+}

@@ -133,10 +133,12 @@ impl Encode for SchemaRegistry {
 #[cfg(test)]
 mod tests {
 
+    use candid::CandidType;
     use ic_dbms_api::prelude::{
         ColumnDef, IcDbmsResult, InsertRecord, NoForeignFetcher, TableColumns, TableRecord,
         UpdateRecord,
     };
+    use serde::{Deserialize, Serialize};
 
     use super::*;
     use crate::tests::User;
@@ -206,7 +208,7 @@ mod tests {
         assert_eq!(registry.tables.len(), 1);
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, CandidType)]
     struct AnotherTable;
 
     impl Encode for AnotherTable {
@@ -228,6 +230,7 @@ mod tests {
         }
     }
 
+    #[derive(Clone, CandidType, Deserialize)]
     struct AnotherTableRecord;
 
     impl TableRecord for AnotherTableRecord {
@@ -242,7 +245,7 @@ mod tests {
         }
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, CandidType, Serialize)]
     struct AnotherTableInsert;
 
     impl InsertRecord for AnotherTableInsert {
@@ -262,6 +265,7 @@ mod tests {
         }
     }
 
+    #[derive(CandidType, Serialize)]
     struct AnotherTableUpdate;
 
     impl UpdateRecord for AnotherTableUpdate {

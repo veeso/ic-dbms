@@ -22,7 +22,7 @@ IC DBMS Canister is an Internet Computer framework which provides an easy way to
 The user can just define the data entity by defining the tables
 
 ```rust
-#[derive(Table)]
+#[derive(Table, CandidType, Clone)]
 #[table = "users"]
 struct User {
     #[primary_key]
@@ -40,7 +40,7 @@ todo...
 You can also define relationships between tables:
 
 ```rust
-#[derive(Table)]
+#[derive(Table, CandidType, Clone)]
 #[table = "posts"]
 struct Post {
     #[primary_key]
@@ -51,6 +51,9 @@ struct Post {
     author: Uint32,
 }
 ```
+
+> [!NOTE]
+> Mind that deriving `CandidType` and `Clone` is required for the tables to be used in the canister.
 
 And once you have defined all your tables, you can instantiate the database canister:
 
@@ -88,6 +91,7 @@ todo...
 - [ ] JOIN operations between tables (coming soon)
 - [ ] Migrations to update the database schema without losing data (coming soon)
 - [ ] Indexes on columns to optimize queries (coming soon)
+- [ ] Custom data types (coming soon)
 
 ## Documentation
 

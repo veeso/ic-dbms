@@ -1,3 +1,5 @@
+use candid::CandidType;
+
 use crate::dbms::table::{ColumnDef, TableSchema};
 use crate::dbms::value::Value;
 use crate::prelude::{Filter, IcDbmsResult};
@@ -18,7 +20,7 @@ pub enum ValuesSource {
 }
 
 /// This trait represents a record returned by a [`crate::dbms::query::Query`] for a table.
-pub trait TableRecord {
+pub trait TableRecord: CandidType + for<'de> candid::Deserialize<'de> {
     /// The table schema associated with this record.
     type Schema: TableSchema<Record = Self>;
 
@@ -30,7 +32,7 @@ pub trait TableRecord {
 }
 
 /// This trait represents a record for inserting into a table.
-pub trait InsertRecord: Sized + Clone {
+pub trait InsertRecord: Sized + Clone + CandidType {
     /// The [`TableRecord`] type associated with this table schema.
     type Record: TableRecord;
     /// The table schema associated with this record.
@@ -47,7 +49,7 @@ pub trait InsertRecord: Sized + Clone {
 }
 
 /// This trait represents a record for updating a table.
-pub trait UpdateRecord: Sized {
+pub trait UpdateRecord: Sized + CandidType {
     /// The [`TableRecord`] type associated with this table schema.
     type Record: TableRecord;
     /// The table schema associated with this record.
