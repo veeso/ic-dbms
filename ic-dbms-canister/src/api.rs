@@ -1,6 +1,6 @@
 //! API generic interface to be used by different DBMS canisters through the `ic_dbms_canister!` macro.
 
-pub mod inspect;
+mod inspect;
 
 use candid::Principal;
 use ic_dbms_api::prelude::{
@@ -8,6 +8,7 @@ use ic_dbms_api::prelude::{
     TableSchema, TransactionId, UpdateRecord,
 };
 
+pub use self::inspect::inspect;
 use crate::dbms::IcDbmsDatabase;
 use crate::memory::ACL;
 use crate::prelude::{DatabaseSchema, TRANSACTION_SESSION};

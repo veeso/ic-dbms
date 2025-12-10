@@ -14,11 +14,11 @@ include = [
   "examples/**/*",
   "src/**/*",
   "../LICENSE",
-  "../README.md",
+  "README.md",
   "../CHANGELOG.md",
   "../assets/images/cargo/logo-128.png",
 ]
-readme = "../README.md"
+readme = "README.md"
 
 [lib]
 name = "ic_dbms_macros"

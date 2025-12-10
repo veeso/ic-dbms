@@ -11,6 +11,7 @@
 //!
 //! - `Encode`: Automatically implements the `Encode` trait for structs.
 //! - `Table`: Automatically implements the `TableSchema` trait and associated types.
+//! - `DbmsCanister`: Automatically implements the API for the ic-dbms-canister.
 //!
 
 #![doc(html_playground_url = "https://play.rust-lang.org")]
@@ -533,9 +534,7 @@ pub fn derive_table(input: TokenStream) -> TokenStream {
 
 /// Automatically implements the api for the ic-dbms-canister with all the required methods to interact with the ACL and
 /// the defined tables.
-///
-/// It also implements the `DatabaseSchema` trait for the canister struct.
-#[proc_macro_derive(DbmsCanister, attributes(tables, entities))]
+#[proc_macro_derive(DbmsCanister, attributes(tables, entities, referenced_tables))]
 pub fn derive_dbms_canister(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     self::dbms_canister::dbms_canister(input)

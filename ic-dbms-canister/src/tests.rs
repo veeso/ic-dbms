@@ -38,15 +38,15 @@ impl DatabaseSchema for TestDatabaseSchema {
     fn referenced_tables(
         &self,
         table: &'static str,
-    ) -> &'static [(&'static str, &'static [&'static str])] {
+    ) -> Vec<(&'static str, &'static [&'static str])> {
         if table == User::table_name() {
-            &[("posts", &["user"]), ("messages", &["sender", "recipient"])]
+            vec![("posts", &["user"]), ("messages", &["sender", "recipient"])]
         } else if table == Post::table_name() {
-            &[]
+            vec![]
         } else if table == Message::table_name() {
-            &[]
+            vec![]
         } else {
-            &[]
+            vec![]
         }
     }
 
