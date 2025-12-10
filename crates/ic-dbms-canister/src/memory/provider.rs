@@ -42,7 +42,8 @@ impl MemoryProvider for IcMemoryProvider {
     const PAGE_SIZE: u64 = ic_cdk::stable::WASM_PAGE_SIZE_IN_BYTES;
 
     fn grow(&mut self, new_pages: u64) -> MemoryResult<u64> {
-        ic_cdk::stable::stable_grow(new_pages).map_err(MemoryError::StableMemoryError)
+        ic_cdk::stable::stable_grow(new_pages)
+            .map_err(|e| MemoryError::StableMemoryError(e.to_string()))
     }
 
     fn size(&self) -> u64 {
