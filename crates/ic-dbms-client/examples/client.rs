@@ -30,13 +30,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     client
         .insert::<User>(User::table_name(), alice, None)
-        .await?;
+        .await??;
 
     // select users
     let query: Query<User> = Query::builder().all().build();
     let users = client
         .select::<User>(User::table_name(), query, None)
-        .await?;
+        .await??;
 
     for user in users {
         println!(

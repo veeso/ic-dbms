@@ -100,7 +100,6 @@ use ic_dbms_client::prelude::*;
 - [`InsertRecord`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.InsertRecord.html)
 - [`TableColumns`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.TableColumns.html)
 - [`TableError`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/enum.TableError.html)
-- [`TableName`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.TableName.html)
 - [`TableRecord`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.TableRecord.html)
 - [`UpdateRecord`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.UpdateRecord.html)
 - [`ValuesSource`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.ValuesSource.html)

@@ -1,10 +1,12 @@
 use candid::CandidType;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::types;
 
 /// A generic wrapper enum to hold any DBMS value.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, CandidType, Serialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, CandidType, Serialize, Deserialize,
+)]
 pub enum Value {
     Blob(types::Blob),
     Boolean(types::Boolean),

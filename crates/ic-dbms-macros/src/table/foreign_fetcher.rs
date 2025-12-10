@@ -33,14 +33,14 @@ fn impl_fetch(metadata: &TableMetadata) -> TokenStream2 {
                     ::ic_dbms_api::prelude::Query::<#entity_to_query>::builder()
                         .all()
                         .limit(1)
-                        .and_where(::ic_dbms_api::prelude::Filter::Eq(#pk_call, pk_value.clone()))
+                        .and_where(::ic_dbms_api::prelude::Filter::Eq(#pk_call.to_string(), pk_value.clone()))
                         .build(),
                 )?;
                 let record = match results.pop() {
                     Some(record) => record,
                     None => {
                         return Err(::ic_dbms_api::prelude::IcDbmsError::Query(::ic_dbms_api::prelude::QueryError::BrokenForeignKeyReference {
-                            table: #table_name,
+                            table: #table_name.to_string(),
                             key: pk_value,
                         }));
                     }
@@ -48,8 +48,8 @@ fn impl_fetch(metadata: &TableMetadata) -> TokenStream2 {
                 let values = record.to_values();
                 Ok(vec![(
                     ::ic_dbms_api::prelude::ValuesSource::Foreign {
-                        table,
-                        column: local_column,
+                        table: #table_name.to_string(),
+                        column: local_column.to_string(),
                     },
                     values,
                 )])
@@ -63,7 +63,7 @@ fn impl_fetch(metadata: &TableMetadata) -> TokenStream2 {
         fn fetch(
             &self,
             database: &impl ::ic_dbms_api::prelude::Database,
-            table: &'static str,
+            table: &str,
             local_column: &'static str,
             pk_value: ::ic_dbms_api::prelude::Value,
         ) -> ic_dbms_api::prelude::IcDbmsResult<::ic_dbms_api::prelude::TableColumns> {

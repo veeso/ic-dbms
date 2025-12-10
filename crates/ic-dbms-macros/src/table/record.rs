@@ -165,8 +165,8 @@ fn impl_from_values(metadata: &TableMetadata) -> TokenStream2 {
             let has_fk_values = values.iter().any(|(source, _)| {
                 *source ==
                     ::ic_dbms_api::prelude::ValuesSource::Foreign {
-                        table: #table_name,
-                        column: #local_column,
+                        table: #table_name.to_string(),
+                        column: #local_column.to_string(),
                     }
             });
 

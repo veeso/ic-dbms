@@ -10,6 +10,7 @@
 //! ## Provided Derive Macros
 //!
 //! - `Encode`: Automatically implements the `Encode` trait for structs.
+//! - `Table`: Automatically implements the `TableSchema` trait and associated types.
 //!
 
 #![doc(html_playground_url = "https://play.rust-lang.org")]
@@ -23,6 +24,7 @@
 use proc_macro::TokenStream;
 use syn::{DeriveInput, parse_macro_input};
 
+mod dbms_canister;
 mod encode;
 mod table;
 mod utils;
@@ -348,16 +350,16 @@ pub fn derive_encode(input: TokenStream) -> TokenStream {
 ///
 ///             Ok(Self {
 ///                 id: id.ok_or(IcDbmsError::Query(QueryError::MissingNonNullableField(
-///                     "id",
+///                     "id".to_string(),
 ///                 )))?,
 ///                 title: title.ok_or(IcDbmsError::Query(QueryError::MissingNonNullableField(
-///                     "title",
+///                     "title".to_string(),
 ///                 )))?,
 ///                 content: content.ok_or(IcDbmsError::Query(QueryError::MissingNonNullableField(
-///                     "content",
+///                     "content".to_string(),
 ///                 )))?,
 ///                 user_id: user_id.ok_or(IcDbmsError::Query(QueryError::MissingNonNullableField(
-///                     "user_id",
+///                     "user_id".to_string(),
 ///                 )))?,
 ///             })
 ///         }
@@ -526,5 +528,17 @@ pub fn derive_table(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     self::table::table(input)
         .expect("failed to derive `Table`")
+        .into()
+}
+
+/// Automatically implements the api for the ic-dbms-canister with all the required methods to interact with the ACL and
+/// the defined tables.
+///
+/// It also implements the `DatabaseSchema` trait for the canister struct.
+#[proc_macro_derive(DbmsCanister, attributes(tables, entities))]
+pub fn derive_dbms_canister(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    self::dbms_canister::dbms_canister(input)
+        .expect("failed to derive `DbmsCanister`")
         .into()
 }

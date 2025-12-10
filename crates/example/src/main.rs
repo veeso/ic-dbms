@@ -2,6 +2,7 @@
 
 use candid::CandidType;
 use ic_dbms_api::prelude::{Nullable, Table, Text, Uint32, Uint64};
+//use ic_dbms_canister::prelude::DbmsCanister;
 use serde::Deserialize;
 
 #[derive(Clone, Table, CandidType, Deserialize)]
@@ -28,6 +29,12 @@ struct User {
     father: Uint64,
 }
      */
+
+//#[derive(DbmsCanister)]
+//#[allow(dead_code)]
+//#[entities(User)]
+//#[tables(users)]
+//struct Canister;
 
 fn main() {
     println!("Hello, world!");

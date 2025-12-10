@@ -5,7 +5,8 @@ mod types;
 
 use candid::Principal;
 use ic_dbms_api::prelude::{
-    DeleteBehavior, Filter, InsertRecord, Query, TableSchema, TransactionId, UpdateRecord,
+    DeleteBehavior, Filter, IcDbmsResult, InsertRecord, Query, TableSchema, TransactionId,
+    UpdateRecord,
 };
 
 pub use self::ic::IcDbmsCanisterClient;
@@ -26,13 +27,13 @@ pub trait Client {
     fn acl_add_principal(
         &self,
         principal: Principal,
-    ) -> impl Future<Output = IcDbmsCanisterClientResult<()>>;
+    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>;
 
     /// Removes the given principal from the ACL of the canister.
     fn acl_remove_principal(
         &self,
         principal: Principal,
-    ) -> impl Future<Output = IcDbmsCanisterClientResult<()>>;
+    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>;
 
     /// Lists all principals in the ACL of the canister.
     fn acl_allowed_principals(
@@ -46,7 +47,7 @@ pub trait Client {
     fn commit(
         &self,
         transaction_id: TransactionId,
-    ) -> impl Future<Output = IcDbmsCanisterClientResult<()>>;
+    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>;
 
     /// Executes a `SELECT` query on the IC DBMS Canister.
     fn select<T>(
@@ -54,7 +55,7 @@ pub trait Client {
         table: &str,
         query: Query<T>,
         transaction_id: Option<TransactionId>,
-    ) -> impl Future<Output = IcDbmsCanisterClientResult<Vec<T::Record>>>
+    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<Vec<T::Record>>>>
     where
         T: TableSchema;
 
@@ -64,7 +65,7 @@ pub trait Client {
         table: &str,
         record: T::Insert,
         transaction_id: Option<TransactionId>,
-    ) -> impl Future<Output = IcDbmsCanisterClientResult<()>>
+    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>
     where
         T: TableSchema,
         T::Insert: InsertRecord<Schema = T>;
@@ -75,7 +76,7 @@ pub trait Client {
         table: &str,
         patch: T::Update,
         transaction_id: Option<TransactionId>,
-    ) -> impl Future<Output = IcDbmsCanisterClientResult<u64>>
+    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<u64>>>
     where
         T: TableSchema,
         T::Update: UpdateRecord<Schema = T>;
@@ -87,7 +88,7 @@ pub trait Client {
         behaviour: DeleteBehavior,
         filter: Option<Filter>,
         transaction_id: Option<TransactionId>,
-    ) -> impl Future<Output = IcDbmsCanisterClientResult<u64>>
+    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<u64>>>
     where
         T: TableSchema;
 }

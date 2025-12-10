@@ -7,7 +7,7 @@ mod filter;
 use std::marker::PhantomData;
 
 use candid::CandidType;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub use self::builder::QueryBuilder;
@@ -21,7 +21,7 @@ use crate::memory::MemoryError;
 pub type QueryResult<T> = Result<T, QueryError>;
 
 /// An enum representing possible errors that can occur during query operations.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, CandidType, Serialize, Deserialize)]
 pub enum QueryError {
     /// The specified primary key value already exists in the table.
     #[error("Primary key conflict: record with the same primary key already exists")]
@@ -29,13 +29,13 @@ pub enum QueryError {
 
     /// A foreign key references a non-existent record in another table.
     #[error("Broken foreign key reference to table '{table}' with key '{key:?}'")]
-    BrokenForeignKeyReference { table: &'static str, key: Value },
+    BrokenForeignKeyReference { table: String, key: Value },
 
     /// Tried to delete or update a record that is referenced by another table's foreign key.
     #[error("Foreign key constraint violation on table '{referencing_table}' for field '{field}'")]
     ForeignKeyConstraintViolation {
-        referencing_table: &'static str,
-        field: &'static str,
+        referencing_table: String,
+        field: String,
     },
 
     /// Tried to reference a column that does not exist in the table schema.
@@ -44,15 +44,7 @@ pub enum QueryError {
 
     /// Tried to insert a record missing non-nullable fields.
     #[error("Missing non-nullable field: {0}")]
-    MissingNonNullableField(&'static str),
-
-    /// Tried to cast or compare values of incompatible types (e.g. Integer vs Text).
-    #[error("Type mismatch: expected {expected}, found {found}")]
-    TypeMismatch {
-        column: &'static str,
-        expected: &'static str,
-        found: &'static str,
-    },
+    MissingNonNullableField(String),
 
     /// The specified transaction was not found or has expired.
     #[error("transaction not found")]
@@ -72,7 +64,7 @@ pub enum QueryError {
 
     /// The table or schema was not found.
     #[error("Table not found: {0}")]
-    TableNotFound(&'static str),
+    TableNotFound(String),
 
     /// The record identified by the given key or filter does not exist.
     #[error("Record not found")]
@@ -88,22 +80,22 @@ pub enum QueryError {
 }
 
 /// An enum representing the fields to select in a query.
-#[derive(Debug, Default, Clone, PartialEq, Eq, CandidType, Serialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, CandidType, Serialize, Deserialize)]
 pub enum Select {
     #[default]
     All,
-    Columns(Vec<&'static str>),
+    Columns(Vec<String>),
 }
 
 /// An enum representing the direction of ordering in a query.
-#[derive(Debug, Clone, PartialEq, Eq, CandidType, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, CandidType, Serialize, Deserialize)]
 pub enum OrderDirection {
     Ascending,
     Descending,
 }
 
 /// A struct representing a query in the DBMS.
-#[derive(Debug, Clone, PartialEq, Eq, CandidType, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, CandidType, Serialize, Deserialize)]
 pub struct Query<T>
 where
     T: TableSchema,
@@ -111,11 +103,11 @@ where
     /// Fields to select in the query.
     columns: Select,
     /// Relations to eagerly load with the main records.
-    pub eager_relations: Vec<&'static str>,
+    pub eager_relations: Vec<String>,
     /// [`Filter`] to apply to the query.
     pub filter: Option<Filter>,
     /// Order by clauses for sorting the results.
-    pub order_by: Vec<(&'static str, OrderDirection)>,
+    pub order_by: Vec<(String, OrderDirection)>,
     /// Limit on the number of records to return.
     pub limit: Option<usize>,
     /// Offset for pagination.
@@ -156,9 +148,12 @@ where
     }
 
     /// Returns the list of columns to be selected in the query.
-    pub fn columns(&self) -> Vec<&'static str> {
+    pub fn columns(&self) -> Vec<String> {
         match &self.columns {
-            Select::All => T::columns().iter().map(|col| col.name).collect(),
+            Select::All => T::columns()
+                .iter()
+                .map(|col| col.name.to_string())
+                .collect(),
             Select::Columns(cols) => cols.clone(),
         }
     }
@@ -188,7 +183,7 @@ mod tests {
         assert_eq!(columns, vec!["id", "name",]);
 
         let query = Query::<User> {
-            columns: Select::Columns(vec!["id"]),
+            columns: Select::Columns(vec!["id".to_string()]),
             ..Default::default()
         };
 

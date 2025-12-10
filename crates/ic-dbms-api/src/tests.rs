@@ -87,10 +87,10 @@ impl InsertRecord for UserInsertRequest {
 
         Ok(UserInsertRequest {
             id: id.ok_or(IcDbmsError::Query(QueryError::MissingNonNullableField(
-                "id",
+                "id".to_string(),
             )))?,
             name: name.ok_or(IcDbmsError::Query(QueryError::MissingNonNullableField(
-                "name",
+                "name".to_string(),
             )))?,
         })
     }

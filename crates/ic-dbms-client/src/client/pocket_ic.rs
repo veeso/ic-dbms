@@ -1,4 +1,5 @@
 use candid::{CandidType, Decode, Encode, Principal};
+use ic_dbms_api::prelude::IcDbmsResult;
 use pocket_ic::nonblocking::PocketIc;
 
 use crate::client::Client;
@@ -88,7 +89,10 @@ impl Client for IcDbmsPocketIcClient<'_> {
         self.principal
     }
 
-    async fn acl_add_principal(&self, principal: Principal) -> IcDbmsCanisterClientResult<()> {
+    async fn acl_add_principal(
+        &self,
+        principal: Principal,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
         self.update(
             self.principal,
             self.caller,
@@ -108,7 +112,10 @@ impl Client for IcDbmsPocketIcClient<'_> {
         .await
     }
 
-    async fn acl_remove_principal(&self, principal: Principal) -> IcDbmsCanisterClientResult<()> {
+    async fn acl_remove_principal(
+        &self,
+        principal: Principal,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
         self.update(
             self.principal,
             self.caller,
@@ -128,7 +135,7 @@ impl Client for IcDbmsPocketIcClient<'_> {
     async fn commit(
         &self,
         transaction_id: ic_dbms_api::prelude::TransactionId,
-    ) -> IcDbmsCanisterClientResult<()> {
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
         self.update(
             self.principal,
             self.caller,
@@ -144,7 +151,7 @@ impl Client for IcDbmsPocketIcClient<'_> {
         behaviour: ic_dbms_api::prelude::DeleteBehavior,
         filter: Option<ic_dbms_api::prelude::Filter>,
         transaction_id: Option<ic_dbms_api::prelude::TransactionId>,
-    ) -> IcDbmsCanisterClientResult<u64>
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<u64>>
     where
         T: ic_dbms_api::prelude::TableSchema,
     {
@@ -162,7 +169,7 @@ impl Client for IcDbmsPocketIcClient<'_> {
         table: &str,
         record: T::Insert,
         transaction_id: Option<ic_dbms_api::prelude::TransactionId>,
-    ) -> IcDbmsCanisterClientResult<()>
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>>
     where
         T: ic_dbms_api::prelude::TableSchema,
         T::Insert: ic_dbms_api::prelude::InsertRecord<Schema = T>,
@@ -181,7 +188,7 @@ impl Client for IcDbmsPocketIcClient<'_> {
         table: &str,
         query: ic_dbms_api::prelude::Query<T>,
         transaction_id: Option<ic_dbms_api::prelude::TransactionId>,
-    ) -> IcDbmsCanisterClientResult<Vec<T::Record>>
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<T::Record>>>
     where
         T: ic_dbms_api::prelude::TableSchema,
     {
@@ -199,7 +206,7 @@ impl Client for IcDbmsPocketIcClient<'_> {
         table: &str,
         patch: T::Update,
         transaction_id: Option<ic_dbms_api::prelude::TransactionId>,
-    ) -> IcDbmsCanisterClientResult<u64>
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<u64>>
     where
         T: ic_dbms_api::prelude::TableSchema,
         T::Update: ic_dbms_api::prelude::UpdateRecord<Schema = T>,

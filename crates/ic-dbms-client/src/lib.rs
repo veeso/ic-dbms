@@ -25,7 +25,6 @@
 //! - [`InsertRecord`](crate::prelude::InsertRecord)
 //! - [`TableColumns`](crate::prelude::TableColumns)
 //! - [`TableError`](crate::prelude::TableError)
-//! - [`TableName`](crate::prelude::TableName)
 //! - [`TableRecord`](crate::prelude::TableRecord)
 //! - [`UpdateRecord`](crate::prelude::UpdateRecord)
 //! - [`ValuesSource`](crate::prelude::ValuesSource)
