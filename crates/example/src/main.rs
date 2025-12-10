@@ -1,9 +1,10 @@
 //! Debugging expand results
 
+use candid::CandidType;
 use ic_dbms_api::prelude::{Nullable, Text, Uint32, Uint64};
 use ic_dbms_canister::prelude::Table;
 
-#[derive(Clone, Table)]
+#[derive(Clone, Table, CandidType)]
 #[table = "users"]
 pub struct User {
     #[primary_key]

@@ -1,3 +1,6 @@
+use candid::CandidType;
+use serde::{Deserialize, Serialize};
+
 use crate::dbms::table::{ColumnDef, TableColumns, TableRecord, TableSchema, ValuesSource};
 use crate::dbms::types::{DataTypeKind, Text, Uint32};
 use crate::dbms::value::Value;
@@ -7,7 +10,7 @@ use crate::prelude::{
 };
 
 /// A simple user struct for testing purposes.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, CandidType)]
 pub struct User {
     pub id: Uint32,
     pub name: Text,
@@ -39,18 +42,19 @@ impl Encode for User {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, CandidType, Deserialize)]
 pub struct UserRecord {
     pub id: Option<Uint32>,
     pub name: Option<Text>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, CandidType, Serialize)]
 pub struct UserInsertRequest {
     pub id: Uint32,
     pub name: Text,
 }
 
+#[derive(CandidType, Serialize)]
 pub struct UserUpdateRequest {
     pub id: Option<Uint32>,
     pub name: Option<Text>,

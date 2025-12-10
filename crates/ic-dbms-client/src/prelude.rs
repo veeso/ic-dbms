@@ -8,3 +8,4 @@ pub use ic_dbms_api::prelude::{
 };
 
 pub use crate::client::{Client, IcDbmsCanisterClient};
+pub use crate::errors::{IcDbmCanisterClientError, IcDbmsCanisterClientResult};

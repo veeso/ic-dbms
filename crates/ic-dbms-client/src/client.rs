@@ -7,7 +7,7 @@ use ic_dbms_api::prelude::{
 };
 
 pub use self::ic::IcDbmsCanisterClient;
-use crate::IcDbmsCanisterClientResult;
+use crate::prelude::IcDbmsCanisterClientResult;
 
 /// Trait for implementing a ic-dbms-client.
 ///

@@ -1,20 +1,157 @@
-use candid::Principal;
+use std::time::Duration;
+
+use candid::utils::ArgumentEncoder;
+use candid::{CandidType, Principal};
+
+use crate::client::Client;
+use crate::prelude::IcDbmsCanisterClientResult;
+
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(300);
 
 /// Client to interact with an IC DBMS Canister.
 #[derive(Clone, Debug)]
 pub struct IcDbmsCanisterClient {
-    principal: Principal,
+    canister_id: Principal,
+    timeout: Duration,
 }
 
 impl From<Principal> for IcDbmsCanisterClient {
     fn from(principal: Principal) -> Self {
-        Self { principal }
+        Self {
+            canister_id: principal,
+            timeout: DEFAULT_TIMEOUT,
+        }
     }
 }
 
 impl IcDbmsCanisterClient {
-    /// Creates a new IC DBMS Canister client from the given [`Principal`].
-    pub fn new(principal: Principal) -> Self {
-        Self::from(principal)
+    /// Creates a new IC DBMS Canister client from the given canister id as [`Principal`].
+    pub fn new(canister_id: Principal) -> Self {
+        Self::from(canister_id)
+    }
+
+    /// Sets the timeout duration for requests made by this client.
+    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
+    }
+
+    /// Calls a method on the IC DBMS Canister with the provided arguments and returns the result.
+    async fn call<A, R>(&self, method: &str, args: &A) -> IcDbmsCanisterClientResult<R>
+    where
+        A: ArgumentEncoder,
+        R: CandidType + for<'de> candid::Deserialize<'de>,
+    {
+        let response = ic_cdk::call::Call::bounded_wait(self.canister_id, method)
+            .with_args(args)
+            .change_timeout(self.timeout.as_secs() as u32)
+            .into_future()
+            .await?;
+
+        let response: R = response.candid()?;
+        Ok(response)
+    }
+
+    #[inline]
+    fn table_method(table: &str, method: &str) -> String {
+        format!("{table}_{method}")
+    }
+}
+
+impl Client for IcDbmsCanisterClient {
+    fn principal(&self) -> Principal {
+        self.canister_id
+    }
+
+    async fn acl_add_principal(&self, principal: Principal) -> IcDbmsCanisterClientResult<()> {
+        self.call("acl_add_principal", &(principal,)).await
+    }
+
+    async fn acl_remove_principal(&self, principal: Principal) -> IcDbmsCanisterClientResult<()> {
+        self.call("acl_remove_principal", &(principal,)).await
+    }
+
+    async fn acl_allowed_principals(&self) -> IcDbmsCanisterClientResult<Vec<Principal>> {
+        self.call("acl_allowed_principals", &()).await
+    }
+
+    async fn begin_transaction(
+        &self,
+    ) -> IcDbmsCanisterClientResult<ic_dbms_api::prelude::TransactionId> {
+        self.call("begin_transaction", &()).await
+    }
+
+    async fn commit(
+        &self,
+        transaction_id: ic_dbms_api::prelude::TransactionId,
+    ) -> IcDbmsCanisterClientResult<()> {
+        self.call("commit", &(transaction_id,)).await
+    }
+
+    async fn delete<T>(
+        &self,
+        table: &str,
+        behaviour: ic_dbms_api::prelude::DeleteBehavior,
+        filter: Option<ic_dbms_api::prelude::Filter>,
+        transaction_id: Option<ic_dbms_api::prelude::TransactionId>,
+    ) -> IcDbmsCanisterClientResult<u64>
+    where
+        T: ic_dbms_api::prelude::TableSchema,
+    {
+        self.call(
+            &Self::table_method(table, "delete"),
+            &(behaviour, filter, transaction_id),
+        )
+        .await
+    }
+
+    async fn insert<T>(
+        &self,
+        table: &str,
+        record: T::Insert,
+        transaction_id: Option<ic_dbms_api::prelude::TransactionId>,
+    ) -> IcDbmsCanisterClientResult<()>
+    where
+        T: ic_dbms_api::prelude::TableSchema,
+        T::Insert: ic_dbms_api::prelude::InsertRecord<Schema = T>,
+    {
+        self.call(
+            &Self::table_method(table, "insert"),
+            &(record, transaction_id),
+        )
+        .await
+    }
+
+    async fn select<T>(
+        &self,
+        table: &str,
+        query: ic_dbms_api::prelude::Query<T>,
+        transaction_id: Option<ic_dbms_api::prelude::TransactionId>,
+    ) -> IcDbmsCanisterClientResult<Vec<T::Record>>
+    where
+        T: ic_dbms_api::prelude::TableSchema,
+    {
+        self.call(
+            &Self::table_method(table, "select"),
+            &(query, transaction_id),
+        )
+        .await
+    }
+
+    async fn update<T>(
+        &self,
+        table: &str,
+        patch: T::Update,
+        transaction_id: Option<ic_dbms_api::prelude::TransactionId>,
+    ) -> IcDbmsCanisterClientResult<u64>
+    where
+        T: ic_dbms_api::prelude::TableSchema,
+        T::Update: ic_dbms_api::prelude::UpdateRecord<Schema = T>,
+    {
+        self.call(
+            &Self::table_method(table, "update"),
+            &(table, patch, transaction_id),
+        )
+        .await
     }
 }

@@ -1,5 +1,7 @@
 use std::hash::{Hash as _, Hasher as _};
 
+use candid::CandidType;
+
 use crate::dbms::foreign_fetcher::ForeignFetcher;
 use crate::dbms::table::column_def::ColumnDef;
 use crate::dbms::table::{InsertRecord, TableRecord, UpdateRecord};
@@ -13,7 +15,7 @@ pub type TableFingerprint = u64;
 /// It is used to define the structure of a database table.
 pub trait TableSchema
 where
-    Self: Encode + 'static,
+    Self: Encode + CandidType + 'static,
 {
     /// The [`TableRecord`] type associated with this table schema;
     /// which is the data returned by a query.

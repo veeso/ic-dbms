@@ -1,5 +1,6 @@
 //! Post mock type; 1 user has many posts.
 
+use candid::CandidType;
 use ic_dbms_api::prelude::{Text, Uint32};
 use ic_dbms_macros::Table;
 
@@ -9,7 +10,7 @@ use crate::tests::{User, UserRecord};
 /// A simple post struct for testing purposes.
 ///
 /// One [`super::User`] has many [`Post`]s.
-#[derive(Debug, Table, Clone, PartialEq, Eq)]
+#[derive(Debug, Table, CandidType, Clone, PartialEq, Eq)]
 #[table = "posts"]
 pub struct Post {
     #[primary_key]

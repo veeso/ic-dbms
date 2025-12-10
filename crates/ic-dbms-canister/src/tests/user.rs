@@ -1,10 +1,11 @@
+use candid::CandidType;
 use ic_dbms_api::prelude::{Encode, TableSchema, Text, Uint32};
 use ic_dbms_macros::Table;
 
 use crate::memory::{SCHEMA_REGISTRY, TableRegistry};
 
 /// A simple user struct for testing purposes.
-#[derive(Debug, Table, Clone, PartialEq, Eq)]
+#[derive(Debug, Table, CandidType, Clone, PartialEq, Eq)]
 #[table = "users"]
 pub struct User {
     #[primary_key]
