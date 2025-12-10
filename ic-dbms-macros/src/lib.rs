@@ -70,7 +70,7 @@ mod utils;
 ///         std::borrow::Cow::Owned(encoded)
 ///     }
 ///
-///     fn decode(data: std::borrow::Cow<[u8]>) -> ::ic_dbms_canister::prelude::MemoryResult<Self> {
+///     fn decode(data: std::borrow::Cow<[u8]>) -> ::ic_dbms_api::prelude::MemoryResult<Self> {
 ///         let mut offset = 0;
 ///         let id = Uint32::decode(std::borrow::Borrowed(&data[offset..]))?;
 ///         offset += id.size() as usize;

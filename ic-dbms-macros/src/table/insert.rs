@@ -63,7 +63,7 @@ fn impl_insert_record(struct_name: &Ident, metadata: &TableMetadata) -> TokenStr
     let into_record_impl = impl_into_record(metadata);
 
     quote::quote! {
-        impl ::ic_dbms_canister::prelude::InsertRecord for #insert_request_ident {
+        impl ::ic_dbms_api::prelude::InsertRecord for #insert_request_ident {
             type Record = #record_ident;
             type Schema = #struct_name;
 
@@ -153,9 +153,9 @@ fn impl_from_values(metadata: &TableMetadata) -> TokenStream2 {
             match_arms.push(quote::quote! {
                 #field_name_str => {
                     if let #value_type(value) = value {
-                        #field_name = Some(::ic_dbms_canister::prelude::Nullable::Value(value.clone()));
-                    } else if let ::ic_dbms_canister::prelude::Value::Null = value {
-                        #field_name = Some(::ic_dbms_canister::prelude::Nullable::Null);
+                        #field_name = Some(::ic_dbms_api::prelude::Nullable::Value(value.clone()));
+                    } else if let ::ic_dbms_api::prelude::Value::Null = value {
+                        #field_name = Some(::ic_dbms_api::prelude::Nullable::Null);
                     }
                 }
             });
@@ -177,11 +177,11 @@ fn impl_from_values(metadata: &TableMetadata) -> TokenStream2 {
 
         if field.nullable {
             struct_fields.push(quote::quote! {
-                #name: #name.unwrap_or(::ic_dbms_canister::prelude::Nullable::Null),
+                #name: #name.unwrap_or(::ic_dbms_api::prelude::Nullable::Null),
             })
         } else {
             struct_fields.push(quote::quote! {
-                #name: #name.ok_or(::ic_dbms_canister::prelude::IcDbmsError::Query(::ic_dbms_canister::prelude::QueryError::MissingNonNullableField(
+                #name: #name.ok_or(::ic_dbms_api::prelude::IcDbmsError::Query(::ic_dbms_api::prelude::QueryError::MissingNonNullableField(
                     #name_str,
                 )))?,
             })
@@ -190,7 +190,7 @@ fn impl_from_values(metadata: &TableMetadata) -> TokenStream2 {
 
     quote::quote! {
         #[allow(clippy::copy_clone)]
-        fn from_values(values: &[(::ic_dbms_canister::prelude::ColumnDef, ::ic_dbms_canister::prelude::Value)]) -> ::ic_dbms_canister::prelude::IcDbmsResult<Self> {
+        fn from_values(values: &[(::ic_dbms_api::prelude::ColumnDef, ::ic_dbms_api::prelude::Value)]) -> ::ic_dbms_api::prelude::IcDbmsResult<Self> {
             #(#declare_lets)*
 
             for (column, value) in values {
@@ -237,8 +237,8 @@ fn impl_into_values(metadata: &TableMetadata) -> TokenStream2 {
     }
 
     quote::quote! {
-        fn into_values(self) -> Vec<(::ic_dbms_canister::prelude::ColumnDef, ::ic_dbms_canister::prelude::Value)> {
-            use ::ic_dbms_canister::prelude::TableSchema as _;
+        fn into_values(self) -> Vec<(::ic_dbms_api::prelude::ColumnDef, ::ic_dbms_api::prelude::Value)> {
+            use ::ic_dbms_api::prelude::TableSchema as _;
 
             vec![
                 #(#fields),*
