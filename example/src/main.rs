@@ -1,10 +1,10 @@
 //! Debugging expand results
 
 use candid::CandidType;
-use ic_dbms_api::prelude::{Nullable, Text, Uint32, Uint64};
-use ic_dbms_canister::prelude::Table;
+use ic_dbms_api::prelude::{Nullable, Table, Text, Uint32, Uint64};
+use serde::Deserialize;
 
-#[derive(Clone, Table, CandidType)]
+#[derive(Clone, Table, CandidType, Deserialize)]
 #[table = "users"]
 pub struct User {
     #[primary_key]

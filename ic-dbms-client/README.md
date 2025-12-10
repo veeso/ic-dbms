@@ -17,15 +17,54 @@ This crate exposes all the types which may be used by an external canister to in
 
 ## Usage
 
-### Add the dependency
+### Add the dependencies
 
 ```toml
 [dependencies]
+candid = "0.10"
 ic-dbms-api = "0.1"
 ic-dbms-client = "0.1"
+serde = "1"
 ```
 
 ### Implement the record types
+
+You can define your table as you did for the database, or use a common crate to share the types between the canisters.
+
+```rust
+use candid::{CandidType, Principal};
+use ic_dbms_api::prelude::{Nullable, Query, Table, TableSchema, Text, Uint32, Uint64};
+use ic_dbms_client::prelude::{Client as _, IcDbmsCanisterClient};
+use serde::Deserialize;
+
+#[derive(Table, CandidType, Clone, Deserialize)]
+#[table = "users"]
+pub struct User {
+    #[primary_key]
+    id: Uint64,
+    name: Text,
+    email: Text,
+    age: Nullable<Uint32>,
+}
+```
+
+### Use the client
+
+```rust
+let principal = Principal::from_text("...")?;
+let client = IcDbmsCanisterClient::new(principal);
+
+let alice = UserInsertRequest {
+    id: 1.into(),
+    name: "Alice".into(),
+    email: "alice@example.com".into(),
+    age: Nullable::Value(30.into()),
+};
+
+client
+    .insert::<User>(User::table_name(), alice, None)
+    .await?;
+```
 
 ## Available Types
 
@@ -37,44 +76,44 @@ use ic_dbms_client::prelude::*;
 
 ### Query
 
-- [`DeleteBehavior`](crate::prelude::DeleteBehavior)
-- [`Filter`](crate::prelude::Filter)
-- [`Query`](crate::prelude::Query)
-- [`QueryBuilder`](crate::prelude::QueryBuilder)
-- [`OrderDirection`](crate::prelude::OrderDirection)
-- [`Select`](crate::prelude::Select)
+- [`DeleteBehavior`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.DeleteBehavior.html)
+- [`Filter`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Filter.html)
+- [`Query`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Query.html)
+- [`QueryBuilder`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.QueryBuilder.html)
+- [`OrderDirection`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/enum.OrderDirection.html)
+- [`Select`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/enum.Select.html)
 
 ### Table
 
-- [`ColumnDef`](crate::prelude::ColumnDef)
-- [`ForeignKeyDef`](crate::prelude::ForeignKeyDef)
-- [`InsertRecord`](crate::prelude::InsertRecord)
-- [`TableColumns`](crate::prelude::TableColumns)
-- [`TableError`](crate::prelude::TableError)
-- [`TableName`](crate::prelude::TableName)
-- [`TableRecord`](crate::prelude::TableRecord)
-- [`UpdateRecord`](crate::prelude::UpdateRecord)
-- [`ValuesSource`](crate::prelude::ValuesSource)
+- [`ColumnDef`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.ColumnDef.html)
+- [`ForeignKeyDef`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.ForeignKeyDef.html)
+- [`InsertRecord`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.InsertRecord.html)
+- [`TableColumns`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.TableColumns.html)
+- [`TableError`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/enum.TableError.html)
+- [`TableName`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.TableName.html)
+- [`TableRecord`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.TableRecord.html)
+- [`UpdateRecord`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.UpdateRecord.html)
+- [`ValuesSource`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.ValuesSource.html)
 
 ### Types
 
-- [`Blob`](crate::prelude::Blob)
-- [`Boolean`](crate::prelude::Boolean)
-- [`Date`](crate::prelude::Date)
-- [`DateTime`](crate::prelude::DateTime)
-- [`Decimal`](crate::prelude::Decimal)
-- [`Int32`](crate::prelude::Int32)
-- [`Int64`](crate::prelude::Int64)
-- [`Nullable`](crate::prelude::Nullable)
-- [`Principal`](crate::prelude::Principal)
-- [`Text`](crate::prelude::Text)
-- [`Uint32`](crate::prelude::Uint32)
-- [`Uint64`](crate::prelude::Uint64)
-- [`Uuid`](crate::prelude::Uuid)
+- [`Blob`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Blob.html)
+- [`Boolean`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Boolean.html)
+- [`Date`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Date.html)
+- [`DateTime`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.DateTime.html)
+- [`Decimal`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Decimal.html)
+- [`Int32`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Int32.html)
+- [`Int64`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Int64.html)
+- [`Nullable`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Nullable.html)
+- [`Principal`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Principal.html)
+- [`Text`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Text.html)
+- [`Uint32`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Uint32.html)
+- [`Uint64`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Uint64.html)
+- [`Uuid`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Uuid.html)
 
 ### Value
 
-- [`Value`](crate::prelude::Value)
+- [`Value`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Value.html)
 
 ## License
 

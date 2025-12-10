@@ -52,7 +52,56 @@
 //!
 //! ## Interact with an IC DBMS Canister
 //!
-//! TODO:
+//! ## Usage
+//!
+//! ### Add the dependencies
+//!
+//! ```toml
+//! [dependencies]
+//! candid = "0.10"
+//! ic-dbms-api = "0.1"
+//! ic-dbms-client = "0.1"
+//! serde = "1"
+//! ```
+//!
+//! ### Implement the record types
+//!
+//! You can define your table as you did for the database, or use a common crate to share the types between the canisters.
+//!
+//! ```rust,ignore
+//! use candid::{CandidType, Principal};
+//! use ic_dbms_api::prelude::{Nullable, Query, Table, TableSchema, Text, Uint32, Uint64};
+//! use ic_dbms_client::prelude::{Client as _, IcDbmsCanisterClient};
+//! use serde::Deserialize;
+//!
+//! #[derive(Table, CandidType, Clone, Deserialize)]
+//! #[table = "users"]
+//! pub struct User {
+//!     #[primary_key]
+//!     id: Uint64,
+//!     name: Text,
+//!     email: Text,
+//!     age: Nullable<Uint32>,
+//! }
+//! ```
+//!
+//! ### Use the client
+//!
+//! ```rust,ignore
+//! let principal = Principal::from_text("...")?;
+//! let client = IcDbmsCanisterClient::new(principal);
+//!
+//! let alice = UserInsertRequest {
+//!     id: 1.into(),
+//!     name: "Alice".into(),
+//!     email: "alice@example.com".into(),
+//!     age: Nullable::Value(30.into()),
+//! };
+//!
+//! client
+//!     .insert::<User>(User::table_name(), alice, None)
+//!     .await?;
+//! ```
 //!
 
 #![doc(html_playground_url = "https://play.rust-lang.org")]
