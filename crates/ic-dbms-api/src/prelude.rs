@@ -1,5 +1,7 @@
 //! Prelude exposes all the types for `ic-dbms-api` crate.
 
+pub use ic_dbms_macros::{Encode, Table};
+
 pub use crate::dbms::database::Database;
 pub use crate::dbms::foreign_fetcher::{ForeignFetcher, NoForeignFetcher};
 pub use crate::dbms::query::{
@@ -13,3 +15,4 @@ pub use crate::error::{IcDbmsError, IcDbmsResult};
 pub use crate::memory::{
     DataSize, DecodeError, Encode, MSize, MemoryError, MemoryResult, Page, PageOffset,
 };
+pub use crate::utils::self_reference_values;

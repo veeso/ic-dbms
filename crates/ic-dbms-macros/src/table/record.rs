@@ -33,7 +33,7 @@ fn struct_def(metadata: &TableMetadata) -> TokenStream2 {
             // if nullable, wrap in Nullable
             if field.nullable {
                 quote::quote! {
-                    ::ic_dbms_canister::prelude::Nullable<Box<#entity_record>>
+                    ::ic_dbms_api::prelude::Nullable<Box<#entity_record>>
                 }
             } else {
                 quote::quote! { #entity_record }
@@ -70,7 +70,7 @@ fn impl_record(struct_name: &Ident, metadata: &TableMetadata) -> TokenStream2 {
     let to_values_impl = impl_to_values(metadata);
 
     quote::quote! {
-        impl ::ic_dbms_canister::prelude::TableRecord for #impl_for {
+        impl ::ic_dbms_api::prelude::TableRecord for #impl_for {
             type Schema = #struct_name;
 
             #from_values_impl
@@ -124,9 +124,9 @@ fn impl_from_values(metadata: &TableMetadata) -> TokenStream2 {
             field_matches.push(quote::quote! {
                 #field_name => {
                     if let #value_type(value) = value {
-                        #field_ident = Some(::ic_dbms_canister::prelude::Nullable::Value(value.clone()));
-                    } else if let ::ic_dbms_canister::prelude::Value::Null = value {
-                        #field_ident = Some(::ic_dbms_canister::prelude::Nullable::Null);
+                        #field_ident = Some(::ic_dbms_api::prelude::Nullable::Value(value.clone()));
+                    } else if let ::ic_dbms_api::prelude::Value::Null = value {
+                        #field_ident = Some(::ic_dbms_api::prelude::Nullable::Null);
                     }
                 }
             });
@@ -164,7 +164,7 @@ fn impl_from_values(metadata: &TableMetadata) -> TokenStream2 {
         fk_matches.push(quote::quote! {
             let has_fk_values = values.iter().any(|(source, _)| {
                 *source ==
-                    ::ic_dbms_canister::prelude::ValuesSource::Foreign {
+                    ::ic_dbms_api::prelude::ValuesSource::Foreign {
                         table: #table_name,
                         column: #local_column,
                     }
@@ -174,7 +174,7 @@ fn impl_from_values(metadata: &TableMetadata) -> TokenStream2 {
             if has_fk_values {
                 #field_name = Some(Box::new(
                     #fk_from_record_path(
-                        ::ic_dbms_canister::prelude::self_reference_values(
+                        ::ic_dbms_api::prelude::self_reference_values(
                             &values,
                             #table_name,
                             #local_column,
@@ -187,12 +187,12 @@ fn impl_from_values(metadata: &TableMetadata) -> TokenStream2 {
 
     quote::quote! {
         #[allow(clippy::copy_clone)]
-        fn from_values(values: ::ic_dbms_canister::prelude::TableColumns) -> Self {
+        fn from_values(values: ::ic_dbms_api::prelude::TableColumns) -> Self {
             #(#field_inits)*
 
             let this_record_values = values
                 .iter()
-                .find(|(table_name, _)| *table_name == ::ic_dbms_canister::prelude::ValuesSource::This)
+                .find(|(table_name, _)| *table_name == ::ic_dbms_api::prelude::ValuesSource::This)
                 .map(|(_, cols)| cols);
 
             for (column, value) in this_record_values.unwrap_or(&vec![]) {
@@ -223,8 +223,8 @@ fn impl_to_values(metadata: &TableMetadata) -> TokenStream2 {
         if field.nullable {
             field_match.push(quote::quote! {
                 match #self_field_name {
-                    Some(::ic_dbms_canister::prelude::Nullable::Value(value)) => #value_type(value.clone()),
-                    Some(::ic_dbms_canister::prelude::Nullable::Null) | None => ::ic_dbms_canister::prelude::Value::Null,
+                    Some(::ic_dbms_api::prelude::Nullable::Value(value)) => #value_type(value.clone()),
+                    Some(::ic_dbms_api::prelude::Nullable::Null) | None => ::ic_dbms_api::prelude::Value::Null,
                 }
             });
         } else if field.is_fk {
@@ -234,7 +234,7 @@ fn impl_to_values(metadata: &TableMetadata) -> TokenStream2 {
             field_match.push(quote::quote! {
                 match #self_field_name {
                     Some(value) => #value_type(value.clone()),
-                    None => ::ic_dbms_canister::prelude::Value::Null,
+                    None => ::ic_dbms_api::prelude::Value::Null,
                 }
             });
         }
@@ -242,8 +242,8 @@ fn impl_to_values(metadata: &TableMetadata) -> TokenStream2 {
 
     quote::quote! {
         #[allow(clippy::copy_clone)]
-        fn to_values(&self) -> Vec<(::ic_dbms_canister::prelude::ColumnDef, ::ic_dbms_canister::prelude::Value)> {
-            use ::ic_dbms_canister::prelude::TableSchema as _;
+        fn to_values(&self) -> Vec<(::ic_dbms_api::prelude::ColumnDef, ::ic_dbms_api::prelude::Value)> {
+            use ::ic_dbms_api::prelude::TableSchema as _;
 
             Self::Schema::columns()
                 .iter()

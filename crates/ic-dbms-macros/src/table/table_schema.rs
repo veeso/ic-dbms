@@ -19,7 +19,7 @@ pub fn generate_table_schema(
     let values = to_values(&metadata.fields);
 
     Ok(quote::quote! {
-        impl ::ic_dbms_canister::prelude::TableSchema for #struct_name {
+        impl ::ic_dbms_api::prelude::TableSchema for #struct_name {
             type Record = #record_ident;
             type Insert = #insert_ident;
             type Update = #update_ident;
@@ -33,11 +33,11 @@ pub fn generate_table_schema(
                 #primary_key_str
             }
 
-            fn columns() -> &'static [::ic_dbms_canister::prelude::ColumnDef] {
+            fn columns() -> &'static [::ic_dbms_api::prelude::ColumnDef] {
                 #columns_def
             }
 
-            fn to_values(self) -> Vec<(::ic_dbms_canister::prelude::ColumnDef, ::ic_dbms_canister::prelude::Value)> {
+            fn to_values(self) -> Vec<(::ic_dbms_api::prelude::ColumnDef, ::ic_dbms_api::prelude::Value)> {
                 #values
             }
         }
@@ -63,7 +63,7 @@ fn column_def(metadata: &TableMetadata) -> syn::Result<TokenStream2> {
         };
 
         columns.push(quote::quote! {
-            ::ic_dbms_canister::prelude::ColumnDef {
+            ::ic_dbms_api::prelude::ColumnDef {
                 data_type: #data_type_kind,
                 foreign_key: #foreign_key_def,
                 name: #name,
@@ -93,7 +93,7 @@ fn foreign_key_def(field: &Field, metadata: &TableMetadata) -> syn::Result<Token
     let foreign_column = foreign_key_for_field.referenced_field.to_string();
 
     Ok(quote::quote! {
-        Some(::ic_dbms_canister::prelude::ForeignKeyDef {
+        Some(::ic_dbms_api::prelude::ForeignKeyDef {
             local_column: #local_column,
             foreign_table: #foreign_table,
             foreign_column: #foreign_column,
@@ -116,8 +116,8 @@ fn to_values(fields: &[Field]) -> TokenStream2 {
         if field.nullable {
             columns.push(quote::quote! {
                 (Self::columns()[#index], match #self_field {
-                    ::ic_dbms_canister::prelude::Nullable::Null => ::ic_dbms_canister::prelude::Value::Null,
-                    ::ic_dbms_canister::prelude::Nullable::Value(inner) => #value_type(inner),
+                    ::ic_dbms_api::prelude::Nullable::Null => ::ic_dbms_api::prelude::Value::Null,
+                    ::ic_dbms_api::prelude::Nullable::Value(inner) => #value_type(inner),
                 })
             });
             continue;

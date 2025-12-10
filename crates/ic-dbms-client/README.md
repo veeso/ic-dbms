@@ -21,6 +21,7 @@ This crate exposes all the types which may be used by an external canister to in
 
 ```toml
 [dependencies]
+ic-dbms-api = "0.1"
 ic-dbms-client = "0.1"
 ```
 
