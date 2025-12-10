@@ -19,6 +19,7 @@ pub use self::post::{POSTS_FIXTURES, Post, PostInsertRequest, PostRecord, PostUp
 pub use self::user::{USERS_FIXTURES, User, UserInsertRequest, UserRecord, UserUpdateRequest};
 use crate::dbms::IcDbmsDatabase;
 use crate::prelude::{DatabaseSchema, InsertIntegrityValidator};
+use crate::utils::get_referenced_tables;
 
 /// Loads fixtures into the database for testing purposes.
 ///
@@ -34,20 +35,13 @@ pub fn load_fixtures() {
 pub struct TestDatabaseSchema;
 
 impl DatabaseSchema for TestDatabaseSchema {
-    #[allow(clippy::if_same_then_else)]
-    fn referenced_tables(
-        &self,
-        table: &'static str,
-    ) -> Vec<(&'static str, &'static [&'static str])> {
-        if table == User::table_name() {
-            vec![("posts", &["user"]), ("messages", &["sender", "recipient"])]
-        } else if table == Post::table_name() {
-            vec![]
-        } else if table == Message::table_name() {
-            vec![]
-        } else {
-            vec![]
-        }
+    fn referenced_tables(&self, table: &'static str) -> Vec<(&'static str, Vec<&'static str>)> {
+        let tables = &[
+            (User::table_name(), User::columns()),
+            (Post::table_name(), Post::columns()),
+            (Message::table_name(), Message::columns()),
+        ];
+        get_referenced_tables(table, tables)
     }
 
     fn insert(

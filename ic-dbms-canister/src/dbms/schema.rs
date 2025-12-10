@@ -14,10 +14,7 @@ pub trait DatabaseSchema {
     /// So if a table `Post` has a foreign key referencing the `User` table, calling
     /// `referenced_tables("User")` would return a list containing:
     /// `[("Post`, &["user_id"])]`.
-    fn referenced_tables(
-        &self,
-        table: &'static str,
-    ) -> Vec<(&'static str, &'static [&'static str])>;
+    fn referenced_tables(&self, table: &'static str) -> Vec<(&'static str, Vec<&'static str>)>;
 
     /// Performs an insert operation for the given table name and record values.
     ///
