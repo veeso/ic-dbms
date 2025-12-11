@@ -64,10 +64,10 @@ jobs:
         run: |
           just check_code
 
-      - name: test
-        run: |
-          just test_all
-
       - name: build all
         run: |
           just build_all
+
+      - name: test
+        run: |
+          just test_all
