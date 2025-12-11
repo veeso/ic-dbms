@@ -147,12 +147,12 @@ This is enough to setup the canister with the tables defined in the schema crate
 At this point you can just build the canister with:
 
 ```sh
-mkdir -p "{{WASM_DIR}}"
-echo "Building {{canister_name}} Canister"
-cargo build --target wasm32-unknown-unknown --release --package "{{canister_name}}"
-ic-wasm "target/wasm32-unknown-unknown/release/{{canister_name}}.wasm" -o "{{WASM_DIR}}/{{wasm_name}}.wasm" shrink
-candid-extractor "{{WASM_DIR}}/{{wasm_name}}.wasm" > "{{WASM_DIR}}/{{wasm_name}}.did"
-gzip -k "{{WASM_DIR}}/{{wasm_name}}.wasm" --force
+mkdir -p "${WASM_DIR}"
+echo "Building ${canister_name} Canister"
+cargo build --target wasm32-unknown-unknown --release --package "${canister_name}"
+ic-wasm "target/wasm32-unknown-unknown/release/${canister_name}.wasm" -o "${WASM_DIR}/${wasm_name}.wasm" shrink
+candid-extractor "${WASM_DIR}/${wasm_name}.wasm" > "${WASM_DIR}/${wasm_name}.did"
+gzip -k "${WASM_DIR}/${wasm_name}.wasm" --force
 ```
 
 ### Deploying the Canister
