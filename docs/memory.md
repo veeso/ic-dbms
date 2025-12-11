@@ -1,17 +1,19 @@
-# Memory Management
+---
+title: "Memory Management"
+description: "Technical documentation about memory management in ic-dbms-canister."
+---
 
-- [Memory Management](#memory-management)
-  - [How Internet Computer Memory Works](#how-internet-computer-memory-works)
-  - [Memory Model](#memory-model)
-  - [Memory Provider](#memory-provider)
-  - [Memory Manager](#memory-manager)
-  - [Encode](#encode)
-  - [Schema Registry](#schema-registry)
-  - [ACL](#acl)
-  - [Table Registry](#table-registry)
-    - [Page Ledger](#page-ledger)
-    - [Free Segments Ledger](#free-segments-ledger)
-    - [Index Registry](#index-registry)
+- [How Internet Computer Memory Works](#how-internet-computer-memory-works)
+- [Memory Model](#memory-model)
+- [Memory Provider](#memory-provider)
+- [Memory Manager](#memory-manager)
+- [Encode](#encode)
+- [Schema Registry](#schema-registry)
+- [ACL](#acl)
+- [Table Registry](#table-registry)
+  - [Page Ledger](#page-ledger)
+  - [Free Segments Ledger](#free-segments-ledger)
+  - [Index Registry](#index-registry)
 
 This document provides the technical details of memory management in ic-dbms-canister, also known as Layer 0 of ic-dbms.
 

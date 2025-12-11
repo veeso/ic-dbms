@@ -12,25 +12,25 @@
 //! use ic_dbms_api::prelude::*;
 //! ```
 //!
-//! # Types
+//! ## Types
 //!
-//! ## DBMS
+//! ### DBMS
 //!
-//! ### Database
+//! #### Database
 //!
 //! - [`Database`](crate::prelude::Database)
 //!
-//! ### Foreign Fetcher
+//! #### Foreign Fetcher
 //!
 //! - [`ForeignFetcher`](crate::prelude::ForeignFetcher)
 //!
-//! ### Init
+//! #### Init
 //!
 //! - [`IcDbmsCanisterArgs`](crate::prelude::IcDbmsCanisterArgs)
 //! - [`IcDbmsCanisterInitArgs`](crate::prelude::IcDbmsCanisterInitArgs)
 //! - [`IcDbmsCanisterUpdateArgs`](crate::prelude::IcDbmsCanisterUpdateArgs)
 //!
-//! ### Query
+//! #### Query
 //!
 //! - [`DeleteBehavior`](crate::prelude::DeleteBehavior)
 //! - [`Filter`](crate::prelude::Filter)
@@ -41,7 +41,7 @@
 //! - [`OrderDirection`](crate::prelude::OrderDirection)
 //! - [`Select`](crate::prelude::Select)
 //!
-//! ### Table
+//! #### Table
 //!
 //! - [`ColumnDef`](crate::prelude::ColumnDef)
 //! - [`ForeignKeyDef`](crate::prelude::ForeignKeyDef)
@@ -52,12 +52,12 @@
 //! - [`UpdateRecord`](crate::prelude::UpdateRecord)
 //! - [`ValuesSource`](crate::prelude::ValuesSource)
 //!
-//! ### Transaction
+//! #### Transaction
 //!
 //! - [`TransactionError`](crate::prelude::TransactionError)
 //! - [`TransactionId`](crate::prelude::TransactionId)
 //!
-//! ### Types
+//! #### Dbms Types
 //!
 //! - [`Blob`](crate::prelude::Blob)
 //! - [`Boolean`](crate::prelude::Boolean)
@@ -73,12 +73,12 @@
 //! - [`Uint64`](crate::prelude::Uint64)
 //! - [`Uuid`](crate::prelude::Uuid)
 //!
-//! ### Value
+//! #### Value
 //!
 //! - ['DataType'](crate::prelude::DataType)
 //! - [`Value`](crate::prelude::Value)
 //!
-//! ## Memory
+//! ### Memory
 //!
 //! - [`DataSize`](crate::memory::DataSize)
 //! - [`Encode`](crate::memory::Encode)
