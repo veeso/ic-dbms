@@ -19,7 +19,7 @@ This project is in a very early stage of development. The goal is to provide a f
 
 IC DBMS Canister is an Internet Computer framework which provides an easy way to implement a database canister by just providing the database schema.
 
-The user can just define the data entity by defining the tables
+The user can just define the data entity by defining the tables:
 
 ```rust
 use candid::CandidType;
@@ -37,10 +37,6 @@ pub struct User {
     age: Nullable<Uint32>,
 }
 ```
-
-This will provide for the user the following API:
-
-todo...
 
 You can also define relationships between tables:
 
@@ -60,7 +56,7 @@ pub struct Post {
 > [!NOTE]
 > Mind that deriving `CandidType`, `Deserialize` and `Clone` is required for the tables to be used in the canister.
 
-And once you have defined all your tables, you can instantiate the database canister:
+And once you have defined all your tables, you can instantiate the database canister by deriving the `DbmsCanister` macro on any struct, providing the table names and their corresponding Rust struct entity:
 
 ```rust
 #[derive(DbmsCanister)]
