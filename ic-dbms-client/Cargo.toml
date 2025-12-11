@@ -23,7 +23,7 @@ readme = "README.md"
 [dependencies]
 candid = { workspace = true }
 ic-cdk = { workspace = true }
-ic-dbms-api = { path = "../ic-dbms-api", version = "0.0" }
+ic-dbms-api = { path = "../ic-dbms-api", version = "0.1" }
 pocket-ic = { workspace = true, optional = true }
 thiserror = { workspace = true }
 
