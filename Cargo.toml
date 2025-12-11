@@ -5,6 +5,8 @@ members = [
   "ic-dbms-canister",
   "ic-dbms-client",
   "ic-dbms-macros",
+  "integration-tests/pocket-ic-tests",
+  "integration-tests/pocket-ic-tests-macro",
 ]
 resolver = "2"
 
