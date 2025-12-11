@@ -145,6 +145,19 @@ impl Client for IcDbmsPocketIcClient<'_> {
         .await
     }
 
+    async fn rollback(
+        &self,
+        transaction_id: ic_dbms_api::prelude::TransactionId,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
+        self.update(
+            self.principal,
+            self.caller,
+            "rollback",
+            Encode!(&transaction_id).map_err(PocketIcError::Candid)?,
+        )
+        .await
+    }
+
     async fn delete<T>(
         &self,
         table: &str,

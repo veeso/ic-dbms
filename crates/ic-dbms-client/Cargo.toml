@@ -38,3 +38,7 @@ pocket-ic = ["dep:pocket-ic"]
 [[example]]
 name = "client"
 path = "examples/client.rs"
+
+[package.metadata.docs.rs]
+features = ["pocket-ic"]
+rustdoc-args = ["--cfg", "docsrs"]

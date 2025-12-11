@@ -95,6 +95,13 @@ impl Client for IcDbmsCanisterClient {
         self.call("commit", &(transaction_id,)).await
     }
 
+    async fn rollback(
+        &self,
+        transaction_id: ic_dbms_api::prelude::TransactionId,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
+        self.call("rollback", &(transaction_id,)).await
+    }
+
     async fn delete<T>(
         &self,
         table: &str,
