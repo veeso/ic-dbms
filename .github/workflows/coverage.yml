@@ -29,7 +29,9 @@ jobs:
             --exclude "ic-dbms-client" \
             --exclude "ic-dbms-macros" \
             --exclude "example" \
-            --exclude-deps
+            --exclude-from-report "ic-dbms-client" \
+            --exclude-from-report "ic-dbms-macros" \
+            --exclude-from-report "example"
       - name: Coveralls
         uses: coverallsapp/github-action@v2.3.6
         with:
