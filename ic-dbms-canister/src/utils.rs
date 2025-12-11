@@ -1,9 +1,7 @@
-mod referenced_tables;
 mod trap;
 
 use candid::Principal;
 
-pub use self::referenced_tables::get_referenced_tables;
 pub use self::trap::trap;
 
 /// Returns the caller's principal.

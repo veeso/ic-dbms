@@ -1,6 +1,7 @@
 //! This module exposes all the types related to the DBMS engine.
 
 pub mod integrity;
+pub mod referenced_tables;
 pub mod schema;
 pub mod transaction;
 

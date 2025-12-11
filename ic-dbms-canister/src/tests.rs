@@ -18,8 +18,7 @@ pub use self::post::{POSTS_FIXTURES, Post, PostInsertRequest, PostRecord, PostUp
 #[allow(unused_imports)]
 pub use self::user::{USERS_FIXTURES, User, UserInsertRequest, UserRecord, UserUpdateRequest};
 use crate::dbms::IcDbmsDatabase;
-use crate::prelude::{DatabaseSchema, InsertIntegrityValidator};
-use crate::utils::get_referenced_tables;
+use crate::prelude::{DatabaseSchema, InsertIntegrityValidator, get_referenced_tables};
 
 /// Loads fixtures into the database for testing purposes.
 ///
