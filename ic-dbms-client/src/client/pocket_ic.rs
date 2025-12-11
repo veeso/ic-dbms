@@ -77,11 +77,6 @@ impl<'a> IcDbmsPocketIcClient<'a> {
 
         Ok(ret_type)
     }
-
-    #[inline]
-    fn table_method(table: &str, method: &str) -> String {
-        format!("{table}_{method}")
-    }
 }
 
 impl Client for IcDbmsPocketIcClient<'_> {
@@ -171,7 +166,7 @@ impl Client for IcDbmsPocketIcClient<'_> {
         self.update(
             self.principal,
             self.caller,
-            &Self::table_method(table, "delete"),
+            &crate::utils::table_method(table, "delete"),
             Encode!(&behaviour, &filter, &transaction_id).map_err(PocketIcError::Candid)?,
         )
         .await
@@ -190,7 +185,7 @@ impl Client for IcDbmsPocketIcClient<'_> {
         self.update(
             self.principal,
             self.caller,
-            &Self::table_method(table, "insert"),
+            &crate::utils::table_method(table, "insert"),
             Encode!(&record, &transaction_id).map_err(PocketIcError::Candid)?,
         )
         .await
@@ -208,7 +203,7 @@ impl Client for IcDbmsPocketIcClient<'_> {
         self.query(
             self.principal,
             self.caller,
-            &Self::table_method(table, "select"),
+            &crate::utils::table_method(table, "select"),
             Encode!(&query, &transaction_id).map_err(PocketIcError::Candid)?,
         )
         .await
@@ -227,7 +222,7 @@ impl Client for IcDbmsPocketIcClient<'_> {
         self.update(
             self.principal,
             self.caller,
-            &Self::table_method(table, "update"),
+            &crate::utils::table_method(table, "update"),
             Encode!(&patch, &transaction_id).map_err(PocketIcError::Candid)?,
         )
         .await

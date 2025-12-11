@@ -137,3 +137,4 @@
 mod client;
 mod errors;
 pub mod prelude;
+mod utils;
