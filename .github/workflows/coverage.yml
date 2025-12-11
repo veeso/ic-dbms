@@ -27,8 +27,11 @@ jobs:
             --lib \
             --lcov \
             --output-path lcov.info \
+            --ignore-filename-regex '.*(client|macros|example|pocket-ic-tests).*' \
             --exclude "ic-dbms-client" \
             --exclude "ic-dbms-macros" \
+            --exclude "pocket-ic-tests" \
+            --exclude "pocket-ic-tests-macro" \
             --exclude "example" \
             --exclude-from-report "ic-dbms-client" \
             --exclude-from-report "ic-dbms-macros" \
