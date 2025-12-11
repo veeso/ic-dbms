@@ -112,6 +112,10 @@ For each table defined in the schema, the following methods are generated:
 - `update_<table_name>(updates, transaction_id)`: Updates records in the specified table. Optionally within a transaction.
 - `delete_<table_name>(delete_behavior, filter, transaction_id)`: Deletes records from the specified table based on the filter and delete behavior. Optionally within a transaction.
 
+## Getting Started
+
+See the [Getting Started Guide](https://veeso.github.io/ic-dbms/docs/get-started.html) for more information on how to setup and deploy the DBMS canister.
+
 ## Interacting with the Canister
 
 See the [ic-dbms-client](./ic-dbms-client/README.md) for more information on how to interact with the canister.
@@ -131,7 +135,7 @@ See the [ic-dbms-client](./ic-dbms-client/README.md) for more information on how
 
 ## Documentation
 
-- [Memory Management](./docs/memory.md)
+- [Memory Management](https://veeso.github.io/ic-dbms/docs/memory.html)
 
 ## License
 
