@@ -1,7 +1,20 @@
+#![crate_name = "ic_dbms_client"]
+#![crate_type = "lib"]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
 //! # IC DBMS Client
 //!
 //! This crate exposes all the types which may be used by an external canister to interact with
 //! an IC DBMS Canister instance.
+//!
+//! ## Available Clients
+//!
+//! - [`IcDbmsCanisterClient`](crate::prelude::IcDbmsCanisterClient): Client implementation to be used inside IC canisters.
+//! - [`IcDbmsPocketIcClient`](crate::prelude::IcDbmsPocketIcClient): Client implementation to be used in integration tests with the `pocket-ic` feature enabled.
+//!
+//! The generic interface is provided by the [`Client`](crate::prelude::Client) trait.
+//!
+//! ## Available Types
 //!
 //! You can import all the useful types and traits by using the prelude module:
 //!

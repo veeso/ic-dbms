@@ -76,6 +76,26 @@ client
     .await?;
 ```
 
+## Available Clients
+
+- `IcDbmsCanisterClient`: Client implementation for IC canisters.
+- `IcDbmsPocketIcClient`: Client implementation for `pocket-ic` integration tests.
+
+## Available Methods
+
+All the client methods are defined in the [`Client`](crate::prelude::Client) trait.
+
+- `acl_add_principal`
+- `acl_remove_principal`
+- `acl_allowed_principals`
+- `begin_transaction`
+- `commit`
+- `rollback`
+- `select`
+- `insert`
+- `update`
+- `delete`
+
 ## Available Types
 
 You can import all the useful types and traits by using the prelude module:

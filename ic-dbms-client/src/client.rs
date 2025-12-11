@@ -1,5 +1,6 @@
 mod ic;
 #[cfg(feature = "pocket-ic")]
+#[cfg_attr(docsrs, doc(cfg(feature = "pocket-ic")))]
 mod pocket_ic;
 mod types;
 
@@ -45,6 +46,12 @@ pub trait Client {
 
     /// Commits the transaction with the given ID.
     fn commit(
+        &self,
+        transaction_id: TransactionId,
+    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>;
+
+    /// Rolls back the transaction with the given ID.
+    fn rollback(
         &self,
         transaction_id: TransactionId,
     ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>;

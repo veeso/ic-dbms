@@ -17,6 +17,7 @@ pub enum IcDbmCanisterClientError {
 
 /// Errors that can occur when using the pocket-ic client.
 #[cfg(feature = "pocket-ic")]
+#[cfg_attr(docsrs, doc(cfg(feature = "pocket-ic")))]
 #[derive(thiserror::Error, Debug)]
 pub enum PocketIcError {
     #[error("Pocket IC call failed: {0}")]
@@ -26,6 +27,7 @@ pub enum PocketIcError {
 }
 
 #[cfg(feature = "pocket-ic")]
+#[cfg_attr(docsrs, doc(cfg(feature = "pocket-ic")))]
 impl From<pocket_ic::RejectResponse> for PocketIcError {
     fn from(reject: pocket_ic::RejectResponse) -> Self {
         PocketIcError::Reject(reject)
