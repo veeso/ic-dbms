@@ -28,7 +28,8 @@ jobs:
             --output-path lcov.info \
             --exclude "ic-dbms-client" \
             --exclude "ic-dbms-macros" \
-            --exclude "example"
+            --exclude "example" \
+            --exclude-deps
       - name: Coveralls
         uses: coverallsapp/github-action@v2.3.6
         with:
