@@ -40,7 +40,7 @@ fn impl_init(tables: &[TableMetadata]) -> TokenStream2 {
                         err
                     ));
                 }
-            })
+            });
         });
     }
 
@@ -112,12 +112,12 @@ fn impl_transaction_api() -> TokenStream2 {
         }
 
         #[::ic_cdk::update]
-        fn commit_transaction(transaction_id: ::ic_dbms_api::prelude::TransactionId) -> ::ic_dbms_api::prelude::IcDbmsResult<()> {
+        fn commit(transaction_id: ::ic_dbms_api::prelude::TransactionId) -> ::ic_dbms_api::prelude::IcDbmsResult<()> {
             ::ic_dbms_canister::api::commit(transaction_id, CanisterDatabaseSchema)
         }
 
         #[::ic_cdk::update]
-        fn rollback_transaction(transaction_id: ::ic_dbms_api::prelude::TransactionId) -> ::ic_dbms_api::prelude::IcDbmsResult<()> {
+        fn rollback(transaction_id: ::ic_dbms_api::prelude::TransactionId) -> ::ic_dbms_api::prelude::IcDbmsResult<()> {
             ::ic_dbms_canister::api::rollback(transaction_id, CanisterDatabaseSchema)
         }
     }

@@ -1,4 +1,4 @@
-//! API generic interface to be used by different DBMS canisters through the `ic_dbms_canister!` macro.
+//! API generic interface to be used by different DBMS canisters.
 
 mod inspect;
 
@@ -47,6 +47,7 @@ pub fn commit(
     database_schema: impl DatabaseSchema + 'static,
 ) -> IcDbmsResult<()> {
     assert_caller_is_allowed();
+    assert_caller_owns_transaction(Some(&transaction_id));
     let mut database = IcDbmsDatabase::from_transaction(database_schema, transaction_id);
     database.commit()
 }
@@ -57,6 +58,7 @@ pub fn rollback(
     database_schema: impl DatabaseSchema + 'static,
 ) -> IcDbmsResult<()> {
     assert_caller_is_allowed();
+    assert_caller_owns_transaction(Some(&transaction_id));
     let mut database = IcDbmsDatabase::from_transaction(database_schema, transaction_id);
     database.rollback()
 }
@@ -71,6 +73,7 @@ where
     T: TableSchema,
 {
     assert_caller_is_allowed();
+    assert_caller_owns_transaction(transaction_id.as_ref());
     let database = database(transaction_id, database_schema);
     database.select(query)
 }
@@ -86,6 +89,7 @@ where
     T::Insert: InsertRecord<Schema = T>,
 {
     assert_caller_is_allowed();
+    assert_caller_owns_transaction(transaction_id.as_ref());
     let database = database(transaction_id, database_schema);
     database.insert::<T>(record)
 }
@@ -101,6 +105,7 @@ where
     T::Update: UpdateRecord<Schema = T>,
 {
     assert_caller_is_allowed();
+    assert_caller_owns_transaction(transaction_id.as_ref());
     let database = database(transaction_id, database_schema);
     database.update::<T>(patch)
 }
@@ -116,6 +121,7 @@ where
     T: TableSchema,
 {
     assert_caller_is_allowed();
+    assert_caller_owns_transaction(transaction_id.as_ref());
     let database = database(transaction_id, database_schema);
     database.delete::<T>(behaviour, filter)
 }
@@ -140,6 +146,19 @@ fn assert_caller_is_allowed() {
     if !ACL.with_borrow(|acl| acl.is_allowed(&caller)) {
         trap!("Caller {caller} is not allowed to perform this operation");
     }
+}
+
+/// Asserts that the caller owns the given transaction ID.
+fn assert_caller_owns_transaction(transaction_id: Option<&TransactionId>) {
+    let Some(tx_id) = transaction_id else {
+        return;
+    };
+    let caller = crate::utils::caller();
+    TRANSACTION_SESSION.with_borrow(|ts| {
+        if !ts.has_transaction(tx_id, caller) {
+            trap!("Caller {caller} does not own transaction {tx_id}");
+        }
+    });
 }
 
 #[cfg(test)]
@@ -280,6 +299,21 @@ mod tests {
             crate::tests::TestDatabaseSchema,
         );
         assert!(res.is_ok());
+    }
+
+    #[test]
+    #[should_panic = "Caller ghsi2-tqaaa-aaaan-aaaca-cai does not own transaction 0"]
+    fn test_should_not_allow_operating_wrong_tx() {
+        // init ACL
+        init_acl();
+        load_fixtures();
+
+        let tx_id = TRANSACTION_SESSION.with_borrow_mut(|ts| {
+            ts.begin_transaction(Principal::from_text("ryjl3-tyaaa-aaaaa-aaaba-cai").unwrap())
+        });
+
+        // try to commit the transaction started by alice
+        let _ = commit(tx_id, crate::tests::TestDatabaseSchema);
     }
 
     fn alice() -> Principal {
