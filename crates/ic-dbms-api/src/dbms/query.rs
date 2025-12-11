@@ -7,6 +7,7 @@ mod filter;
 use std::marker::PhantomData;
 
 use candid::CandidType;
+use candid::types::{Compound, Type, TypeInner};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -95,7 +96,7 @@ pub enum OrderDirection {
 }
 
 /// A struct representing a query in the DBMS.
-#[derive(Debug, Clone, PartialEq, Eq, CandidType, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Query<T>
 where
     T: TableSchema,
@@ -113,7 +114,42 @@ where
     /// Offset for pagination.
     pub offset: Option<usize>,
     /// Marker for the table schema type.
+    #[serde(skip)]
     _marker: PhantomData<T>,
+}
+
+impl<T: TableSchema> CandidType for Query<T> {
+    fn _ty() -> Type {
+        let mut fields = vec![
+            candid::field! { columns: Select::_ty() },
+            candid::field! { eager_relations: <Vec<String>>::_ty() },
+            candid::field! { filter: <Option<Filter>>::_ty() },
+            candid::field! { order_by: <Vec<(String, OrderDirection)>>::_ty() },
+            candid::field! { limit: <Option<usize>>::_ty() },
+            candid::field! { offset: <Option<usize>>::_ty() },
+            // We do not include _marker in the Candid type representation
+        ];
+
+        fields.sort_by_key(|f| f.id.clone());
+        TypeInner::Record(fields).into()
+    }
+
+    fn idl_serialize<S>(&self, serializer: S) -> Result<(), S::Error>
+    where
+        S: candid::types::Serializer,
+    {
+        // so apparently the order here is important, and for some reason is different from the one above.
+        // if you need to change see the order, or ask chatgpt.
+        let mut record_serializer = serializer.serialize_struct()?;
+        record_serializer.serialize_element(&self.eager_relations)?;
+        record_serializer.serialize_element(&self.offset)?;
+        record_serializer.serialize_element(&self.limit)?;
+        record_serializer.serialize_element(&self.filter)?;
+        record_serializer.serialize_element(&self.order_by)?;
+        record_serializer.serialize_element(&self.columns)?;
+
+        Ok(())
+    }
 }
 
 impl<T> Default for Query<T>
@@ -195,5 +231,20 @@ mod tests {
     fn test_should_check_all_selected() {
         let query = Query::<User>::default();
         assert!(query.all_selected());
+    }
+
+    #[test]
+    fn test_should_encode_decode_query_candid() {
+        let query: Query<User> = Query::builder()
+            .field("id")
+            .with("posts")
+            .and_where(Filter::eq("name", Value::Text("Alice".into())))
+            .order_by_asc("id")
+            .limit(10)
+            .offset(5)
+            .build();
+        let encoded = candid::encode_one(&query).unwrap();
+        let decoded: Query<User> = candid::decode_one(&encoded).unwrap();
+        assert_eq!(query, decoded);
     }
 }
