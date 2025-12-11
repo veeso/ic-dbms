@@ -1,14 +1,13 @@
 use syn::Ident;
 
 const ATTRIBUTE_TABLES: &str = "tables";
-const ATTRIBUTE_ENTITIES: &str = "entities";
 
 pub struct CanisterMetadata {
     pub tables: Vec<TableMetadata>,
 }
 
 pub struct TableMetadata {
-    pub name: Ident,
+    pub name: String,
     pub table: Ident,
     pub record: Ident,
     pub insert: Ident,
@@ -18,34 +17,20 @@ pub struct TableMetadata {
 /// Collects canister metadata from the given attributes.
 pub fn collect_canister_metadata(attrs: &[syn::Attribute]) -> syn::Result<CanisterMetadata> {
     let mut tables = Vec::new();
-
     let mut names = vec![];
-    let mut entities = vec![];
 
     for attr in attrs {
-        if attr.path().is_ident(ATTRIBUTE_ENTITIES) {
+        if attr.path().is_ident(ATTRIBUTE_TABLES) {
             attr.parse_nested_meta(|meta| {
                 let ident = meta
                     .path
                     .get_ident()
                     .cloned()
                     .ok_or_else(|| meta.error("expected identifier"))?;
+                let value: syn::LitStr = meta.value()?.parse()?;
+                let value = value.value();
 
-                entities.push(ident.clone());
-
-                Ok(())
-            })
-            .expect("invalid syntax in #[entities]");
-        } else if attr.path().is_ident(ATTRIBUTE_TABLES) {
-            attr.parse_nested_meta(|meta| {
-                // get literal string
-                let ident = meta
-                    .path
-                    .get_ident()
-                    .cloned()
-                    .ok_or_else(|| meta.error("expected identifier"))?;
-
-                names.push(ident);
+                names.push((ident, value));
 
                 Ok(())
             })
@@ -53,18 +38,7 @@ pub fn collect_canister_metadata(attrs: &[syn::Attribute]) -> syn::Result<Canist
         }
     }
 
-    if entities.len() != names.len() {
-        return Err(syn::Error::new(
-            proc_macro2::Span::call_site(),
-            format!(
-                "mismatched number of tables and names: {} tables, {} names",
-                entities.len(),
-                names.len()
-            ),
-        ));
-    }
-
-    for (ident, name) in entities.into_iter().zip(names.into_iter()) {
+    for (ident, name) in names {
         tables.push(collect_table_metadata(ident, name)?);
     }
 
@@ -72,7 +46,7 @@ pub fn collect_canister_metadata(attrs: &[syn::Attribute]) -> syn::Result<Canist
 }
 
 /// Collects metadata for a database table from its name.
-fn collect_table_metadata(table: Ident, name: Ident) -> syn::Result<TableMetadata> {
+fn collect_table_metadata(table: Ident, name: String) -> syn::Result<TableMetadata> {
     let record_ident = Ident::new(&format!("{table}Record"), table.span());
     let insert_ident = Ident::new(&format!("{table}InsertRequest"), table.span());
     let update_ident = Ident::new(&format!("{table}UpdateRequest"), table.span());

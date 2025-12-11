@@ -12,10 +12,6 @@ publish = false
 [lib]
 crate-type = ["cdylib", "rlib"]
 
-[[bin]]
-name = "expanded_example"
-path = "src/main.rs"
-
 [dependencies]
 candid = { workspace = true }
 ic-cdk = { workspace = true }
