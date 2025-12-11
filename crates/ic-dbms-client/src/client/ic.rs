@@ -52,11 +52,6 @@ impl IcDbmsCanisterClient {
         let response: R = response.candid()?;
         Ok(response)
     }
-
-    #[inline]
-    fn table_method(table: &str, method: &str) -> String {
-        format!("{table}_{method}")
-    }
 }
 
 impl Client for IcDbmsCanisterClient {
@@ -113,7 +108,7 @@ impl Client for IcDbmsCanisterClient {
         T: ic_dbms_api::prelude::TableSchema,
     {
         self.call(
-            &Self::table_method(table, "delete"),
+            &crate::utils::table_method(table, "delete"),
             &(behaviour, filter, transaction_id),
         )
         .await
@@ -130,7 +125,7 @@ impl Client for IcDbmsCanisterClient {
         T::Insert: ic_dbms_api::prelude::InsertRecord<Schema = T>,
     {
         self.call(
-            &Self::table_method(table, "insert"),
+            &crate::utils::table_method(table, "insert"),
             &(record, transaction_id),
         )
         .await
@@ -146,7 +141,7 @@ impl Client for IcDbmsCanisterClient {
         T: ic_dbms_api::prelude::TableSchema,
     {
         self.call(
-            &Self::table_method(table, "select"),
+            &crate::utils::table_method(table, "select"),
             &(query, transaction_id),
         )
         .await
@@ -163,7 +158,7 @@ impl Client for IcDbmsCanisterClient {
         T::Update: ic_dbms_api::prelude::UpdateRecord<Schema = T>,
     {
         self.call(
-            &Self::table_method(table, "update"),
+            &crate::utils::table_method(table, "update"),
             &(table, patch, transaction_id),
         )
         .await
