@@ -32,6 +32,8 @@ jobs:
             --exclude "example" \
             --exclude-from-report "ic-dbms-client" \
             --exclude-from-report "ic-dbms-macros" \
+            --exclude-from-report "pocket-ic-tests" \
+            --exclude-from-report "pocket-ic-tests-macro" \
             --exclude-from-report "example"
       - name: Coveralls
         uses: coverallsapp/github-action@v2.3.6
