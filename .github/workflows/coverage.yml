@@ -24,6 +24,7 @@ jobs:
           cargo llvm-cov \
             --no-fail-fast \
             --workspace \
+            --lib \
             --lcov \
             --output-path lcov.info \
             --exclude "ic-dbms-client" \
