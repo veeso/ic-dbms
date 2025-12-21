@@ -8,6 +8,7 @@ pub struct User {
     #[primary_key]
     pub id: Uint32,
     pub name: Text,
+    #[validate(ic_dbms_api::prelude::EmailValidator)]
     pub email: Text,
 }
 

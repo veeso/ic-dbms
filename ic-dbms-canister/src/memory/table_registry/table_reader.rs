@@ -244,6 +244,8 @@ mod tests {
         let next_page = reader.next_page(page).expect("should have next page");
         assert_eq!(next_page.page, page + 1);
         let next_page = reader.next_page(next_page.page);
+        assert!(next_page.is_some());
+        let next_page = reader.next_page(next_page.unwrap().page);
         assert!(next_page.is_none());
     }
 
@@ -343,6 +345,7 @@ mod tests {
             let user = User {
                 id: id.into(),
                 name: format!("User {}", id).into(),
+                email: "new_user@example.com".into(),
             };
             registry.insert(user).expect("failed to insert user");
         }

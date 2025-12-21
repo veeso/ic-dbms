@@ -17,6 +17,7 @@ pub fn generate_table_schema(
     let primary_key_str = primary_key.to_string();
     let columns_def = column_def(metadata)?;
     let values = to_values(&metadata.fields);
+    let validators = validators(&metadata.fields);
 
     Ok(quote::quote! {
         impl ::ic_dbms_api::prelude::TableSchema for #struct_name {
@@ -40,8 +41,45 @@ pub fn generate_table_schema(
             fn to_values(self) -> Vec<(::ic_dbms_api::prelude::ColumnDef, ::ic_dbms_api::prelude::Value)> {
                 #values
             }
+
+            /// Returns the [`::ic_dbms_api::prelude::Validate`] implementation for the given column name, if any.
+            fn validator(column_name: &'static str) -> Option<Box<dyn ::ic_dbms_api::prelude::Validate>> {
+                #validators
+            }
         }
     })
+}
+
+/// Generate the match arms for the validators function.
+fn validators(fields: &[Field]) -> TokenStream2 {
+    let mut arms = vec![];
+
+    for field in fields {
+        if let Some(validator) = &field.validate {
+            let field_name = field.name.to_string();
+            let validator_struct = &validator.path;
+            let args = &validator.args;
+            if args.is_empty() {
+                arms.push(quote::quote! {
+                    #field_name => Some(Box::new(#validator_struct)),
+                });
+            } else {
+                arms.push(quote::quote! {
+                    #field_name => Some(Box::new(#validator_struct(#(#args),*))),
+                });
+            }
+        }
+    }
+
+    arms.push(quote::quote! {
+        _ => None,
+    });
+
+    quote::quote! {
+        match column_name {
+            #(#arms)*
+        }
+    }
 }
 
 fn column_def(metadata: &TableMetadata) -> syn::Result<TokenStream2> {

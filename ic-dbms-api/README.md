@@ -98,6 +98,23 @@ use ic_dbms_api::prelude::*;
 - [`Page`](crate::memory::Page)
 - [`PageOffset`](crate::memory::PageOffset)
 
+### Validate
+
+- [`Validate`](crate::prelude::Validate)
+- [`CamelCaseValidator`](crate::prelude::CamelCaseValidator)
+- [`CountryIso639Validator`](crate::prelude::CountryIso639Validator)
+- [`CountryIso3166Validator`](crate::prelude::CountryIso3166Validator)
+- [`EmailValidator`](crate::prelude::EmailValidator)
+- [`KebabCaseValidator`](crate::prelude::KebabCaseValidator)
+- [`MaxStrlenValidator`](crate::prelude::MaxStrlenValidator)
+- [`MimeTypeValidator`](crate::prelude::MimeTypeValidator)
+- [`MinStrlenValidator`](crate::prelude::MinStrlenValidator)
+- [`PhoneNumberValidator`](crate::prelude::PhoneNumberValidator)
+- [`RangeStrlenValidator`](crate::prelude::RangeStrlenValidator)
+- [`RgbColorValidator`](crate::prelude::RgbColorValidator)
+- [`SnakeCaseValidator`](crate::prelude::SnakeCaseValidator)
+- [`UrlValidator`](crate::prelude::UrlValidator)
+
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](../LICENSE) file for details.

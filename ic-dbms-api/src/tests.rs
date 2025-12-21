@@ -6,7 +6,7 @@ use crate::dbms::types::{DataTypeKind, Text, Uint32};
 use crate::dbms::value::Value;
 use crate::memory::Encode;
 use crate::prelude::{
-    Filter, IcDbmsError, InsertRecord, NoForeignFetcher, QueryError, UpdateRecord,
+    Filter, IcDbmsError, InsertRecord, NoForeignFetcher, QueryError, UpdateRecord, Validate,
 };
 
 /// A simple user struct for testing purposes.
@@ -255,6 +255,10 @@ impl TableSchema for User {
 
     fn primary_key() -> &'static str {
         "id"
+    }
+
+    fn validator(_column_name: &'static str) -> Option<Box<dyn Validate>> {
+        None
     }
 
     fn to_values(self) -> Vec<(ColumnDef, Value)> {
