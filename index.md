@@ -19,6 +19,8 @@ description: "An Internet Computer framework which provides an easy way to imple
 ## Get started
 
 - [Getting Started Guide](./docs/get-started.md)
+- [Schema Definition](./docs/schema.md)
+- [Column Validation](./docs/validation.md)
 
 ## Technical Documentation
 

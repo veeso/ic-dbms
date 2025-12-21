@@ -277,7 +277,8 @@ mod tests {
         MEMORY_MANAGER.with_borrow_mut(|manager| {
             let data_to_write = User {
                 id: 30u32.into(),
-                name: "Alice".to_string().into(),
+                name: "Alice".into(),
+                email: "alice@example.com".into(),
             };
             manager
                 .write_at(ACL_PAGE, 10, &data_to_write)

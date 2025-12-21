@@ -7,7 +7,7 @@ use crate::prelude::Validate;
 /// # Example
 ///
 /// ```rust
-/// use ic_dbms_canister::prelude::{MimeTypeValidator, Validate, Value};
+/// use ic_dbms_api::prelude::{MimeTypeValidator, Validate, Value};
 ///
 /// let validator = MimeTypeValidator;
 /// let valid_mime = Value::Text(ic_dbms_api::prelude::Text("text/plain".into()));
@@ -60,7 +60,7 @@ impl Validate for MimeTypeValidator {
 /// # Example
 ///
 /// ```rust
-/// use ic_dbms_canister::prelude::{UrlValidator, Validate, Value};
+/// use ic_dbms_api::prelude::{UrlValidator, Validate, Value};
 /// let validator = UrlValidator;
 /// let valid_url = Value::Text(ic_dbms_api::prelude::Text("http://example.com".into()));
 /// assert!(validator.validate(&valid_url).is_ok());

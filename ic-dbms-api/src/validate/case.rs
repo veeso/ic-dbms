@@ -23,7 +23,7 @@ use crate::prelude::Validate;
 /// # Example
 ///
 /// ```rust
-/// use ic_dbms_canister::prelude::{SnakeCaseValidator, Value, Validate};
+/// use ic_dbms_api::prelude::{SnakeCaseValidator, Value, Validate};
 ///
 /// let validator = SnakeCaseValidator;
 /// let value = Value::Text(ic_dbms_api::prelude::Text("valid_snake_case".into()));
@@ -85,7 +85,7 @@ impl Validate for SnakeCaseValidator {
 /// # Example
 ///
 /// ```rust
-/// use ic_dbms_canister::prelude::{KebabCaseValidator, Value, Validate};
+/// use ic_dbms_api::prelude::{KebabCaseValidator, Value, Validate};
 /// let validator = KebabCaseValidator;
 /// let value = Value::Text(ic_dbms_api::prelude::Text("valid-kebab-case".into()));
 /// assert!(validator.validate(&value).is_ok());
@@ -145,7 +145,7 @@ impl Validate for KebabCaseValidator {
 /// # Example
 ///
 /// ```rust
-/// use ic_dbms_canister::prelude::{CamelCaseValidator, Value, Validate};
+/// use ic_dbms_api::prelude::{CamelCaseValidator, Value, Validate};
 /// let validator = CamelCaseValidator;
 /// let value = Value::Text(ic_dbms_api::prelude::Text("ValidCamelCase".into()));
 /// assert!(validator.validate(&value).is_ok());

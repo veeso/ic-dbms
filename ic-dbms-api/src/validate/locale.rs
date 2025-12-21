@@ -41,7 +41,7 @@ const ISO_639_1_COUNTRIES: &[&str] = &[
 /// # Examples
 ///
 /// ```rust
-/// use ic_dbms_canister::prelude::{CountryIso3166Validator, Validate, Value};
+/// use ic_dbms_api::prelude::{CountryIso3166Validator, Validate, Value};
 ///
 /// let validator = CountryIso3166Validator;
 /// let valid_country = Value::Text("US".into());
@@ -76,7 +76,7 @@ impl Validate for CountryIso3166Validator {
 /// # Examples
 ///
 /// ```rust
-/// use ic_dbms_canister::prelude::{CountryIso639Validator, Validate, Value};
+/// use ic_dbms_api::prelude::{CountryIso639Validator, Validate, Value};
 /// let validator = CountryIso639Validator;
 /// let valid_country = Value::Text("en".into());
 /// let invalid_country = Value::Text("xx".into());

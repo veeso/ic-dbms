@@ -18,7 +18,7 @@ static PHONE_REGEX: Lazy<Regex> = lazy_regex!(r"^\+?[0-9\s().-]{7,20}$");
 /// ## Example
 ///
 /// ```rust
-/// use ic_dbms_canister::prelude::{PhoneNumberValidator, Validate, Value};
+/// use ic_dbms_api::prelude::{PhoneNumberValidator, Validate, Value};
 ///
 /// let validator = PhoneNumberValidator;
 /// let valid_phone = Value::Text("+1-202-555-0173".into());

@@ -524,7 +524,7 @@ pub fn derive_encode(input: TokenStream) -> TokenStream {
 /// - `${StructName}ForeignFetcher` (only if foreign keys are present)
 ///
 /// Also, we will implement the `TableSchema` trait for the struct itself and derive `Encode` for `${StructName}`.
-#[proc_macro_derive(Table, attributes(table, primary_key, foreign_key))]
+#[proc_macro_derive(Table, attributes(table, primary_key, foreign_key, validate))]
 pub fn derive_table(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     self::table::table(input)

@@ -13,7 +13,7 @@ static EMAIL_REGEX: Lazy<Regex> =
 /// # Examples
 ///
 /// ```rust
-/// use ic_dbms_canister::prelude::{EmailValidator, Validate, Value};
+/// use ic_dbms_api::prelude::{EmailValidator, Validate, Value};
 ///
 /// let validator = EmailValidator;
 /// let valid_email = Value::Text("christian.visintin@gmail.com".into());

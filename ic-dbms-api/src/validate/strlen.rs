@@ -7,7 +7,7 @@ use crate::prelude::Validate;
 /// # Example
 ///
 /// ```rust
-/// use ic_dbms_canister::prelude::{MaxStrlenValidator, Validate, Value, Text};
+/// use ic_dbms_api::prelude::{MaxStrlenValidator, Validate, Value, Text};
 /// let validator = MaxStrlenValidator(10);
 /// let value = Value::Text(Text("Hello".to_string()));
 /// assert!(validator.validate(&value).is_ok());
@@ -40,7 +40,7 @@ impl Validate for MaxStrlenValidator {
 ///
 /// # Example
 /// ```rust
-/// use ic_dbms_canister::prelude::{MinStrlenValidator, Validate, Value, Text};
+/// use ic_dbms_api::prelude::{MinStrlenValidator, Validate, Value, Text};
 /// let validator = MinStrlenValidator(5);
 /// let value = Value::Text(Text("Hello".to_string()));
 /// assert!(validator.validate(&value).is_ok());
@@ -74,7 +74,7 @@ impl Validate for MinStrlenValidator {
 /// # Example
 ///
 /// ```rust
-/// use ic_dbms_canister::prelude::{RangeStrlenValidator, Validate, Value, Text};
+/// use ic_dbms_api::prelude::{RangeStrlenValidator, Validate, Value, Text};
 /// let validator = RangeStrlenValidator(3, 10);
 /// let value = Value::Text(Text("Hello".to_string()));
 /// assert!(validator.validate(&value).is_ok());

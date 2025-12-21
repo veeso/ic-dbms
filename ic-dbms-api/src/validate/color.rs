@@ -10,7 +10,7 @@ use crate::prelude::Validate;
 /// # Examples
 ///
 /// ```rust
-/// use ic_dbms_canister::prelude::{RgbColorValidator, Value, Validate};
+/// use ic_dbms_api::prelude::{RgbColorValidator, Value, Validate};
 ///
 /// let validator = RgbColorValidator;
 /// let valid_color = Value::Text(ic_dbms_api::prelude::Text("#1A2B3C".into()));

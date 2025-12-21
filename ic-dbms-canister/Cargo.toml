@@ -27,10 +27,8 @@ ic-cdk = { workspace = true }
 ic-cdk-macros = { workspace = true }
 ic-dbms-api = { version = "0.1", path = "../ic-dbms-api" }
 ic-dbms-macros = { version = "0.1", path = "../ic-dbms-macros" }
-lazy-regex = { workspace = true }
 like = { workspace = true }
 rust_decimal = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
-url = { workspace = true }
 uuid = { workspace = true }

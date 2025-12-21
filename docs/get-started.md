@@ -10,6 +10,7 @@ description: A guide to get started with ic-dbms canister
   - [Deploying the Canister](#deploying-the-canister)
 - [Interacting with the Canister](#interacting-with-the-canister)
 - [Integration tests](#integration-tests)
+- [See Also](#see-also)
 
 This guide will help you get started with the `ic-dbms` canister. Follow the steps below to set up your development environment and deploy the canister on the Internet Computer.
 
@@ -243,3 +244,8 @@ client
     .expect("failed to call canister")
     .expect("failed to insert user");
 ```
+
+## See Also
+
+- [Schema Definition](./schema.md)
+- [Column Validation](./validation.md)

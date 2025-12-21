@@ -3,8 +3,6 @@
 //! Each validation function takes a [`&crate::prelude::Value`] as input and returns a `IcDbmsResult<()>` indicating
 //! whether the value passes the validation or not.
 
-use ic_dbms_api::prelude::IcDbmsResult;
-
 mod case;
 mod color;
 mod email;
@@ -20,6 +18,7 @@ pub use self::locale::{CountryIso639Validator, CountryIso3166Validator};
 pub use self::phone::PhoneNumberValidator;
 pub use self::strlen::{MaxStrlenValidator, MinStrlenValidator, RangeStrlenValidator};
 pub use self::web::{MimeTypeValidator, UrlValidator};
+use crate::error::IcDbmsResult;
 
 /// Trait for validating values.
 pub trait Validate {
@@ -27,13 +26,4 @@ pub trait Validate {
     ///
     /// In case of error it should return a [`crate::prelude::IcDbmsError::Validation`] error.
     fn validate(&self, value: &crate::prelude::Value) -> IcDbmsResult<()>;
-}
-
-/// A validator that performs no validation.
-pub struct NoValidation;
-
-impl Validate for NoValidation {
-    fn validate(&self, _value: &crate::prelude::Value) -> IcDbmsResult<()> {
-        Ok(())
-    }
 }

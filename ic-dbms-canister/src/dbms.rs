@@ -846,10 +846,11 @@ mod tests {
 
         let expected_user = USERS_FIXTURES[2]; // author_id = 2
 
-        assert_eq!(user_fields.len(), 2);
+        assert_eq!(user_fields.len(), 3);
         assert_eq!(user_fields[0].0.name, "id");
         assert_eq!(user_fields[0].1, Value::Uint32(2.into()));
         assert_eq!(user_fields[1].0.name, "name");
+        assert_eq!(user_fields[2].0.name, "email");
         assert_eq!(
             user_fields[1].1,
             Value::Text(expected_user.to_string().into())
@@ -981,6 +982,7 @@ mod tests {
         let new_user = UserInsertRequest {
             id: Uint32(100u32),
             name: Text("NewUser".to_string()),
+            email: "new_user@example.com".into(),
         };
 
         let result = dbms.insert::<User>(new_user);
@@ -1008,6 +1010,7 @@ mod tests {
         let new_user = UserInsertRequest {
             id: Uint32(1u32),
             name: Text("NewUser".to_string()),
+            email: "new_user@example.com".into(),
         };
 
         let result = dbms.insert::<User>(new_user);
@@ -1026,6 +1029,7 @@ mod tests {
         let new_user = UserInsertRequest {
             id: Uint32(200u32),
             name: Text("TxUser".to_string()),
+            email: "new_user@example.com".into(),
         };
 
         let result = dbms.insert::<User>(new_user);
@@ -1074,6 +1078,7 @@ mod tests {
         let new_user = UserInsertRequest {
             id: Uint32(300u32),
             name: Text("RollbackUser".to_string()),
+            email: "new_user@example.com".into(),
         };
         let result = dbms.insert::<User>(new_user);
         assert!(result.is_ok());
@@ -1105,6 +1110,7 @@ mod tests {
         let new_user = UserInsertRequest {
             id: Uint32(100u32),
             name: Text("DeleteUser".to_string()),
+            email: "new_user@example.com".into(),
         };
         assert!(
             IcDbmsDatabase::oneshot(TestDatabaseSchema)
@@ -1256,6 +1262,7 @@ mod tests {
         let patch = UserUpdateRequest {
             id: None,
             name: Some(Text("UpdatedName".to_string())),
+            email: None,
             where_clause: Some(filter.clone()),
         };
 
@@ -1287,6 +1294,7 @@ mod tests {
         let patch = UserUpdateRequest {
             id: None,
             name: Some(Text("TxUpdatedName".to_string())),
+            email: None,
             where_clause: Some(filter.clone()),
         };
 

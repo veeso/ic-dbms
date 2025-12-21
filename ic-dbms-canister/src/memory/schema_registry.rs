@@ -309,5 +309,11 @@ mod tests {
         fn to_values(self) -> Vec<(ColumnDef, ic_dbms_api::prelude::Value)> {
             vec![]
         }
+
+        fn validator(
+            _column_name: &'static str,
+        ) -> Option<Box<dyn ic_dbms_api::prelude::Validate>> {
+            None
+        }
     }
 }
