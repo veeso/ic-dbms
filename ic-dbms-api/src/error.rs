@@ -13,6 +13,8 @@ pub enum IcDbmsError {
     Table(#[from] crate::dbms::table::TableError),
     #[error("Transaction error: {0}")]
     Transaction(#[from] crate::dbms::transaction::TransactionError),
+    #[error("Validation error: {0}")]
+    Validation(String),
 }
 
 /// IcDbms Result type

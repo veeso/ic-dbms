@@ -13,6 +13,13 @@ use crate::memory::{DataSize, Encode};
 )]
 pub struct Text(pub String);
 
+impl Text {
+    /// Returns the string slice.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
 impl fmt::Display for Text {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
