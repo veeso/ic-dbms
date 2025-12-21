@@ -33,6 +33,7 @@ pub struct User {
     #[primary_key]
     id: Uint64,
     name: Text,
+    #[validate(ic_dbms_api::prelude::EmailValidator)]
     email: Text,
     age: Nullable<Uint32>,
 }
