@@ -2,6 +2,15 @@
 
 It is possible to add validation rules to table columns by using the `#[validate(ValidateImpl)]` attribute. This allows you to enforce constraints on the data being inserted or updated in the database.
 
+## Syntax
+
+The `#[validate(...)]` attribute can be added to any field in a struct that represents a database table. You can specify one or more validators by providing their names and any required parameters.
+
+Such as:
+
+- `#[validate(MaxStrlenValidator(255))]` - Validates that the string length does not exceed 255 characters.
+- `#[validate(EmailValidator)]` - Validates that the string is a valid email address.
+
 ## Supported Validations
 
 By default all these validators are available in `ic-dbms-api` prelude:
@@ -30,6 +39,7 @@ use ic_dbms_api::prelude::*;
 pub struct User {
     #[primary_key]
     pub id: Uint32,
+    #[validate(MaxStrlenValidator(20))]
     pub name: Text,
     #[validate(EmailValidator)]
     pub email: Text,

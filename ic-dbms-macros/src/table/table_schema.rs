@@ -57,9 +57,17 @@ fn validators(fields: &[Field]) -> TokenStream2 {
     for field in fields {
         if let Some(validator) = &field.validate {
             let field_name = field.name.to_string();
-            arms.push(quote::quote! {
-                #field_name => Some(Box::new(#validator)),
-            });
+            let validator_struct = &validator.path;
+            let args = &validator.args;
+            if args.is_empty() {
+                arms.push(quote::quote! {
+                    #field_name => Some(Box::new(#validator_struct)),
+                });
+            } else {
+                arms.push(quote::quote! {
+                    #field_name => Some(Box::new(#validator_struct(#(#args),*))),
+                });
+            }
         }
     }
 

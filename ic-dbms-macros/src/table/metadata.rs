@@ -40,12 +40,18 @@ pub struct Field {
     /// Whether the field is a primary key
     pub primary_key: bool,
     /// Validate struct to use for this field
-    pub validate: Option<syn::Path>,
+    pub validate: Option<Validator>,
     /// Value type of the field; e.g. `Value::Int32`
     pub value_type: syn::Path,
 }
 
-type Validates = HashMap<Ident, syn::Path>;
+#[derive(Clone)]
+pub struct Validator {
+    pub path: syn::Path,
+    pub args: Vec<syn::Expr>,
+}
+
+type Validates = HashMap<Ident, Validator>;
 
 /// Metadata about the table extracted from the struct and its attributes
 pub struct TableMetadata {
@@ -244,13 +250,37 @@ fn collect_validates(data: &DataStruct) -> syn::Result<Validates> {
     for field in &data.fields {
         for attr in &field.attrs {
             if attr.path().is_ident("validate") {
-                let path: syn::Path = attr.parse_args()?;
+                let validator = match attr.parse_args::<syn::Expr>()? {
+                    syn::Expr::Path(expr) => Validator {
+                        path: expr.path,
+                        args: Vec::new(),
+                    },
+                    syn::Expr::Call(call) => {
+                        let path = match *call.func {
+                            syn::Expr::Path(p) => p.path,
+                            other => {
+                                return Err(syn::Error::new_spanned(
+                                    other,
+                                    "validator must be a path or a call, e.g. Validator or Validator(42)",
+                                ));
+                            }
+                        };
+
+                        Validator {
+                            path,
+                            args: call.args.into_iter().collect(),
+                        }
+                    }
+                    other => {
+                        return Err(syn::Error::new_spanned(other, "invalid validator syntax"));
+                    }
+                };
 
                 let ident = field.ident.clone().ok_or_else(|| {
                     syn::Error::new_spanned(field, "validate can only be used on named fields")
                 })?;
 
-                validates.insert(ident, path);
+                validates.insert(ident, validator);
             }
         }
     }
