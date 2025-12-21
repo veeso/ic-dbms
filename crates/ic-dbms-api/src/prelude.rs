@@ -17,3 +17,9 @@ pub use crate::memory::{
     DataSize, DecodeError, Encode, MSize, MemoryError, MemoryResult, Page, PageOffset,
 };
 pub use crate::utils::self_reference_values;
+pub use crate::validate::{
+    CamelCaseValidator, CountryIso639Validator, CountryIso3166Validator, EmailValidator,
+    KebabCaseValidator, MaxStrlenValidator, MimeTypeValidator, MinStrlenValidator,
+    PhoneNumberValidator, RangeStrlenValidator, RgbColorValidator, SnakeCaseValidator,
+    UrlValidator, Validate,
+};

@@ -38,11 +38,24 @@ where
     /// - All foreign keys reference existing records.
     /// - All non-nullable columns are provided.
     pub fn validate(&self, record_values: &[(ColumnDef, Value)]) -> IcDbmsResult<()> {
+        // check validations for each column
+        for (col, value) in record_values {
+            self.check_column_validate(col, value)?;
+        }
         self.check_primary_key_conflict(record_values)?;
         self.check_foreign_keys(record_values)?;
         self.check_non_nullable_fields(record_values)?;
 
         Ok(())
+    }
+
+    /// Checks whether the given column value is valid according to its validator.
+    fn check_column_validate(&self, column: &ColumnDef, value: &Value) -> IcDbmsResult<()> {
+        let Some(validator) = T::validator(column.name) else {
+            return Ok(());
+        };
+
+        validator.validate(value)
     }
 
     /// Checks for primary key conflicts.
@@ -128,6 +141,26 @@ mod tests {
     use crate::tests::{Message, Post, TestDatabaseSchema, User, load_fixtures};
 
     #[test]
+    fn test_should_not_pass_email_validation() {
+        load_fixtures();
+        let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
+
+        let values = User::columns()
+            .iter()
+            .cloned()
+            .zip(vec![
+                Value::Uint32(10.into()),
+                Value::Text("Bob".to_string().into()),
+                Value::Text("invalid-email".to_string().into()),
+            ])
+            .collect::<Vec<(ColumnDef, Value)>>();
+
+        let validator = InsertIntegrityValidator::<User>::new(&dbms);
+        let result = validator.validate(&values);
+        assert!(matches!(result, Err(IcDbmsError::Validation(_))));
+    }
+
+    #[test]
     fn test_should_not_pass_check_for_pk_conflict() {
         load_fixtures();
         let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
@@ -138,6 +171,7 @@ mod tests {
             .zip(vec![
                 Value::Uint32(1.into()),
                 Value::Text("Alice".to_string().into()),
+                Value::Text("alice@example.com".into()),
             ])
             .collect::<Vec<(ColumnDef, Value)>>();
 
@@ -160,6 +194,7 @@ mod tests {
             .zip(vec![
                 Value::Uint32(1000.into()),
                 Value::Text("Alice".to_string().into()),
+                Value::Text("alice@example.com".into()),
             ])
             .collect::<Vec<(ColumnDef, Value)>>();
 

@@ -246,6 +246,7 @@ mod tests {
         let record = UserInsertRequest {
             id: 100u32.into(),
             name: "Alice".to_string().into(),
+            email: "alice@example.com".into(),
         };
 
         let res = insert::<crate::tests::User>(record, None, crate::tests::TestDatabaseSchema);
@@ -277,7 +278,8 @@ mod tests {
         // update record
         let patch = crate::tests::UserUpdateRequest {
             id: None,
-            name: Some("Robert".to_string().into()),
+            name: Some("Robert".into()),
+            email: Some("robert@example.com".into()),
             where_clause: Some(Filter::Eq("id".to_string(), Uint32::from(1u32).into())),
         };
         let res = update::<crate::tests::User>(patch, None, crate::tests::TestDatabaseSchema);

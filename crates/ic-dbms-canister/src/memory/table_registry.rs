@@ -204,6 +204,7 @@ mod tests {
         let record = RawRecord::new(User {
             id: 1u32.into(),
             name: "Test".to_string().into(),
+            email: "new_user@example.com".into(),
         });
         let write_at = registry
             .get_write_position(&record)
@@ -219,6 +220,7 @@ mod tests {
         let record = RawRecord::new(User {
             id: 1u32.into(),
             name: "Test".to_string().into(),
+            email: "new_user@example.com".into(),
         });
         // allocate a page to insert a free segment
         let (page, _) = registry
@@ -255,6 +257,7 @@ mod tests {
         let record = User {
             id: 1u32.into(),
             name: "Test".to_string().into(),
+            email: "new_user@example.com".into(),
         };
 
         // insert record
@@ -269,6 +272,7 @@ mod tests {
             let record = User {
                 id: id.into(),
                 name: format!("User {}", id).into(),
+                email: "new_user@example.com".into(),
             };
             registry.insert(record).expect("failed to insert record");
         }
@@ -281,6 +285,7 @@ mod tests {
         let record = User {
             id: 1u32.into(),
             name: "Test".to_string().into(),
+            email: "new_user@example.com".into(),
         };
 
         // insert record
@@ -311,6 +316,7 @@ mod tests {
             .find_reusable_segment(&User {
                 id: 2u32.into(),
                 name: "Test".to_string().into(),
+                email: "new_user@example.com".into(),
             })
             .expect("could not find the free segment after free");
         assert_eq!(free_segment.page, page);
@@ -332,10 +338,12 @@ mod tests {
         let old_record = User {
             id: 1u32.into(),
             name: "John".to_string().into(),
+            email: "new_user@example.com".into(),
         };
         let new_record = User {
             id: 1u32.into(),
             name: "Mark".to_string().into(), // same length as "John"
+            email: "new_user@example.com".into(),
         };
 
         // insert old record
@@ -377,15 +385,18 @@ mod tests {
         let old_record = User {
             id: 1u32.into(),
             name: "John".to_string().into(),
+            email: "new_user@example.com".into(),
         };
         // this user creates a record with same size as old_record to avoid reusing the free segment
         let extra_user = User {
             id: 2u32.into(),
             name: "Extra".to_string().into(),
+            email: "new_user@example.com".into(),
         };
         let new_record = User {
             id: 1u32.into(),
             name: "Alexander".to_string().into(), // longer than "John"
+            email: "new_user@example.com".into(),
         };
 
         // insert old record

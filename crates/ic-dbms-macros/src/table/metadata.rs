@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::ToTokens as _;
 use syn::{DataStruct, Ident};
@@ -37,9 +39,19 @@ pub struct Field {
     pub nullable: bool,
     /// Whether the field is a primary key
     pub primary_key: bool,
+    /// Validate struct to use for this field
+    pub validate: Option<Validator>,
     /// Value type of the field; e.g. `Value::Int32`
     pub value_type: syn::Path,
 }
+
+#[derive(Clone)]
+pub struct Validator {
+    pub path: syn::Path,
+    pub args: Vec<syn::Expr>,
+}
+
+type Validates = HashMap<Ident, Validator>;
 
 /// Metadata about the table extracted from the struct and its attributes
 pub struct TableMetadata {
@@ -85,6 +97,7 @@ pub fn collect_table_metadata(
     let table_name = get_table_name(attrs)?;
     let primary_key = get_primary_key_field(data)?;
     let foreign_keys = collect_foreign_keys(data)?;
+    let validates = collect_validates(data)?;
     let record_ident = Ident::new(&format!("{struct_name}Record"), struct_name.span());
     let insert_ident = Ident::new(&format!("{struct_name}InsertRequest"), struct_name.span());
     let update_ident = Ident::new(&format!("{struct_name}UpdateRequest"), struct_name.span());
@@ -96,7 +109,7 @@ pub fn collect_table_metadata(
     } else {
         None
     };
-    let fields = get_fields(data, &primary_key, &foreign_keys)?;
+    let fields = get_fields(data, &primary_key, &foreign_keys, &validates)?;
 
     Ok(TableMetadata {
         name: table_name,
@@ -231,10 +244,55 @@ fn collect_foreign_keys(data: &DataStruct) -> syn::Result<Vec<ForeignKey>> {
     Ok(foreign_keys)
 }
 
+fn collect_validates(data: &DataStruct) -> syn::Result<Validates> {
+    let mut validates = HashMap::new();
+
+    for field in &data.fields {
+        for attr in &field.attrs {
+            if attr.path().is_ident("validate") {
+                let validator = match attr.parse_args::<syn::Expr>()? {
+                    syn::Expr::Path(expr) => Validator {
+                        path: expr.path,
+                        args: Vec::new(),
+                    },
+                    syn::Expr::Call(call) => {
+                        let path = match *call.func {
+                            syn::Expr::Path(p) => p.path,
+                            other => {
+                                return Err(syn::Error::new_spanned(
+                                    other,
+                                    "validator must be a path or a call, e.g. Validator or Validator(42)",
+                                ));
+                            }
+                        };
+
+                        Validator {
+                            path,
+                            args: call.args.into_iter().collect(),
+                        }
+                    }
+                    other => {
+                        return Err(syn::Error::new_spanned(other, "invalid validator syntax"));
+                    }
+                };
+
+                let ident = field.ident.clone().ok_or_else(|| {
+                    syn::Error::new_spanned(field, "validate can only be used on named fields")
+                })?;
+
+                validates.insert(ident, validator);
+            }
+        }
+    }
+
+    Ok(validates)
+}
+
 fn get_fields(
     data: &DataStruct,
     primary_key: &Ident,
     foreign_keys: &[ForeignKey],
+    validates: &Validates,
 ) -> syn::Result<Vec<Field>> {
     let mut fields = vec![];
 
@@ -249,6 +307,8 @@ fn get_fields(
         let primary_key = &name == primary_key;
 
         let is_fk = foreign_keys.iter().any(|fk| fk.field == name);
+
+        let validate = validates.get(&name).cloned();
 
         let nullable = nullable(field);
         // if is nullable the data type is the inner type
@@ -288,6 +348,7 @@ fn get_fields(
             data_type_kind,
             nullable,
             primary_key,
+            validate,
             value_type,
         });
     }
