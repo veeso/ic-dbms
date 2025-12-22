@@ -83,7 +83,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_clamp_sanitizer() {
+    fn test_clamp_sanitizer_i32() {
         let sanitizer = ClampSanitizer { min: 0, max: 100 };
         let value_in_range = Value::Int32(50.into());
         let value_below_range = Value::Int32((-10i32).into());
@@ -102,7 +102,26 @@ mod tests {
     }
 
     #[test]
-    fn test_clamp_unsigned_sanitizer() {
+    fn test_clamp_sanitizer_i64() {
+        let sanitizer = ClampSanitizer { min: 0, max: 100 };
+        let value_in_range = Value::Int64(50.into());
+        let value_below_range = Value::Int64((-10i64).into());
+        let value_above_range = Value::Int64(150.into());
+        let non_integer_value = Value::Text("Not an integer".into());
+
+        let sanitized_in_range = sanitizer.sanitize(value_in_range).unwrap();
+        let sanitized_below_range = sanitizer.sanitize(value_below_range).unwrap();
+        let sanitized_above_range = sanitizer.sanitize(value_above_range).unwrap();
+        let sanitized_non_integer = sanitizer.sanitize(non_integer_value).unwrap();
+
+        assert_eq!(sanitized_in_range, Value::Int64(50.into()));
+        assert_eq!(sanitized_below_range, Value::Int64(0.into()));
+        assert_eq!(sanitized_above_range, Value::Int64(100.into()));
+        assert_eq!(sanitized_non_integer, Value::Text("Not an integer".into()));
+    }
+
+    #[test]
+    fn test_clamp_unsigned_sanitizer_u32() {
         let sanitizer = ClampUnsignedSanitizer { min: 0, max: 100 };
         let value_in_range = Value::Uint32(50.into());
         let value_below_range = Value::Uint32(0.into()); // Unsigned can't be negative
@@ -117,6 +136,25 @@ mod tests {
         assert_eq!(sanitized_in_range, Value::Uint32(50.into()));
         assert_eq!(sanitized_below_range, Value::Uint32(0.into()));
         assert_eq!(sanitized_above_range, Value::Uint32(100.into()));
+        assert_eq!(sanitized_non_integer, Value::Text("Not an integer".into()));
+    }
+
+    #[test]
+    fn test_clamp_unsigned_sanitizer_u64() {
+        let sanitizer = ClampUnsignedSanitizer { min: 0, max: 100 };
+        let value_in_range = Value::Uint64(50.into());
+        let value_below_range = Value::Uint64(0.into()); // Unsigned can't be negative
+        let value_above_range = Value::Uint64(150.into());
+        let non_integer_value = Value::Text("Not an integer".into());
+
+        let sanitized_in_range = sanitizer.sanitize(value_in_range).unwrap();
+        let sanitized_below_range = sanitizer.sanitize(value_below_range).unwrap();
+        let sanitized_above_range = sanitizer.sanitize(value_above_range).unwrap();
+        let sanitized_non_integer = sanitizer.sanitize(non_integer_value).unwrap();
+
+        assert_eq!(sanitized_in_range, Value::Uint64(50.into()));
+        assert_eq!(sanitized_below_range, Value::Uint64(0.into()));
+        assert_eq!(sanitized_above_range, Value::Uint64(100.into()));
         assert_eq!(sanitized_non_integer, Value::Text("Not an integer".into()));
     }
 }
