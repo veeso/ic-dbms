@@ -63,4 +63,4 @@ pub trait Sanitize {
 }
 ```
 
-Then just provide your sanitizer struct in the `#[sanitize(...)]` attribute.
+Then just provide your sanitizer struct in the `#[sanitizer(...)]` attribute.
