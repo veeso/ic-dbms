@@ -6,7 +6,7 @@ use crate::dbms::foreign_fetcher::ForeignFetcher;
 use crate::dbms::table::column_def::ColumnDef;
 use crate::dbms::table::{InsertRecord, TableRecord, UpdateRecord};
 use crate::memory::Encode;
-use crate::prelude::Validate;
+use crate::prelude::{Sanitize, Validate};
 
 /// A type representing a unique fingerprint for a table schema.
 pub type TableFingerprint = u64;
@@ -39,6 +39,9 @@ where
 
     /// Converts itself into a vector of column-value pairs.
     fn to_values(self) -> Vec<(ColumnDef, crate::dbms::value::Value)>;
+
+    /// Returns the [`Sanitize`] implementation for the given column name, if any.
+    fn sanitizer(column_name: &'static str) -> Option<Box<dyn Sanitize>>;
 
     /// Returns the [`Validate`] implementation for the given column name, if any.
     fn validator(column_name: &'static str) -> Option<Box<dyn Validate>>;

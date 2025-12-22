@@ -9,6 +9,8 @@ pub enum IcDbmsError {
     Memory(#[from] crate::memory::MemoryError),
     #[error("Query error: {0}")]
     Query(#[from] crate::dbms::query::QueryError),
+    #[error("Sanitize error: {0}")]
+    Sanitize(String),
     #[error("Table error: {0}")]
     Table(#[from] crate::dbms::table::TableError),
     #[error("Transaction error: {0}")]

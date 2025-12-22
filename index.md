@@ -20,6 +20,7 @@ description: "An Internet Computer framework which provides an easy way to imple
 
 - [Getting Started Guide](./docs/get-started.md)
 - [Schema Definition](./docs/schema.md)
+- [Column Sanitization](./docs/sanitize.md)
 - [Column Validation](./docs/validation.md)
 
 ## Technical Documentation

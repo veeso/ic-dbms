@@ -348,6 +348,7 @@ mod tests {
                 id: id.into(),
                 name: format!("User {}", id).into(),
                 email: "new_user@example.com".into(),
+                age: (20 + id).into(),
             };
             registry.insert(user).expect("failed to insert user");
         }
