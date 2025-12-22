@@ -1,6 +1,8 @@
 use candid::CandidType;
 use ic_dbms_api::prelude::{Text, Uint32};
-use ic_dbms_canister::prelude::{DbmsCanister, EmailValidator, MaxStrlenValidator, Table};
+use ic_dbms_canister::prelude::{
+    DbmsCanister, EmailValidator, LowerCaseSanitizer, MaxStrlenValidator, Table, TrimSanitizer,
+};
 use serde::Deserialize;
 
 #[derive(Debug, Table, CandidType, Deserialize, Clone, PartialEq, Eq)]
@@ -8,8 +10,10 @@ use serde::Deserialize;
 pub struct User {
     #[primary_key]
     pub id: Uint32,
+    #[sanitizer(TrimSanitizer)]
     #[validate(MaxStrlenValidator(20))]
     pub name: Text,
+    #[sanitizer(LowerCaseSanitizer)]
     #[validate(EmailValidator)]
     pub email: Text,
 }

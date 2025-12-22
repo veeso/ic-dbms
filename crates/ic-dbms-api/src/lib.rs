@@ -73,6 +73,39 @@
 //! - [`Uint64`](crate::prelude::Uint64)
 //! - [`Uuid`](crate::prelude::Uuid)
 //!
+//! #### Sanitizers
+//!
+//! - [`Sanitize`](crate::prelude::Sanitize)
+//! - [`ClampSanitizer`](crate::prelude::ClampSanitizer)
+//! - [`ClampUnsignedSanitizer`](crate::prelude::ClampUnsignedSanitizer)
+//! - [`CollapseWhitespaceSanitizer`](crate::prelude::CollapseWhitespaceSanitizer)
+//! - [`LowerCaseSanitizer`](crate::prelude::LowerCaseSanitizer)
+//! - [`NullIfEmptySanitizer`](crate::prelude::NullIfEmptySanitizer)
+//! - [`RoundToScaleSanitizer`](crate::prelude::RoundToScaleSanitizer)
+//! - [`SlugSanitizer`](crate::prelude::SlugSanitizer)
+//! - [`TimezoneSanitizer`](crate::prelude::TimezoneSanitizer)
+//! - [`UtcSanitizer`](crate::prelude::UtcSanitizer)
+//! - [`TrimSanitizer`](crate::prelude::TrimSanitizer)
+//! - [`UpperCaseSanitizer`](crate::prelude::UpperCaseSanitizer)
+//! - [`UrlEncodingSanitizer`](crate::prelude::UrlEncodingSanitizer)
+//!
+//! #### Validate
+//!
+//! - [`Validate`](crate::prelude::Validate)
+//! - [`CamelCaseValidator`](crate::prelude::CamelCaseValidator)
+//! - [`CountryIso639Validator`](crate::prelude::CountryIso639Validator)
+//! - [`CountryIso3166Validator`](crate::prelude::CountryIso3166Validator)
+//! - [`EmailValidator`](crate::prelude::EmailValidator)
+//! - [`KebabCaseValidator`](crate::prelude::KebabCaseValidator)
+//! - [`MaxStrlenValidator`](crate::prelude::MaxStrlenValidator)
+//! - [`MimeTypeValidator`](crate::prelude::MimeTypeValidator)
+//! - [`MinStrlenValidator`](crate::prelude::MinStrlenValidator)
+//! - [`PhoneNumberValidator`](crate::prelude::PhoneNumberValidator)
+//! - [`RangeStrlenValidator`](crate::prelude::RangeStrlenValidator)
+//! - [`RgbColorValidator`](crate::prelude::RgbColorValidator)
+//! - [`SnakeCaseValidator`](crate::prelude::SnakeCaseValidator)
+//! - [`UrlValidator`](crate::prelude::UrlValidator)
+//!
 //! #### Value
 //!
 //! - ['DataType'](crate::prelude::DataType)
@@ -89,22 +122,6 @@
 //! - [`Page`](crate::memory::Page)
 //! - [`PageOffset`](crate::memory::PageOffset)
 //!
-//! ### Validate
-//!
-//! - [`Validate`](crate::prelude::Validate)
-//! - [`CamelCaseValidator`](crate::prelude::CamelCaseValidator)
-//! - [`CountryIso639Validator`](crate::prelude::CountryIso639Validator)
-//! - [`CountryIso3166Validator`](crate::prelude::CountryIso3166Validator)
-//! - [`EmailValidator`](crate::prelude::EmailValidator)
-//! - [`KebabCaseValidator`](crate::prelude::KebabCaseValidator)
-//! - [`MaxStrlenValidator`](crate::prelude::MaxStrlenValidator)
-//! - [`MimeTypeValidator`](crate::prelude::MimeTypeValidator)
-//! - [`MinStrlenValidator`](crate::prelude::MinStrlenValidator)
-//! - [`PhoneNumberValidator`](crate::prelude::PhoneNumberValidator)
-//! - [`RangeStrlenValidator`](crate::prelude::RangeStrlenValidator)
-//! - [`RgbColorValidator`](crate::prelude::RgbColorValidator)
-//! - [`SnakeCaseValidator`](crate::prelude::SnakeCaseValidator)
-//! - [`UrlValidator`](crate::prelude::UrlValidator)
 
 #![doc(html_playground_url = "https://play.rust-lang.org")]
 #![doc(
@@ -125,4 +142,3 @@ pub mod prelude;
 #[cfg(test)]
 mod tests;
 mod utils;
-mod validate;

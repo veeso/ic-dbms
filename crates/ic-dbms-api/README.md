@@ -82,23 +82,23 @@ use ic_dbms_api::prelude::*;
 - [`Uint64`](crate::prelude::Uint64)
 - [`Uuid`](crate::prelude::Uuid)
 
-#### Value
+#### Sanitizers
 
-- ['DataType'](crate::prelude::DataType)
-- [`Value`](crate::prelude::Value)
+- [`Sanitize`](crate::prelude::Sanitize)
+- [`ClampSanitizer`](crate::prelude::ClampSanitizer)
+- [`ClampUnsignedSanitizer`](crate::prelude::ClampUnsignedSanitizer)
+- [`CollapseWhitespaceSanitizer`](crate::prelude::CollapseWhitespaceSanitizer)
+- [`LowerCaseSanitizer`](crate::prelude::LowerCaseSanitizer)
+- [`NullIfEmptySanitizer`](crate::prelude::NullIfEmptySanitizer)
+- [`RoundToScaleSanitizer`](crate::prelude::RoundToScaleSanitizer)
+- [`SlugSanitizer`](crate::prelude::SlugSanitizer)
+- [`TimezoneSanitizer`](crate::prelude::TimezoneSanitizer)
+- [`UtcSanitizer`](crate::prelude::UtcSanitizer)
+- [`TrimSanitizer`](crate::prelude::TrimSanitizer)
+- [`UpperCaseSanitizer`](crate::prelude::UpperCaseSanitizer)
+- [`UrlEncodingSanitizer`](crate::prelude::UrlEncodingSanitizer)
 
-### Memory
-
-- [`DataSize`](crate::memory::DataSize)
-- [`Encode`](crate::memory::Encode)
-- [`DecodeError`](crate::memory::DecodeError)
-- [`MemoryError`](crate::memory::MemoryError)
-- [`MemoryResult`](crate::memory::MemoryResult)
-- [`MSize`](crate::memory::MSize)
-- [`Page`](crate::memory::Page)
-- [`PageOffset`](crate::memory::PageOffset)
-
-### Validate
+#### Validate
 
 - [`Validate`](crate::prelude::Validate)
 - [`CamelCaseValidator`](crate::prelude::CamelCaseValidator)
@@ -114,6 +114,22 @@ use ic_dbms_api::prelude::*;
 - [`RgbColorValidator`](crate::prelude::RgbColorValidator)
 - [`SnakeCaseValidator`](crate::prelude::SnakeCaseValidator)
 - [`UrlValidator`](crate::prelude::UrlValidator)
+
+#### Value
+
+- ['DataType'](crate::prelude::DataType)
+- [`Value`](crate::prelude::Value)
+
+### Memory
+
+- [`DataSize`](crate::memory::DataSize)
+- [`Encode`](crate::memory::Encode)
+- [`DecodeError`](crate::memory::DecodeError)
+- [`MemoryError`](crate::memory::MemoryError)
+- [`MemoryResult`](crate::memory::MemoryResult)
+- [`MSize`](crate::memory::MSize)
+- [`Page`](crate::memory::Page)
+- [`PageOffset`](crate::memory::PageOffset)
 
 ## License
 

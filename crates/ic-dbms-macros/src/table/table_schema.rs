@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream as TokenStream2;
 use syn::Ident;
 
-use crate::table::metadata::{Field, TableMetadata};
+use crate::table::metadata::{Field, Sanitizer, TableMetadata};
 
 /// Generate the table schema implementation for `struct_name` using the provided `data` and `metadata`.
 pub fn generate_table_schema(
@@ -17,6 +17,7 @@ pub fn generate_table_schema(
     let primary_key_str = primary_key.to_string();
     let columns_def = column_def(metadata)?;
     let values = to_values(&metadata.fields);
+    let sanitizers = sanitizers(&metadata.fields);
     let validators = validators(&metadata.fields);
 
     Ok(quote::quote! {
@@ -42,44 +43,17 @@ pub fn generate_table_schema(
                 #values
             }
 
+            /// Returns the [`::ic_dbms_api::prelude::Sanitize`] implementation for the given column name, if any.
+            fn sanitizer(column_name: &'static str) -> Option<Box<dyn ::ic_dbms_api::prelude::Sanitize>> {
+                #sanitizers
+            }
+
             /// Returns the [`::ic_dbms_api::prelude::Validate`] implementation for the given column name, if any.
             fn validator(column_name: &'static str) -> Option<Box<dyn ::ic_dbms_api::prelude::Validate>> {
                 #validators
             }
         }
     })
-}
-
-/// Generate the match arms for the validators function.
-fn validators(fields: &[Field]) -> TokenStream2 {
-    let mut arms = vec![];
-
-    for field in fields {
-        if let Some(validator) = &field.validate {
-            let field_name = field.name.to_string();
-            let validator_struct = &validator.path;
-            let args = &validator.args;
-            if args.is_empty() {
-                arms.push(quote::quote! {
-                    #field_name => Some(Box::new(#validator_struct)),
-                });
-            } else {
-                arms.push(quote::quote! {
-                    #field_name => Some(Box::new(#validator_struct(#(#args),*))),
-                });
-            }
-        }
-    }
-
-    arms.push(quote::quote! {
-        _ => None,
-    });
-
-    quote::quote! {
-        match column_name {
-            #(#arms)*
-        }
-    }
 }
 
 fn column_def(metadata: &TableMetadata) -> syn::Result<TokenStream2> {
@@ -168,5 +142,80 @@ fn to_values(fields: &[Field]) -> TokenStream2 {
 
     quote::quote! {
         vec![#(#columns),*]
+    }
+}
+
+/// Generate the match arms for the validators function.
+fn validators(fields: &[Field]) -> TokenStream2 {
+    let mut arms = vec![];
+
+    for field in fields {
+        if let Some(validator) = &field.validate {
+            let field_name = field.name.to_string();
+            let validator_struct = &validator.path;
+            let args = &validator.args;
+            if args.is_empty() {
+                arms.push(quote::quote! {
+                    #field_name => Some(Box::new(#validator_struct)),
+                });
+            } else {
+                arms.push(quote::quote! {
+                    #field_name => Some(Box::new(#validator_struct(#(#args),*))),
+                });
+            }
+        }
+    }
+
+    arms.push(quote::quote! {
+        _ => None,
+    });
+
+    quote::quote! {
+        match column_name {
+            #(#arms)*
+        }
+    }
+}
+
+/// Generate the match arms for the sanitizers function.
+fn sanitizers(fields: &[Field]) -> TokenStream2 {
+    let mut arms = vec![];
+
+    for field in fields {
+        if let Some(sanitizer) = &field.sanitize {
+            let field_name = field.name.to_string();
+            match sanitizer {
+                Sanitizer::Unit { name } => {
+                    arms.push(quote::quote! {
+                        #field_name => Some(Box::new(#name)),
+                    });
+                }
+                Sanitizer::Tuple { name, args } => {
+                    arms.push(quote::quote! {
+                        #field_name => Some(Box::new(#name(#(#args),*))),
+                    });
+                }
+                Sanitizer::NamedArgs { name, args } => {
+                    let fields = args.iter().map(|(ident, expr)| {
+                        quote::quote! {
+                            #ident: #expr
+                        }
+                    });
+                    arms.push(quote::quote! {
+                        #field_name => Some(Box::new(#name { #(#fields),* })),
+                    });
+                }
+            }
+        }
+    }
+
+    arms.push(quote::quote! {
+        _ => None,
+    });
+
+    quote::quote! {
+        match column_name {
+            #(#arms)*
+        }
     }
 }

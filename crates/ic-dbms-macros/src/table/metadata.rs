@@ -39,19 +39,43 @@ pub struct Field {
     pub nullable: bool,
     /// Whether the field is a primary key
     pub primary_key: bool,
+    /// Sanitize struct to use for this field
+    pub sanitize: Option<Sanitizer>,
     /// Validate struct to use for this field
     pub validate: Option<Validator>,
     /// Value type of the field; e.g. `Value::Int32`
     pub value_type: syn::Path,
 }
 
+/// Validator metadata
 #[derive(Clone)]
 pub struct Validator {
     pub path: syn::Path,
     pub args: Vec<syn::Expr>,
 }
 
+/// Map of field identifiers to their validators
 type Validates = HashMap<Ident, Validator>;
+
+/// Sanitizer metadata
+#[derive(Clone)]
+pub enum Sanitizer {
+    /// A sanitizer for a unit struct
+    Unit { name: syn::Path },
+    /// A sanitizer represented by a tuple struct with arguments
+    Tuple {
+        name: syn::Path,
+        args: Vec<syn::Expr>,
+    },
+    /// A sanitizer represented by a struct with named arguments
+    NamedArgs {
+        name: syn::Path,
+        args: HashMap<Ident, syn::Expr>,
+    },
+}
+
+/// Map of field identifiers to their sanitizers
+type Sanitizers = HashMap<Ident, Sanitizer>;
 
 /// Metadata about the table extracted from the struct and its attributes
 pub struct TableMetadata {
@@ -98,6 +122,7 @@ pub fn collect_table_metadata(
     let primary_key = get_primary_key_field(data)?;
     let foreign_keys = collect_foreign_keys(data)?;
     let validates = collect_validates(data)?;
+    let sanitizes = collect_sanitizes(data)?;
     let record_ident = Ident::new(&format!("{struct_name}Record"), struct_name.span());
     let insert_ident = Ident::new(&format!("{struct_name}InsertRequest"), struct_name.span());
     let update_ident = Ident::new(&format!("{struct_name}UpdateRequest"), struct_name.span());
@@ -109,7 +134,7 @@ pub fn collect_table_metadata(
     } else {
         None
     };
-    let fields = get_fields(data, &primary_key, &foreign_keys, &validates)?;
+    let fields = get_fields(data, &primary_key, &foreign_keys, &sanitizes, &validates)?;
 
     Ok(TableMetadata {
         name: table_name,
@@ -288,10 +313,103 @@ fn collect_validates(data: &DataStruct) -> syn::Result<Validates> {
     Ok(validates)
 }
 
+fn collect_sanitizes(data: &DataStruct) -> syn::Result<Sanitizers> {
+    let mut sanitizers = HashMap::new();
+
+    for field in &data.fields {
+        for attr in &field.attrs {
+            if attr.path().is_ident("sanitizer") {
+                let sanitizer = if let Some(sanitizer) = parse_sanitizer_meta(attr)? {
+                    sanitizer
+                } else {
+                    parse_sanitizer_expr(attr)?
+                };
+
+                let ident = field.ident.clone().ok_or_else(|| {
+                    syn::Error::new_spanned(field, "validate can only be used on named fields")
+                })?;
+
+                sanitizers.insert(ident, sanitizer);
+            }
+        }
+    }
+
+    Ok(sanitizers)
+}
+
+fn parse_sanitizer_meta(attr: &syn::Attribute) -> syn::Result<Option<Sanitizer>> {
+    let syn::Meta::List(meta_list) = &attr.meta else {
+        return Ok(None);
+    };
+
+    let mut path: Option<syn::Path> = None;
+    let mut args = HashMap::new();
+
+    meta_list.parse_nested_meta(|meta| {
+        // FIRST: sanitizer path (must NOT be name = value)
+        if path.is_none() {
+            if meta.input.peek(syn::Token![=]) {
+                return Err(syn::Error::new_spanned(
+                    meta.path,
+                    "first sanitizer argument must be a path",
+                ));
+            }
+
+            path = Some(meta.path.clone());
+            return Ok(());
+        }
+
+        // named args: min = 0
+        let ident = meta
+            .path
+            .get_ident()
+            .ok_or_else(|| syn::Error::new_spanned(&meta.path, "expected identifier"))?;
+
+        let value = meta.value()?.parse::<syn::Expr>()?;
+        args.insert(ident.clone(), value);
+
+        Ok(())
+    })?;
+
+    if let Some(path) = path
+        && !args.is_empty()
+    {
+        Ok(Some(Sanitizer::NamedArgs { name: path, args }))
+    } else {
+        Ok(None)
+    }
+}
+
+fn parse_sanitizer_expr(attr: &syn::Attribute) -> syn::Result<Sanitizer> {
+    match attr.parse_args::<syn::Expr>()? {
+        syn::Expr::Path(expr) => Ok(Sanitizer::Unit { name: expr.path }),
+
+        syn::Expr::Call(call) => {
+            let path = match *call.func {
+                syn::Expr::Path(p) => p.path,
+                other => {
+                    return Err(syn::Error::new_spanned(
+                        other,
+                        "sanitizer must be a path or a call",
+                    ));
+                }
+            };
+
+            Ok(Sanitizer::Tuple {
+                name: path,
+                args: call.args.into_iter().collect(),
+            })
+        }
+
+        other => Err(syn::Error::new_spanned(other, "invalid sanitizer syntax")),
+    }
+}
+
 fn get_fields(
     data: &DataStruct,
     primary_key: &Ident,
     foreign_keys: &[ForeignKey],
+    sanitizes: &Sanitizers,
     validates: &Validates,
 ) -> syn::Result<Vec<Field>> {
     let mut fields = vec![];
@@ -308,6 +426,7 @@ fn get_fields(
 
         let is_fk = foreign_keys.iter().any(|fk| fk.field == name);
 
+        let sanitize = sanitizes.get(&name).cloned();
         let validate = validates.get(&name).cloned();
 
         let nullable = nullable(field);
@@ -348,6 +467,7 @@ fn get_fields(
             data_type_kind,
             nullable,
             primary_key,
+            sanitize,
             validate,
             value_type,
         });

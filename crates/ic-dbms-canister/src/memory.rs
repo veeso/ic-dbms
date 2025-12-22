@@ -279,6 +279,7 @@ mod tests {
                 id: 30u32.into(),
                 name: "Alice".into(),
                 email: "alice@example.com".into(),
+                age: 25u32.into(),
             };
             manager
                 .write_at(ACL_PAGE, 10, &data_to_write)

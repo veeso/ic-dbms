@@ -152,6 +152,7 @@ mod tests {
                 Value::Uint32(10.into()),
                 Value::Text("Bob".to_string().into()),
                 Value::Text("invalid-email".to_string().into()),
+                Value::Uint32(25.into()), // age field
             ])
             .collect::<Vec<(ColumnDef, Value)>>();
 
@@ -172,6 +173,7 @@ mod tests {
                 Value::Uint32(1.into()),
                 Value::Text("Alice".to_string().into()),
                 Value::Text("alice@example.com".into()),
+                Value::Uint32(30.into()), // age field
             ])
             .collect::<Vec<(ColumnDef, Value)>>();
 
@@ -195,6 +197,7 @@ mod tests {
                 Value::Uint32(1000.into()),
                 Value::Text("Alice".to_string().into()),
                 Value::Text("alice@example.com".into()),
+                Value::Uint32(30.into()), // age field
             ])
             .collect::<Vec<(ColumnDef, Value)>>();
 

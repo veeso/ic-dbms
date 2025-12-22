@@ -20,9 +20,9 @@ pub use self::strlen::{MaxStrlenValidator, MinStrlenValidator, RangeStrlenValida
 pub use self::web::{MimeTypeValidator, UrlValidator};
 use crate::error::IcDbmsResult;
 
-/// Trait for validating values.
+/// Trait for validating [`crate::prelude::Value`]s.
 pub trait Validate {
-    /// Validates the given value.
+    /// Validates the given [`crate::prelude::Value`].
     ///
     /// In case of error it should return a [`crate::prelude::IcDbmsError::Validation`] error.
     fn validate(&self, value: &crate::prelude::Value) -> IcDbmsResult<()>;
