@@ -13,6 +13,8 @@ pub struct User {
     pub name: Text,
     #[validate(crate::prelude::EmailValidator)]
     pub email: Text,
+    #[sanitizer(crate::prelude::ClampUnsignedSanitizer, min = 0, max = 120)]
+    pub age: Uint32,
 }
 
 pub const USERS_FIXTURES: &[&str] = &[
@@ -39,6 +41,7 @@ pub fn load_fixtures() {
             id: Uint32(id as u32),
             name: Text(user.to_string()),
             email: Text(format!("{}@example.com", user.to_lowercase())),
+            age: (20 + id as u32).into(),
         };
         user_table.insert(user).expect("failed to insert user");
     }
@@ -54,6 +57,7 @@ mod tests {
             id: 42u32.into(),
             name: "Alice".into(),
             email: "alice@example.com".into(),
+            age: 30.into(),
         };
         let encoded = user.encode();
         let decoded = User::decode(encoded).unwrap();

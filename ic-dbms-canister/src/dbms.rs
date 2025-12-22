@@ -368,16 +368,29 @@ impl Database for IcDbmsDatabase {
         T::Insert: InsertRecord<Schema = T>,
     {
         // check whether the insert is valid
-        let record_values = record.clone().into_values();
+        let mut record_values = record.clone().into_values();
+        let mut sanitized_values = Vec::with_capacity(record_values.len());
+        // sanitize insert values
+        for (col_def, value) in record_values.drain(..) {
+            let value = match T::sanitizer(col_def.name) {
+                Some(sanitizer) => sanitizer.sanitize(value)?,
+                None => value,
+            };
+            sanitized_values.push((col_def, value));
+        }
+        // DROP because otherwise we risk to use an empty vector later
+        drop(record_values);
+        // validate insert
         self.schema
-            .validate_insert(self, T::table_name(), &record_values)?;
-
+            .validate_insert(self, T::table_name(), &sanitized_values)?;
         if self.transaction.is_some() {
             // insert a new `insert` into the transaction
-            self.with_transaction_mut(|tx| tx.insert::<T>(record_values))?;
+            self.with_transaction_mut(|tx| tx.insert::<T>(sanitized_values))?;
         } else {
             // insert directly into the database
             let mut table_registry = self.load_table_registry::<T>()?;
+            // convert sanitized values back to record
+            let record = T::Insert::from_values(&sanitized_values)?;
             table_registry.insert(record.into_record())?;
         }
 
@@ -846,15 +859,21 @@ mod tests {
 
         let expected_user = USERS_FIXTURES[2]; // author_id = 2
 
-        assert_eq!(user_fields.len(), 3);
+        assert_eq!(user_fields.len(), 4);
         assert_eq!(user_fields[0].0.name, "id");
         assert_eq!(user_fields[0].1, Value::Uint32(2.into()));
         assert_eq!(user_fields[1].0.name, "name");
-        assert_eq!(user_fields[2].0.name, "email");
         assert_eq!(
             user_fields[1].1,
             Value::Text(expected_user.to_string().into())
         );
+        assert_eq!(user_fields[2].0.name, "email");
+        assert_eq!(
+            user_fields[2].1,
+            Value::Text(format!("{}@example.com", expected_user.to_lowercase()).into())
+        );
+        assert_eq!(user_fields[3].0.name, "age");
+        assert_eq!(user_fields[3].1, Value::Uint32(22u32.into()));
     }
 
     #[test]
@@ -983,6 +1002,7 @@ mod tests {
             id: Uint32(100u32),
             name: Text("NewUser".to_string()),
             email: "new_user@example.com".into(),
+            age: 25.into(),
         };
 
         let result = dbms.insert::<User>(new_user);
@@ -1011,6 +1031,7 @@ mod tests {
             id: Uint32(1u32),
             name: Text("NewUser".to_string()),
             email: "new_user@example.com".into(),
+            age: 25.into(),
         };
 
         let result = dbms.insert::<User>(new_user);
@@ -1030,6 +1051,7 @@ mod tests {
             id: Uint32(200u32),
             name: Text("TxUser".to_string()),
             email: "new_user@example.com".into(),
+            age: 30.into(),
         };
 
         let result = dbms.insert::<User>(new_user);
@@ -1079,6 +1101,7 @@ mod tests {
             id: Uint32(300u32),
             name: Text("RollbackUser".to_string()),
             email: "new_user@example.com".into(),
+            age: 28.into(),
         };
         let result = dbms.insert::<User>(new_user);
         assert!(result.is_ok());
@@ -1103,6 +1126,32 @@ mod tests {
     }
 
     #[test]
+    fn test_should_sanitize_insert_data() {
+        load_fixtures();
+
+        let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
+        let new_user = UserInsertRequest {
+            id: Uint32(100u32),
+            name: Text("NewUser".to_string()),
+            email: "new_user@example.com".into(),
+            age: 150.into(),
+        };
+
+        let result = dbms.insert::<User>(new_user);
+        assert!(result.is_ok());
+
+        // find user
+        let query = Query::<User>::builder()
+            .and_where(Filter::eq("id", Value::Uint32(100u32.into())))
+            .build();
+        let users = dbms.select(query).expect("failed to select users");
+        assert_eq!(users.len(), 1);
+        let user = &users[0];
+        assert_eq!(user.id.expect("should have id").0, 100);
+        assert_eq!(user.age.expect("should have age").0, 120); // sanitized to max 120
+    }
+
+    #[test]
     fn test_should_delete_one_shot() {
         load_fixtures();
 
@@ -1111,6 +1160,7 @@ mod tests {
             id: Uint32(100u32),
             name: Text("DeleteUser".to_string()),
             email: "new_user@example.com".into(),
+            age: 22.into(),
         };
         assert!(
             IcDbmsDatabase::oneshot(TestDatabaseSchema)
@@ -1263,6 +1313,7 @@ mod tests {
             id: None,
             name: Some(Text("UpdatedName".to_string())),
             email: None,
+            age: None,
             where_clause: Some(filter.clone()),
         };
 
@@ -1295,6 +1346,7 @@ mod tests {
             id: None,
             name: Some(Text("TxUpdatedName".to_string())),
             email: None,
+            age: None,
             where_clause: Some(filter.clone()),
         };
 
@@ -1331,6 +1383,33 @@ mod tests {
             let tx_res = ts.get_transaction(&transaction_id);
             assert!(tx_res.is_err());
         });
+    }
+
+    #[test]
+    fn test_should_sanitize_update() {
+        load_fixtures();
+
+        let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
+        let filter = Filter::eq("id", Value::Uint32(3u32.into()));
+
+        let patch = UserUpdateRequest {
+            id: None,
+            name: None,
+            email: None,
+            age: Some(200.into()),
+            where_clause: Some(filter.clone()),
+        };
+
+        let update_count = dbms.update::<User>(patch).expect("failed to update user");
+        assert_eq!(update_count, 1);
+
+        // verify user is updated
+        let query = Query::<User>::builder().and_where(filter).build();
+        let users = dbms.select(query).expect("failed to select users");
+        assert_eq!(users.len(), 1);
+        let user = &users[0];
+        assert_eq!(user.id.expect("should have id").0, 3);
+        assert_eq!(user.age.expect("should have age").0, 120); // sanitized to max 120
     }
 
     fn init_user_table() {
