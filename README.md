@@ -32,6 +32,7 @@ use serde::Deserialize;
 pub struct User {
     #[primary_key]
     id: Uint64,
+    #[sanitizer(ic_dbms_api::prelude::TrimSanitizer)]
     #[validate(ic_dbms_api::prelude::MaxStrlenValidator(20))]
     name: Text,
     #[validate(ic_dbms_api::prelude::EmailValidator)]

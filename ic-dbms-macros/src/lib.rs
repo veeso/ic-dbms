@@ -524,7 +524,21 @@ pub fn derive_encode(input: TokenStream) -> TokenStream {
 /// - `${StructName}ForeignFetcher` (only if foreign keys are present)
 ///
 /// Also, we will implement the `TableSchema` trait for the struct itself and derive `Encode` for `${StructName}`.
-#[proc_macro_derive(Table, attributes(table, primary_key, foreign_key, validate))]
+///
+/// ## Attributes
+///
+/// The `Table` derive macro supports the following attributes:
+///
+/// - `#[table = "table_name"]`: Specifies the name of the table in the database.
+/// - `#[primary_key]`: Marks a field as the primary key of the table.
+/// - `#[foreign_key(entity = "EntityName", table = "table_name", column = "column_name")]`: Defines a foreign key relationship.
+/// - `#[sanitizer(SanitizerType)]`: Specifies a sanitize for the field.
+/// - `#[validate(ValidatorType)]`: Specifies a validator for the field.
+///
+#[proc_macro_derive(
+    Table,
+    attributes(table, primary_key, foreign_key, sanitizer, validate)
+)]
 pub fn derive_table(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     self::table::table(input)

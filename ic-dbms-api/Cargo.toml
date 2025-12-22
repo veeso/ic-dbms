@@ -27,6 +27,7 @@ ic-cdk = { workspace = true }
 ic-dbms-macros = { version = "0.2", path = "../ic-dbms-macros" }
 lazy-regex = { workspace = true }
 like = { workspace = true }
+percent-encoding = { workspace = true }
 rust_decimal = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
