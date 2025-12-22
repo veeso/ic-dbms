@@ -131,12 +131,12 @@ See the [ic-dbms-client](./ic-dbms-client/README.md) for more information on how
 - [x] Relationships between tables with foreign keys
 - [x] Transactions with commit and rollback
 - [x] Access Control Lists (ACL) to restrict access to the database
+- [x] Validation, Sanitizers and constraints on table columns
 - [ ] JOIN operations between tables
 - [ ] Indexes for faster queries
 - [ ] Custom data types
 - [ ] Migrations to update the database schema on canister upgrades
 - [ ] SQL query support
-- [ ] Validation and constraints on table columns
 
 ## Documentation
 
