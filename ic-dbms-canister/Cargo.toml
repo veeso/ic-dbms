@@ -25,8 +25,8 @@ candid = { workspace = true }
 getrandom = { workspace = true }
 ic-cdk = { workspace = true }
 ic-cdk-macros = { workspace = true }
-ic-dbms-api = { version = "0.2", path = "../ic-dbms-api" }
-ic-dbms-macros = { version = "0.2", path = "../ic-dbms-macros" }
+ic-dbms-api = { version = "0.3", path = "../ic-dbms-api" }
+ic-dbms-macros = { version = "0.3", path = "../ic-dbms-macros" }
 like = { workspace = true }
 rust_decimal = { workspace = true }
 serde = { workspace = true }
