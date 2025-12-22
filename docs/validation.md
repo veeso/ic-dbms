@@ -4,7 +4,7 @@ It is possible to add validation rules to table columns by using the `#[validate
 
 ## Syntax
 
-The `#[validate(...)]` attribute can be added to any field in a struct that represents a database table. You can specify one or more validators by providing their names and any required parameters.
+The `#[validate(...)]` attribute can be added to any field in a struct that represents a database table. You can specify one validator by providing its name and any required parameters.
 
 Such as:
 

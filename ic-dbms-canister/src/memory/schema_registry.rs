@@ -310,6 +310,12 @@ mod tests {
             vec![]
         }
 
+        fn sanitizer(
+            _column_name: &'static str,
+        ) -> Option<Box<dyn ic_dbms_api::prelude::Sanitize>> {
+            None
+        }
+
         fn validator(
             _column_name: &'static str,
         ) -> Option<Box<dyn ic_dbms_api::prelude::Validate>> {

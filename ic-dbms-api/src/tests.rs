@@ -257,6 +257,10 @@ impl TableSchema for User {
         "id"
     }
 
+    fn sanitizer(_column_name: &'static str) -> Option<Box<dyn crate::prelude::Sanitize>> {
+        None
+    }
+
     fn validator(_column_name: &'static str) -> Option<Box<dyn Validate>> {
         None
     }
