@@ -4,7 +4,7 @@ use candid::CandidType;
 use serde::{Deserialize, Serialize};
 
 use crate::dbms::types::DataType;
-use crate::memory::{DataSize, Encode};
+use crate::memory::{DataSize, Encode, MSize};
 
 /// Unsigned integer 64-bit data type for the DBMS.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -32,9 +32,7 @@ impl fmt::Display for Uint64 {
 impl Encode for Uint64 {
     const SIZE: DataSize = DataSize::Fixed(8);
 
-    fn size(&self) -> crate::memory::MSize {
-        Self::SIZE.get_fixed_size().expect("should be fixed")
-    }
+    const ALIGNMENT: MSize = 8;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         std::borrow::Cow::Owned(self.0.to_le_bytes().to_vec())
@@ -53,6 +51,10 @@ impl Encode for Uint64 {
         let mut array = [0u8; 8];
         array.copy_from_slice(&data[0..8]);
         Ok(Self(u64::from_le_bytes(array)))
+    }
+
+    fn size(&self) -> crate::memory::MSize {
+        Self::SIZE.get_fixed_size().expect("should be fixed")
     }
 }
 

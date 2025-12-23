@@ -12,6 +12,7 @@ use crate::tests::{User, UserRecord};
 /// One [`super::User`] has many [`Post`]s.
 #[derive(Debug, Table, CandidType, Clone, PartialEq, Eq)]
 #[table = "posts"]
+#[alignment = 64]
 pub struct Post {
     #[primary_key]
     pub id: Uint32,

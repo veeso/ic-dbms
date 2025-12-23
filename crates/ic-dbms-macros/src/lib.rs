@@ -1,6 +1,8 @@
 #![crate_name = "ic_dbms_macros"]
 #![crate_type = "lib"]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![deny(clippy::print_stdout)]
+#![deny(clippy::print_stderr)]
 
 //! Macros and derive for ic-dbms-canister
 //!
@@ -121,7 +123,7 @@ mod utils;
 #[proc_macro_derive(Encode)]
 pub fn derive_encode(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    self::encode::encode(input)
+    self::encode::encode(input, None)
         .expect("Failed to derive `Encode`")
         .into()
 }
@@ -530,6 +532,7 @@ pub fn derive_encode(input: TokenStream) -> TokenStream {
 /// The `Table` derive macro supports the following attributes:
 ///
 /// - `#[table = "table_name"]`: Specifies the name of the table in the database.
+/// - `#[alignment = N]`: (optional) Specifies the alignment for the table records. Use only if you know what you are doing.
 /// - `#[primary_key]`: Marks a field as the primary key of the table.
 /// - `#[foreign_key(entity = "EntityName", table = "table_name", column = "column_name")]`: Defines a foreign key relationship.
 /// - `#[sanitizer(SanitizerType)]`: Specifies a sanitize for the field.
@@ -537,7 +540,7 @@ pub fn derive_encode(input: TokenStream) -> TokenStream {
 ///
 #[proc_macro_derive(
     Table,
-    attributes(table, primary_key, foreign_key, sanitizer, validate)
+    attributes(alignment, table, primary_key, foreign_key, sanitizer, validate)
 )]
 pub fn derive_table(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

@@ -16,6 +16,7 @@ pub use crate::dbms::value::Value;
 pub use crate::error::{IcDbmsError, IcDbmsResult};
 pub use crate::init::{IcDbmsCanisterArgs, IcDbmsCanisterInitArgs, IcDbmsCanisterUpgradeArgs};
 pub use crate::memory::{
-    DataSize, DecodeError, Encode, MSize, MemoryError, MemoryResult, Page, PageOffset,
+    DEFAULT_ALIGNMENT, DataSize, DecodeError, Encode, MSize, MemoryError, MemoryResult, Page,
+    PageOffset,
 };
 pub use crate::utils::self_reference_values;

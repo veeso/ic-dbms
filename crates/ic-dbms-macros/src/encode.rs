@@ -4,6 +4,8 @@ use syn::{DataStruct, DeriveInput};
 use crate::utils;
 
 /// Generate implementation of `Encode` trait.
+///
+/// If `alignment` is `Some` and the data size is not `FIXED`, the alignment will be set to the provided value.
 pub fn encode(
     DeriveInput {
         ident,
@@ -11,6 +13,7 @@ pub fn encode(
         generics,
         ..
     }: DeriveInput,
+    alignment: Option<u16>,
 ) -> syn::Result<TokenStream2> {
     let syn::Data::Struct(struct_data) = data else {
         return Err(syn::Error::new_spanned(
@@ -20,6 +23,7 @@ pub fn encode(
     };
 
     let data_size = impl_size_const(&struct_data);
+    let alignment = impl_alignment_const(&struct_data, alignment);
     let size = impl_size(&struct_data);
     let encode = impl_encode(&struct_data);
     let decode = impl_decode(&struct_data);
@@ -28,6 +32,7 @@ pub fn encode(
     Ok(quote::quote! {
         impl #impl_generics ::ic_dbms_api::prelude::Encode for #ident #ty_generics #where_clause {
             const SIZE: ::ic_dbms_api::prelude::DataSize = #data_size;
+            const ALIGNMENT: ::ic_dbms_api::prelude::MSize = #alignment;
 
             #size
 
@@ -40,15 +45,7 @@ pub fn encode(
 
 /// Generate implementation of `SIZE` const value.
 fn impl_size_const(struct_data: &DataStruct) -> TokenStream2 {
-    let tuple_expansion = {
-        let items = struct_data.fields.iter().map(|field| {
-            let field_ty = &field.ty;
-            quote::quote! {
-                <#field_ty as ::ic_dbms_api::prelude::Encode>::SIZE
-            }
-        });
-        quote::quote! { #(#items),* }
-    };
+    let tuple_expansion = size_tuple_expansion(struct_data);
 
     let anon_idents = utils::anon_ident_iter(None)
         .take(struct_data.fields.len())
@@ -63,6 +60,44 @@ fn impl_size_const(struct_data: &DataStruct) -> TokenStream2 {
             ::ic_dbms_api::prelude::DataSize::Dynamic
         }
     }
+}
+
+/// Generate implementation of `SIZE` const value.
+///
+/// If `alignment` is `Some` and the data size is not `FIXED`, the alignment will be set to the provided value.
+fn impl_alignment_const(struct_data: &DataStruct, alignment: Option<u16>) -> TokenStream2 {
+    let tuple_expansion = size_tuple_expansion(struct_data);
+
+    let anon_idents = utils::anon_ident_iter(None)
+        .take(struct_data.fields.len())
+        .collect::<Vec<_>>();
+
+    let quoted_alignment_value = match alignment {
+        Some(alignment) => quote::quote! { #alignment },
+        None => quote::quote! { ::ic_dbms_api::prelude::DEFAULT_ALIGNMENT },
+    };
+
+    // extract sizes from fields
+    quote::quote! {
+        if let (#(::ic_dbms_api::prelude::DataSize::Fixed(#anon_idents)),*) = (#tuple_expansion) {
+            let total_size = #(#anon_idents)+*;
+            total_size
+        }
+        else {
+            #quoted_alignment_value
+        }
+    }
+}
+
+/// Generate tuple expansion of field sizes.
+fn size_tuple_expansion(struct_data: &DataStruct) -> TokenStream2 {
+    let items = struct_data.fields.iter().map(|field| {
+        let field_ty = &field.ty;
+        quote::quote! {
+            <#field_ty as ::ic_dbms_api::prelude::Encode>::SIZE
+        }
+    });
+    quote::quote! { #(#items),* }
 }
 
 /// Generate implementation of `size` method.

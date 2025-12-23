@@ -1,3 +1,5 @@
+use ic_dbms_api::prelude::DEFAULT_ALIGNMENT;
+
 use crate::memory::{DataSize, Encode, MSize, Page};
 
 /// The list of pages in the page ledger
@@ -16,14 +18,7 @@ pub struct PageRecord {
 impl Encode for PageTable {
     const SIZE: DataSize = DataSize::Dynamic;
 
-    fn size(&self) -> MSize {
-        // 4 bytes for len + (12 bytes per page)
-        std::mem::size_of::<u32>() as MSize
-            + (self.pages.len() as MSize
-                * PageRecord::SIZE
-                    .get_fixed_size()
-                    .expect("Should be fixed size"))
-    }
+    const ALIGNMENT: MSize = DEFAULT_ALIGNMENT;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         // write length of pages
@@ -59,17 +54,21 @@ impl Encode for PageTable {
         }
         Ok(PageTable { pages })
     }
+
+    fn size(&self) -> MSize {
+        // 4 bytes for len + (12 bytes per page)
+        std::mem::size_of::<u32>() as MSize
+            + (self.pages.len() as MSize
+                * PageRecord::SIZE
+                    .get_fixed_size()
+                    .expect("Should be fixed size"))
+    }
 }
 
 impl Encode for PageRecord {
-    const SIZE: DataSize =
-        DataSize::Fixed(std::mem::size_of::<Page>() as MSize + std::mem::size_of::<u64>() as MSize);
+    const SIZE: DataSize = DataSize::Fixed(size_of::<Page>() as MSize + size_of::<u64>() as MSize);
 
-    fn size(&self) -> MSize {
-        Self::SIZE
-            .get_fixed_size()
-            .expect("PageRecord size should be fixed")
-    }
+    const ALIGNMENT: MSize = size_of::<Page>() as MSize + size_of::<u64>() as MSize;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         let mut encoded = Vec::with_capacity(self.size() as usize);
@@ -88,6 +87,12 @@ impl Encode for PageRecord {
             [std::mem::size_of::<Page>()..std::mem::size_of::<Page>() + std::mem::size_of::<u64>()];
         let free = u64::from_le_bytes(free_bytes.try_into()?);
         Ok(PageRecord { page, free })
+    }
+
+    fn size(&self) -> MSize {
+        Self::SIZE
+            .get_fixed_size()
+            .expect("PageRecord size should be fixed")
     }
 }
 

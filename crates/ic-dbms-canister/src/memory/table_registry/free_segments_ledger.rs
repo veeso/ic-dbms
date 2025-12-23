@@ -1,8 +1,10 @@
 mod free_segment;
 
+use ic_dbms_api::prelude::MSize;
+
 pub use self::free_segment::FreeSegment;
 use self::free_segment::FreeSegmentsTable;
-use crate::memory::{Encode, MEMORY_MANAGER, MemoryResult, Page, PageOffset};
+use crate::memory::{Encode, MEMORY_MANAGER, MemoryResult, Page, PageOffset, TableRegistry};
 
 /// The free segments ledger keeps track of free segments in the [`FreeSegmentsTable`] registry.
 ///
@@ -52,7 +54,8 @@ impl FreeSegmentsLedger {
     where
         E: Encode,
     {
-        self.table.insert_free_segment(page, offset, record.size());
+        let physical_size = TableRegistry::align_up::<E>(record.size() as usize) as MSize;
+        self.table.insert_free_segment(page, offset, physical_size);
         self.write()
     }
 
@@ -77,9 +80,9 @@ impl FreeSegmentsLedger {
     where
         E: Encode,
     {
-        let used_size = record.size();
+        let physical_size = TableRegistry::align_up::<E>(record.size() as usize) as MSize;
 
-        self.table.remove(page, offset, size, used_size);
+        self.table.remove(page, offset, size, physical_size);
         self.write()
     }
 
@@ -91,6 +94,7 @@ impl FreeSegmentsLedger {
 
 #[cfg(test)]
 mod tests {
+    use ic_dbms_api::prelude::DEFAULT_ALIGNMENT;
 
     use super::*;
     use crate::memory::{DataSize, MSize};
@@ -252,6 +256,39 @@ mod tests {
         assert!(record.is_some());
     }
 
+    #[test]
+    fn test_should_commit_also_padding_with_dynamic_records() {
+        let page = MEMORY_MANAGER
+            .with_borrow_mut(|mm| mm.allocate_page())
+            .expect("Failed to allocate page");
+        let mut ledger =
+            FreeSegmentsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
+
+        let dyn_record = DynamicTestRecord { data: [1; 200] };
+
+        ledger
+            .insert_free_segment(4, 0, &dyn_record)
+            .expect("Failed to insert deleted record");
+
+        // check if padded
+        let reusable_space = ledger
+            .find_reusable_segment(&dyn_record)
+            .expect("should find reusable space");
+        assert_eq!(reusable_space.size, 224);
+
+        // insert another
+        let dyn_record = DynamicTestRecord { data: [1; 200] };
+
+        ledger
+            .insert_free_segment(4, reusable_space.size, &dyn_record)
+            .expect("Failed to insert deleted record");
+        // there should be a contiguous free segment of size 448 now
+        let reusable_space = ledger
+            .find_reusable_segment(&dyn_record)
+            .expect("should find reusable space");
+        assert_eq!(reusable_space.size, 448);
+    }
+
     #[derive(Debug, Clone)]
     struct TestRecord {
         data: [u8; 100],
@@ -260,9 +297,7 @@ mod tests {
     impl Encode for TestRecord {
         const SIZE: DataSize = DataSize::Fixed(100);
 
-        fn size(&self) -> MSize {
-            100
-        }
+        const ALIGNMENT: MSize = 100;
 
         fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
             std::borrow::Cow::Borrowed(&self.data)
@@ -276,6 +311,10 @@ mod tests {
             record.data.copy_from_slice(&data[0..100]);
             Ok(record)
         }
+
+        fn size(&self) -> MSize {
+            100
+        }
     }
 
     #[derive(Debug, Clone)]
@@ -286,9 +325,7 @@ mod tests {
     impl Encode for BigTestRecord {
         const SIZE: DataSize = DataSize::Fixed(200);
 
-        fn size(&self) -> MSize {
-            200
-        }
+        const ALIGNMENT: MSize = 200;
 
         fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
             std::borrow::Cow::Borrowed(&self.data)
@@ -301,6 +338,38 @@ mod tests {
             let mut record = BigTestRecord { data: [0; 200] };
             record.data.copy_from_slice(&data[0..200]);
             Ok(record)
+        }
+
+        fn size(&self) -> MSize {
+            200
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    struct DynamicTestRecord {
+        data: [u8; 200],
+    }
+
+    impl Encode for DynamicTestRecord {
+        const SIZE: DataSize = DataSize::Dynamic;
+
+        const ALIGNMENT: MSize = DEFAULT_ALIGNMENT;
+
+        fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
+            std::borrow::Cow::Borrowed(&self.data)
+        }
+
+        fn decode(data: std::borrow::Cow<[u8]>) -> crate::memory::MemoryResult<Self>
+        where
+            Self: Sized,
+        {
+            let mut record = DynamicTestRecord { data: [0; 200] };
+            record.data.copy_from_slice(&data[0..200]);
+            Ok(record)
+        }
+
+        fn size(&self) -> MSize {
+            200
         }
     }
 }

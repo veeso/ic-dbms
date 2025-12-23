@@ -2,10 +2,11 @@ use std::marker::PhantomData;
 
 use ic_dbms_api::prelude::DecodeError;
 
-use crate::memory::table_registry::RAW_RECORD_HEADER_SIZE;
 use crate::memory::table_registry::page_ledger::PageLedger;
-use crate::memory::table_registry::raw_record::{RAW_RECORD_HEADER_MAGIC_NUMBER, RawRecord};
-use crate::memory::{Encode, MEMORY_MANAGER, MSize, MemoryError, MemoryResult, Page, PageOffset};
+use crate::memory::table_registry::raw_record::{RAW_RECORD_HEADER_SIZE, RawRecord};
+use crate::memory::{
+    Encode, MEMORY_MANAGER, MSize, MemoryError, MemoryResult, Page, PageOffset, TableRegistry,
+};
 
 /// Stores the current position to read/write in memory.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -92,6 +93,10 @@ where
         };
 
         // read raw record
+        //println!(
+        //    "Reading record at page {}, offset {}",
+        //    next_record.page, next_record.offset
+        //);
         let record: RawRecord<E> =
             MEMORY_MANAGER.with_borrow(|mm| mm.read_at(next_record.page, next_record.offset))?;
 
@@ -128,11 +133,9 @@ where
             // find next record in buffer; if found, return it
             let buf_end = (page_size as usize).max(offset as usize);
             if let Some((next_segment_offset, next_segment_size)) =
-                self.find_next_record_position(&self.buffer[(offset as usize)..buf_end])?
+                self.find_next_record_position(&self.buffer[..buf_end], offset as usize)?
             {
                 // found a record; return it
-                // sum the buffer offset to the current page offset to get the absolute offset
-                let next_segment_offset = offset + next_segment_offset as PageOffset;
                 let new_offset = next_segment_offset + next_segment_size as PageOffset;
                 let new_position = if new_offset as u64 >= page_size {
                     // move to next page
@@ -140,7 +143,7 @@ where
                 } else {
                     Some(Position {
                         page,
-                        offset: new_offset + RAW_RECORD_HEADER_SIZE,
+                        offset: new_offset,
                         size: page_size,
                     })
                 };
@@ -181,29 +184,43 @@ where
 
     /// Finds the next record segment position.
     ///
+    /// This is done by starting from the current offset
+    /// and searching for each multiple of [`E::ALIGNMENT`] until we find a size different from `0x00`.
+    ///
     /// Returns the offset and size of the next record segment if found.
-    fn find_next_record_position(&self, buf: &[u8]) -> MemoryResult<Option<(PageOffset, MSize)>> {
-        // iter until we find a byte that is not 0
-        let offset = match buf
-            .iter()
-            .position(|b| *b == RAW_RECORD_HEADER_MAGIC_NUMBER)
-        {
-            Some(offset) => offset,
-            None => return Ok(None),
-        };
-
-        // get length
-        if buf.len() < offset + 3 {
-            return Err(MemoryError::DecodeError(DecodeError::TooShort));
+    fn find_next_record_position(
+        &self,
+        buf: &[u8],
+        mut offset: usize,
+    ) -> MemoryResult<Option<(PageOffset, MSize)>> {
+        // first round the offset to the next alignment
+        offset = TableRegistry::align_up::<RawRecord<E>>(offset);
+        // search for the first non-zero record length
+        let mut data_len;
+        loop {
+            // check whether we are at the end of the page
+            if offset + 1 >= buf.len() {
+                return Ok(None);
+            }
+            // read next two bytes
+            data_len = u16::from_le_bytes([buf[offset], buf[offset + 1]]) as MSize;
+            if data_len != 0 {
+                break;
+            }
+            // move to next alignment
+            offset += E::ALIGNMENT as usize;
         }
 
-        let data_len = u16::from_le_bytes([buf[offset + 1], buf[offset + 2]]) as MSize;
-        let data_offset = offset + 3;
+        let data_offset = offset + RAW_RECORD_HEADER_SIZE as usize;
+        //println!("Found record at offset {}, data_offset: {data_offset}, length {}", offset, data_len);
         if buf.len() < data_offset + data_len as usize {
             return Err(MemoryError::DecodeError(DecodeError::TooShort));
         }
 
-        Ok(Some((offset as PageOffset, data_len)))
+        Ok(Some((
+            offset as PageOffset,
+            data_len + RAW_RECORD_HEADER_SIZE,
+        )))
     }
 }
 
@@ -216,7 +233,8 @@ mod tests {
 
     #[test]
     fn test_should_read_all_records() {
-        let table_registry = mock_table_registry(4_000);
+        const COUNT: u32 = 4_000;
+        let table_registry = mock_table_registry(COUNT);
         let mut reader = mocked(&table_registry);
 
         // should read all records
@@ -224,16 +242,12 @@ mod tests {
         while let Some(NextRecord { record: user, .. }) =
             reader.try_next().expect("failed to read user")
         {
-            println!(
-                "Read user: id={}, name={}; new position: {:?}",
-                user.id, user.name, reader.position
-            );
             assert_eq!(user.id.0, id);
             assert_eq!(user.name.0, format!("User {}", id));
 
             id += 1;
         }
-        assert_eq!(id, 4_000);
+        assert_eq!(id, COUNT);
     }
 
     #[test]
@@ -248,7 +262,13 @@ mod tests {
         let next_page = reader.next_page(next_page.page);
         assert!(next_page.is_some());
         let next_page = reader.next_page(next_page.unwrap().page);
-        assert!(next_page.is_none());
+        assert!(next_page.is_some());
+        let next_page = reader.next_page(next_page.unwrap().page);
+        assert!(
+            next_page.is_none(),
+            "should not have next page, but got {:?}",
+            next_page
+        );
     }
 
     #[test]
@@ -256,27 +276,16 @@ mod tests {
         let table_registry = mock_table_registry(1);
         let reader = mocked(&table_registry);
 
-        let buf = [
-            0u8,
-            0u8,
-            RAW_RECORD_HEADER_MAGIC_NUMBER,
-            5u8,
-            0u8,
-            0u8,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-        ];
+        let mut buf = vec![0u8; User::ALIGNMENT as usize];
+        buf.extend_from_slice(&[5u8, 0u8, 0u8, 0, 0, 0, 0, 0, 0]);
+
         let (offset, size) = reader
-            .find_next_record_position(&buf)
+            .find_next_record_position(&buf, 0)
             .expect("failed to get next record")
             .expect("should have next record");
 
-        assert_eq!(offset, 2);
-        assert_eq!(size, 5);
+        assert_eq!(offset, 32);
+        assert_eq!(size, 7);
     }
 
     #[test]
@@ -284,9 +293,9 @@ mod tests {
         let table_registry = mock_table_registry(1);
         let reader = mocked(&table_registry);
 
-        let buf = [0u8, 0u8, 0u8, 0u8, 0u8];
+        let buf = vec![0u8; User::ALIGNMENT as usize * 2];
         let result = reader
-            .find_next_record_position(&buf)
+            .find_next_record_position(&buf, 0)
             .expect("failed to get next record");
 
         assert!(result.is_none());
@@ -297,12 +306,14 @@ mod tests {
         let table_registry = mock_table_registry(1);
         let reader = mocked(&table_registry);
 
-        let buf = [0u8, RAW_RECORD_HEADER_MAGIC_NUMBER, 5u8];
-        let result = reader.find_next_record_position(&buf);
+        let buf = [5u8, 16u8];
+        let result = reader.find_next_record_position(&buf, 0);
+        assert!(result.is_err(), "expected error but got {:?}", result);
+        let err = result.unwrap_err();
 
         assert!(matches!(
-            result,
-            Err(MemoryError::DecodeError(DecodeError::TooShort))
+            err,
+            MemoryError::DecodeError(DecodeError::TooShort)
         ));
     }
 
@@ -311,17 +322,8 @@ mod tests {
         let table_registry = mock_table_registry(1);
         let reader = mocked(&table_registry);
 
-        let buf = [
-            0u8,
-            0u8,
-            RAW_RECORD_HEADER_MAGIC_NUMBER,
-            5u8,
-            0u8,
-            0u8,
-            0,
-            0,
-        ];
-        let result = reader.find_next_record_position(&buf);
+        let buf = [5u8, 0u8, 0u8, 0, 0];
+        let result = reader.find_next_record_position(&buf, 0);
 
         assert!(matches!(
             result,
@@ -356,7 +358,7 @@ mod tests {
         registry
     }
 
-    fn mocked<'a>(table_registry: &'a TableRegistry) -> TableReader<'a, User> {
+    fn mocked(table_registry: &'_ TableRegistry) -> TableReader<'_, User> {
         TableReader::new(&table_registry.page_ledger)
     }
 }

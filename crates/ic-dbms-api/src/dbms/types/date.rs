@@ -4,7 +4,7 @@ use candid::CandidType;
 use serde::{Deserialize, Serialize};
 
 use crate::dbms::types::DataType;
-use crate::memory::{DataSize, Encode};
+use crate::memory::{DataSize, Encode, MSize};
 
 /// Date data type for the DBMS.
 #[derive(
@@ -27,9 +27,7 @@ impl DataType for Date {}
 impl Encode for Date {
     const SIZE: DataSize = DataSize::Fixed(4);
 
-    fn size(&self) -> crate::memory::MSize {
-        Self::SIZE.get_fixed_size().expect("should be fixed")
-    }
+    const ALIGNMENT: MSize = 4;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         let mut bytes = Vec::with_capacity(4);
@@ -54,6 +52,10 @@ impl Encode for Date {
         let day = data[3];
 
         Ok(Self { year, month, day })
+    }
+
+    fn size(&self) -> crate::memory::MSize {
+        Self::SIZE.get_fixed_size().expect("should be fixed")
     }
 }
 

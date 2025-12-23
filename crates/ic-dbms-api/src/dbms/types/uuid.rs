@@ -61,9 +61,7 @@ impl<'de> Deserialize<'de> for Uuid {
 impl Encode for Uuid {
     const SIZE: DataSize = DataSize::Fixed(UUID_SIZE as MSize);
 
-    fn size(&self) -> MSize {
-        Self::SIZE.get_fixed_size().expect("Should be fixed size")
-    }
+    const ALIGNMENT: MSize = UUID_SIZE as MSize;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         std::borrow::Cow::Borrowed(self.0.as_bytes())
@@ -82,6 +80,10 @@ impl Encode for Uuid {
         uuid::Uuid::from_slice(&data)
             .map(Uuid)
             .map_err(MemoryError::from)
+    }
+
+    fn size(&self) -> MSize {
+        Self::SIZE.get_fixed_size().expect("Should be fixed size")
     }
 }
 

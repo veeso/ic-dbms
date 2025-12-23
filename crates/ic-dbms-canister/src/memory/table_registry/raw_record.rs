@@ -1,9 +1,9 @@
-use ic_dbms_api::prelude::DecodeError;
+use ic_dbms_api::prelude::{DataSize, DecodeError};
 
-use crate::memory::table_registry::RAW_RECORD_HEADER_SIZE;
 use crate::memory::{Encode, MSize, MemoryError};
 
-pub const RAW_RECORD_HEADER_MAGIC_NUMBER: u8 = 0xFF;
+/// Each record is prefixed with its length encoded in 2 bytes.
+pub const RAW_RECORD_HEADER_SIZE: MSize = 2;
 
 /// A raw record stored in memory, consisting of its length and data.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,15 +30,20 @@ impl<E> Encode for RawRecord<E>
 where
     E: Encode,
 {
-    const SIZE: crate::memory::DataSize = crate::memory::DataSize::Dynamic;
+    const SIZE: DataSize = if let DataSize::Fixed(size) = E::SIZE {
+        DataSize::Fixed(RAW_RECORD_HEADER_SIZE + size)
+    } else {
+        DataSize::Dynamic
+    };
 
-    fn size(&self) -> MSize {
-        super::RAW_RECORD_HEADER_SIZE + self.length // 1 (start) + 2 bytes for length + data size
-    }
+    const ALIGNMENT: MSize = if let DataSize::Fixed(size) = E::SIZE {
+        size + RAW_RECORD_HEADER_SIZE
+    } else {
+        E::ALIGNMENT
+    };
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         let mut encoded = Vec::with_capacity(self.size() as usize);
-        encoded.push(RAW_RECORD_HEADER_MAGIC_NUMBER); // start byte
         encoded.extend_from_slice(&self.length.to_le_bytes());
         encoded.extend_from_slice(&self.data.encode());
         std::borrow::Cow::Owned(encoded)
@@ -48,13 +53,10 @@ where
     where
         Self: Sized,
     {
-        if data.len() < 3 {
+        if data.len() < 2 {
             return Err(MemoryError::DecodeError(DecodeError::TooShort));
         }
-        if data[0] != RAW_RECORD_HEADER_MAGIC_NUMBER {
-            return Err(MemoryError::DecodeError(DecodeError::BadRawRecordHeader));
-        }
-        let length = u16::from_le_bytes([data[1], data[2]]) as MSize;
+        let length = u16::from_le_bytes([data[0], data[1]]) as MSize;
         if data.len() < (RAW_RECORD_HEADER_SIZE as usize) + length as usize {
             return Err(MemoryError::DecodeError(DecodeError::TooShort));
         }
@@ -66,6 +68,10 @@ where
             length,
             data: data_decoded,
         })
+    }
+
+    fn size(&self) -> MSize {
+        RAW_RECORD_HEADER_SIZE + self.length // 1 (start) + 2 bytes for length + data size
     }
 }
 
@@ -93,9 +99,7 @@ mod tests {
     impl Encode for TestRecord {
         const SIZE: crate::memory::DataSize = crate::memory::DataSize::Fixed(3);
 
-        fn size(&self) -> MSize {
-            3
-        }
+        const ALIGNMENT: MSize = 3;
 
         fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
             std::borrow::Cow::Owned(vec![self.a, (self.b & 0xFF) as u8, (self.b >> 8) as u8])
@@ -111,6 +115,10 @@ mod tests {
             let a = data[0];
             let b = u16::from_le_bytes([data[1], data[2]]);
             Ok(Self { a, b })
+        }
+
+        fn size(&self) -> MSize {
+            3
         }
     }
 }

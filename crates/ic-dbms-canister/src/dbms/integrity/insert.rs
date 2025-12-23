@@ -224,7 +224,6 @@ mod tests {
 
         let validator = InsertIntegrityValidator::<Post>::new(&dbms);
         let result = validator.check_foreign_keys(&values);
-        println!("{:?}", result);
         assert!(matches!(
             result,
             Err(IcDbmsError::Query(QueryError::BrokenForeignKeyReference {
