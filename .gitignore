@@ -4,3 +4,6 @@
 *.swp
 
 .artifact/
+
+# rust rover
+.idea/

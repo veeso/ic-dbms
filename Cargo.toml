@@ -1,17 +1,17 @@
 [workspace]
 members = [
-  "example",
-  "ic-dbms-api",
-  "ic-dbms-canister",
-  "ic-dbms-client",
-  "ic-dbms-macros",
-  "integration-tests/pocket-ic-tests",
-  "integration-tests/pocket-ic-tests-macro",
+    "example",
+    "ic-dbms-api",
+    "ic-dbms-canister",
+    "ic-dbms-client",
+    "ic-dbms-macros",
+    "integration-tests/pocket-ic-tests",
+    "integration-tests/pocket-ic-tests-macro",
 ]
 resolver = "2"
 
 [workspace.package]
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 rust-version = "1.85.1"
 authors = ["Christian Visintin <christian.visintin@veeso.dev>"]
@@ -36,6 +36,6 @@ syn = "2"
 thiserror = "2"
 url = "2"
 uuid = { version = "1", default-features = false, features = [
-  "v7",
-  "rng-getrandom",
+    "v7",
+    "rng-getrandom",
 ] }
