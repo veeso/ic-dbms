@@ -14,6 +14,9 @@ Released on 2025-12-24
   Sanitizers can be specified in the schema and will be executed before inserting or updating records.
     - The library comes with built-in sanitizers for common use cases (e.g., trimming whitespace, converting to
       lowercase).
+- [Memory Alignment](https://github.com/veeso/ic-dbms/pull/15): Changed the previous memory model which used to store
+  records sequentially in a contiguous block of memory with padded fields to a more efficient model that aligns fields
+  based on their data types. This change improves memory access speed and reduces fragmentation.
 
 ## 0.2.1
 

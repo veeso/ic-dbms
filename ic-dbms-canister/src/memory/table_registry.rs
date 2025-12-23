@@ -9,12 +9,7 @@ use self::page_ledger::PageLedger;
 pub use self::table_reader::TableReader;
 use self::write_at::WriteAt;
 use crate::memory::table_registry::raw_record::RawRecord;
-use crate::memory::{
-    Encode, MEMORY_MANAGER, MSize, MemoryResult, Page, PageOffset, TableRegistryPage,
-};
-
-/// Each record is prefixed with its length encoded in 2 bytes and a magic header byte.
-const RAW_RECORD_HEADER_SIZE: MSize = 3;
+use crate::memory::{Encode, MEMORY_MANAGER, MemoryResult, Page, PageOffset, TableRegistryPage};
 
 /// The table registry takes care of storing the records for each table,
 /// using the [`FreeSegmentsLedger`] and [`PageLedger`] to derive exactly where to read/write.
@@ -42,14 +37,20 @@ impl TableRegistry {
     /// Inserts a new record into the table registry.
     ///
     /// NOTE: this function does NOT make any logical checks on the record being inserted.
-    pub fn insert(&mut self, record: impl Encode) -> MemoryResult<()> {
+    pub fn insert<E>(&mut self, record: E) -> MemoryResult<()>
+    where
+        E: Encode,
+    {
         // get position to write the record
         let raw_record = RawRecord::new(record);
         let write_at = self.get_write_position(&raw_record)?;
 
+        // align insert
+        let aligned_offset = Self::align_up::<E>(write_at.offset() as usize) as PageOffset;
+
         // write record
         MEMORY_MANAGER
-            .with_borrow_mut(|mm| mm.write_at(write_at.page(), write_at.offset(), &raw_record))?;
+            .with_borrow_mut(|mm| mm.write_at(write_at.page(), aligned_offset, &raw_record))?;
 
         // commit post-write actions
         self.post_write(write_at, &raw_record)
@@ -170,6 +171,25 @@ impl TableRegistry {
             }
         }
     }
+
+    /// Get the padding at the given offset to the next multiple of [`E::ALIGNMENT`].
+    ///
+    /// This is used to align records in memory.
+    pub fn align_up<E>(offset: usize) -> usize
+    where
+        E: Encode,
+    {
+        let alignment = E::ALIGNMENT as usize;
+        align_up(offset, alignment)
+    }
+}
+
+/// Get the padding at the given offset to the next multiple of `alignment`.
+///
+/// This is used to align records in memory.
+#[inline]
+const fn align_up(offset: usize, alignment: usize) -> usize {
+    offset.div_ceil(alignment) * alignment
 }
 
 #[cfg(test)]
@@ -247,7 +267,7 @@ mod tests {
             WriteAt::ReusedSegment(FreeSegment {
                 page,
                 offset: 256,
-                size: record.size(),
+                size: 64, // padded size
             })
         );
     }
@@ -327,7 +347,7 @@ mod tests {
             .expect("could not find the free segment after free");
         assert_eq!(free_segment.page, page);
         assert_eq!(free_segment.offset, offset);
-        assert_eq!(free_segment.size, raw_user_size);
+        assert_eq!(free_segment.size, 64); // padded
 
         // should have zeroed the memory
         let mut buffer = vec![0u8; raw_user_size as usize];
@@ -405,7 +425,7 @@ mod tests {
         };
         let new_record = User {
             id: 1u32.into(),
-            name: "Alexander".to_string().into(), // longer than "John"
+            name: "Alexanderejruwgjowergjioewrgjioewrigjewriogjweoirgjiowerjgoiwerjiogewirogjowejrgiwer".to_string().into(), // must exceed padding
             email: "new_user@example.com".into(),
             age: 30.into(),
         };
@@ -421,17 +441,23 @@ mod tests {
 
         // find where it was written
         let mut reader = registry.read::<User>();
-        let old_record = reader
+        let old_record_from_db = reader
             .try_next()
             .expect("failed to read")
             .expect("no record");
-        let page = old_record.page;
-        let offset = old_record.offset;
+        assert_eq!(old_record_from_db.record, old_record);
+        let page = old_record_from_db.page;
+        let offset = old_record_from_db.offset;
 
         // update by reallocating
         assert!(
             registry
-                .update(new_record.clone(), old_record.record.clone(), page, offset)
+                .update(
+                    new_record.clone(),
+                    old_record_from_db.record.clone(),
+                    page,
+                    offset
+                )
                 .is_ok()
         );
 
@@ -450,6 +476,95 @@ mod tests {
             .expect("no record");
         assert_ne!(updated_record.offset, offset); // should be different offset
         assert_eq!(updated_record.record, new_record);
+    }
+
+    #[test]
+    fn test_should_insert_delete_insert_many() {
+        const COUNT: u32 = 1_000;
+        let mut registry = registry();
+        for id in 0..COUNT {
+            let record = User {
+                id: id.into(),
+                name: format!("User {id}",).into(),
+                email: format!("user_{id}@example.com").into(),
+                age: 20.into(),
+            };
+
+            // insert record
+            registry.insert(record.clone()).expect("failed to insert");
+        }
+
+        // delete odd records
+        for id in (0..COUNT).filter(|id| id % 2 == 1) {
+            let record = User {
+                id: id.into(),
+                name: format!("User {id}",).into(),
+                email: format!("user_{id}@example.com").into(),
+                age: 20.into(),
+            };
+            // find where it was written
+            let mut reader = registry.read::<User>();
+            let mut deleted = false;
+            while let Some(next_record) = reader.try_next().expect("failed to read") {
+                if next_record.record.id.0 == id {
+                    registry
+                        .delete(record.clone(), next_record.page, next_record.offset)
+                        .expect("failed to delete");
+                    deleted = true;
+                    break;
+                }
+            }
+            assert!(deleted, "record with id {} was not found", id);
+        }
+
+        // now delete also the others
+        for id in (0..COUNT).filter(|id| id % 2 == 0) {
+            let record = User {
+                id: id.into(),
+                name: format!("User {id}",).into(),
+                email: format!("user_{id}@example.com").into(),
+                age: 20.into(),
+            };
+            // find where it was written
+            let mut reader = registry.read::<User>();
+            let mut deleted = false;
+            while let Some(next_record) = reader.try_next().expect("failed to read") {
+                if next_record.record.id.0 == id {
+                    registry
+                        .delete(record.clone(), next_record.page, next_record.offset)
+                        .expect("failed to delete");
+                    deleted = true;
+                    break;
+                }
+            }
+            assert!(deleted, "record with id {} was not found", id);
+        }
+
+        // insert back
+        for id in 0..COUNT {
+            let record = User {
+                id: id.into(),
+                name: format!("User {id}",).into(),
+                email: format!("user_{id}@example.com").into(),
+                age: 20.into(),
+            };
+
+            // insert record
+            registry.insert(record.clone()).expect("failed to insert");
+        }
+    }
+
+    #[test]
+    fn test_should_compute_padding() {
+        // alignment is 32 bytes for User
+        assert_eq!(TableRegistry::align_up::<User>(0), 0);
+        assert_eq!(TableRegistry::align_up::<User>(1), 32);
+        assert_eq!(TableRegistry::align_up::<User>(2), 32);
+        assert_eq!(TableRegistry::align_up::<User>(3), 32);
+        assert_eq!(TableRegistry::align_up::<User>(31), 32);
+        assert_eq!(TableRegistry::align_up::<User>(32), 32);
+        assert_eq!(TableRegistry::align_up::<User>(48), 64);
+        assert_eq!(TableRegistry::align_up::<User>(147), 160);
     }
 
     fn registry() -> TableRegistry {

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::dbms::types::DataType;
 use crate::dbms::value::Value;
-use crate::memory::{DataSize, Encode};
+use crate::memory::{DEFAULT_ALIGNMENT, DataSize, Encode, MSize};
 
 /// Nullable data type for the DBMS.
 ///
@@ -127,12 +127,7 @@ where
 {
     const SIZE: DataSize = DataSize::Dynamic;
 
-    fn size(&self) -> crate::memory::MSize {
-        match self {
-            Nullable::Null => 1,
-            Nullable::Value(v) => 1 + v.size(),
-        }
-    }
+    const ALIGNMENT: MSize = DEFAULT_ALIGNMENT;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         match self {
@@ -162,6 +157,13 @@ where
                 let value = T::decode(std::borrow::Cow::Owned(data[1..].to_vec()))?;
                 Ok(Nullable::Value(value))
             }
+        }
+    }
+
+    fn size(&self) -> crate::memory::MSize {
+        match self {
+            Nullable::Null => 1,
+            Nullable::Value(v) => 1 + v.size(),
         }
     }
 }

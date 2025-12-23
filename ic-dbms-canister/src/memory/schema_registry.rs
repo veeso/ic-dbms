@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use ic_dbms_api::prelude::{TableFingerprint, TableSchema};
+use ic_dbms_api::prelude::{DEFAULT_ALIGNMENT, TableFingerprint, TableSchema};
 
 use crate::memory::{DataSize, Encode, MEMORY_MANAGER, MSize, MemoryError, MemoryResult, Page};
 
@@ -78,10 +78,7 @@ impl SchemaRegistry {
 impl Encode for SchemaRegistry {
     const SIZE: DataSize = DataSize::Dynamic;
 
-    fn size(&self) -> MSize {
-        // 8 bytes for len + (8 + (4 * 2)) bytes for each entry
-        8 + (self.tables.len() as MSize * (4 * 2 + 8))
-    }
+    const ALIGNMENT: MSize = DEFAULT_ALIGNMENT;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         // prepare buffer; size is 8 bytes for len + (8 + (4 * 2)) bytes for each entry
@@ -127,6 +124,11 @@ impl Encode for SchemaRegistry {
             );
         }
         Ok(Self { tables })
+    }
+
+    fn size(&self) -> MSize {
+        // 8 bytes for len + (8 + (4 * 2)) bytes for each entry
+        8 + (self.tables.len() as MSize * (4 * 2 + 8))
     }
 }
 
@@ -214,9 +216,7 @@ mod tests {
     impl Encode for AnotherTable {
         const SIZE: DataSize = DataSize::Dynamic;
 
-        fn size(&self) -> MSize {
-            0
-        }
+        const ALIGNMENT: MSize = DEFAULT_ALIGNMENT;
 
         fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
             std::borrow::Cow::Owned(vec![])
@@ -227,6 +227,10 @@ mod tests {
             Self: Sized,
         {
             Ok(AnotherTable)
+        }
+
+        fn size(&self) -> MSize {
+            0
         }
     }
 

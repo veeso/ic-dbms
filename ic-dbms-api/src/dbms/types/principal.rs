@@ -4,7 +4,7 @@ use candid::CandidType;
 use serde::{Deserialize, Serialize};
 
 use crate::dbms::types::DataType;
-use crate::memory::{DataSize, Encode};
+use crate::memory::{DEFAULT_ALIGNMENT, DataSize, Encode, MSize};
 
 /// Principal data type for the DBMS.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -26,9 +26,7 @@ impl CandidType for Principal {
 impl Encode for Principal {
     const SIZE: DataSize = DataSize::Dynamic;
 
-    fn size(&self) -> crate::memory::MSize {
-        1 + self.0.as_slice().len() as crate::memory::MSize
-    }
+    const ALIGNMENT: MSize = DEFAULT_ALIGNMENT;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         let principal_bytes = self.0.as_slice();
@@ -62,6 +60,10 @@ impl Encode for Principal {
         let principal = candid::Principal::try_from_slice(&data[1..1 + buf_len])?;
 
         Ok(Self(principal))
+    }
+
+    fn size(&self) -> crate::memory::MSize {
+        1 + self.0.as_slice().len() as crate::memory::MSize
     }
 }
 
