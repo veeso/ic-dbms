@@ -1,3 +1,5 @@
+use ic_dbms_api::prelude::DEFAULT_ALIGNMENT;
+
 use crate::memory::{DataSize, Encode, MSize, MemoryResult, Page, PageOffset};
 
 /// [`Encode`]able representation of a table that keeps track of [`FreeSegment`]s.
@@ -120,10 +122,7 @@ impl FreeSegmentsTable {
 impl Encode for FreeSegmentsTable {
     const SIZE: DataSize = DataSize::Dynamic;
 
-    fn size(&self) -> MSize {
-        // 4 bytes for the length + size of each record.
-        4 + self.records.iter().map(|r| r.size()).sum::<MSize>()
-    }
+    const ALIGNMENT: MSize = DEFAULT_ALIGNMENT;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         let mut buffer = Vec::with_capacity(self.size() as usize);
@@ -160,14 +159,17 @@ impl Encode for FreeSegmentsTable {
 
         Ok(FreeSegmentsTable { records })
     }
+
+    fn size(&self) -> MSize {
+        // 4 bytes for the length + size of each record.
+        4 + self.records.iter().map(|r| r.size()).sum::<MSize>()
+    }
 }
 
 impl Encode for FreeSegment {
     const SIZE: DataSize = DataSize::Fixed(8); // page (4) + offset (2) + size (2)
 
-    fn size(&self) -> MSize {
-        Self::SIZE.get_fixed_size().expect("Should be fixed")
-    }
+    const ALIGNMENT: MSize = 8;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         let mut buffer = Vec::with_capacity(self.size() as usize);
@@ -187,6 +189,10 @@ impl Encode for FreeSegment {
         let size = MSize::from_le_bytes(data[6..8].try_into()?);
 
         Ok(FreeSegment { page, offset, size })
+    }
+
+    fn size(&self) -> MSize {
+        Self::SIZE.get_fixed_size().expect("Should be fixed")
     }
 }
 

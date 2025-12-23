@@ -1,6 +1,8 @@
 #![crate_name = "ic_dbms_client"]
 #![crate_type = "lib"]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![deny(clippy::print_stdout)]
+#![deny(clippy::print_stderr)]
 
 //! # IC DBMS Client
 //!

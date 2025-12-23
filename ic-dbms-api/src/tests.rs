@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::dbms::table::{ColumnDef, TableColumns, TableRecord, TableSchema, ValuesSource};
 use crate::dbms::types::{DataTypeKind, Text, Uint32};
 use crate::dbms::value::Value;
-use crate::memory::Encode;
+use crate::memory::{DEFAULT_ALIGNMENT, Encode, MSize};
 use crate::prelude::{
     Filter, IcDbmsError, InsertRecord, NoForeignFetcher, QueryError, UpdateRecord, Validate,
 };
@@ -19,9 +19,7 @@ pub struct User {
 impl Encode for User {
     const SIZE: crate::prelude::DataSize = crate::prelude::DataSize::Dynamic;
 
-    fn size(&self) -> crate::prelude::MSize {
-        self.id.size() + self.name.size()
-    }
+    const ALIGNMENT: MSize = DEFAULT_ALIGNMENT;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         let mut bytes = Vec::with_capacity(self.size() as usize);
@@ -39,6 +37,10 @@ impl Encode for User {
         offset += id.size() as usize;
         let name = Text::decode(std::borrow::Cow::Borrowed(&data[offset..]))?;
         Ok(User { id, name })
+    }
+
+    fn size(&self) -> crate::prelude::MSize {
+        self.id.size() + self.name.size()
     }
 }
 

@@ -4,7 +4,7 @@ use candid::CandidType;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::memory::{MSize, Page, PageOffset};
+use crate::memory::{Page, PageOffset};
 
 /// An enum representing possible memory-related errors.
 #[derive(Debug, Error, CandidType, Deserialize, Serialize)]
@@ -23,12 +23,12 @@ pub enum MemoryError {
     OutOfBounds,
     /// Error when attempting to write out of the allocated page.
     #[error(
-        "Tried to write out of the allocated page (page: {page}, offset: {offset}, data size: {data_size}, page size: {page_size})"
+        "Tried to read or write out of the allocated page (page: {page}, offset: {offset}, data size: {data_size}, page size: {page_size})"
     )]
     SegmentationFault {
         page: Page,
         offset: PageOffset,
-        data_size: MSize,
+        data_size: u64,
         page_size: u64,
     },
     /// Error when failing to grow stable memory.

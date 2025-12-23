@@ -4,7 +4,7 @@ use candid::CandidType;
 use serde::{Deserialize, Serialize};
 
 use crate::dbms::types::DataType;
-use crate::memory::{DataSize, Encode};
+use crate::memory::{DataSize, Encode, MSize};
 
 /// Boolean data type for the DBMS.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -19,9 +19,7 @@ impl fmt::Display for Boolean {
 impl Encode for Boolean {
     const SIZE: DataSize = DataSize::Fixed(1);
 
-    fn size(&self) -> crate::memory::MSize {
-        Self::SIZE.get_fixed_size().expect("should be fixed")
-    }
+    const ALIGNMENT: MSize = 1;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         std::borrow::Cow::Owned(vec![self.0 as u8])
@@ -38,6 +36,10 @@ impl Encode for Boolean {
         }
 
         Ok(Self(data[0] != 0))
+    }
+
+    fn size(&self) -> crate::memory::MSize {
+        Self::SIZE.get_fixed_size().expect("should be fixed")
     }
 }
 

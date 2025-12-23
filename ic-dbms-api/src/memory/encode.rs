@@ -2,9 +2,26 @@ use std::borrow::Cow;
 
 use crate::memory::{MSize, MemoryResult};
 
+/// Default alignment in bytes for [`DataSize::Dynamic`] data types.
+pub const DEFAULT_ALIGNMENT: MSize = 32;
+
 /// This trait defines the encoding and decoding behaviour for data types used in the DBMS canister.
 pub trait Encode: Clone {
+    /// The size characteristic of the data type.
+    ///
+    /// The [`DataSize`] can either be a fixed size in bytes or dynamic.
     const SIZE: DataSize;
+
+    /// The alignment requirement in bytes for the data type.
+    ///
+    /// If [`Self::SIZE`] is [`DataSize::Fixed`], the alignment must be equal to the size,
+    /// otherwise it can be any value.
+    ///
+    /// This value  should never be less than 8 for [`DataSize::Dynamic`] types to ensure proper memory alignment.
+    ///
+    /// We should set a default value (probably 32) for dynamic types to avoid misalignment issues, but letting an expert user to
+    /// override it if necessary.
+    const ALIGNMENT: MSize;
 
     /// Encodes the data type into a vector of bytes.
     fn encode(&'_ self) -> Cow<'_, [u8]>;

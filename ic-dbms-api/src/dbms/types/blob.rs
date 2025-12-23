@@ -4,7 +4,7 @@ use candid::CandidType;
 use serde::{Deserialize, Serialize};
 
 use crate::dbms::types::DataType;
-use crate::memory::{DataSize, Encode};
+use crate::memory::{DEFAULT_ALIGNMENT, DataSize, Encode, MSize};
 
 /// Blob data type for the DBMS.
 #[derive(
@@ -21,9 +21,7 @@ impl fmt::Display for Blob {
 impl Encode for Blob {
     const SIZE: DataSize = DataSize::Dynamic;
 
-    fn size(&self) -> crate::memory::MSize {
-        2 + self.0.len() as crate::memory::MSize
-    }
+    const ALIGNMENT: MSize = DEFAULT_ALIGNMENT;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         let mut bytes = Vec::with_capacity(2 + self.0.len());
@@ -60,6 +58,10 @@ impl Encode for Blob {
         let bytes = data[2..2 + buf_len].to_vec();
 
         Ok(Self(bytes))
+    }
+
+    fn size(&self) -> crate::memory::MSize {
+        2 + self.0.len() as crate::memory::MSize
     }
 }
 

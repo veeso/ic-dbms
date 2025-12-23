@@ -22,7 +22,6 @@ readme = "README.md"
 
 [dependencies]
 candid = { workspace = true }
-getrandom = { workspace = true }
 ic-cdk = { workspace = true }
 ic-dbms-macros = { version = "0.3", path = "../ic-dbms-macros" }
 lazy-regex = { workspace = true }

@@ -1,8 +1,10 @@
 # Schema Definition
 
-This section describes how to define your database schema when using **ic-dbms-canister**, focusing on user-defined entities and their relationships.
+This section describes how to define your database schema when using **ic-dbms-canister**, focusing on user-defined
+entities and their relationships.
 
-The schema is defined entirely in Rust by annotating structs with derive macros and attributes. Each struct represents a database table, and each field represents a column.
+The schema is defined entirely in Rust by annotating structs with derive macros and attributes. Each struct represents a
+database table, and each field represents a column.
 
 ---
 
@@ -69,3 +71,29 @@ pub struct Post {
     pub user: Uint32,
 }
 ```
+
+### Use a specific memory alignment
+
+It is possible to specify a different memory alignment for a table using the `#[alignment = "..."]` attribute:
+
+```rust
+#[derive(Debug, Table, CandidType, Deserialize, Clone, PartialEq, Eq)]
+#[table = "aligned_table"]
+#[alignment = 48]
+pub struct AlignedTable {
+    #[primary_key]
+    pub id: Uint32,
+    pub data: Text,
+}
+```
+
+> [!CAUTION]
+>
+> Specifying a custom alignment is an advanced feature and should be used with caution. Incorrect alignment can lead to
+> performance degradation. Ensure you understand the implications before using this attribute.
+
+> [!NOTE]
+>
+> If the table has a fixed size (e.g. a table with just `Int32` and `Boolean` fields), the alignment attribute will be
+> ignored
+> since fixed-size tables have the alignment equal to their size.
