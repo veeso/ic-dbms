@@ -16,8 +16,8 @@ use crate::memory::{SCHEMA_REGISTRY, TableRegistry};
 use crate::prelude::{DatabaseSchema, TRANSACTION_SESSION};
 use crate::utils::trap;
 
-/// Default capacity limit for SELECT queries.
-const DEFAULT_SELECT_LIMIT: usize = 128;
+/// Default capacity for SELECT queries.
+const DEFAULT_SELECT_CAPACITY: usize = 128;
 
 /// The main DBMS struct.
 ///
@@ -264,22 +264,22 @@ impl IcDbmsDatabase {
         direction: OrderDirection,
     ) {
         results.sort_by(|a, b| {
-            let a_value = a
-                .iter()
-                .find(|(source, _)| *source == ValuesSource::This)
-                .and_then(|(_, cols)| {
-                    cols.iter()
-                        .find(|(col_def, _)| col_def.name == column)
-                        .map(|(_, value)| value)
-                });
-            let b_value = b
-                .iter()
-                .find(|(source, _)| *source == ValuesSource::This)
-                .and_then(|(_, cols)| {
-                    cols.iter()
-                        .find(|(col_def, _)| col_def.name == column)
-                        .map(|(_, value)| value)
-                });
+            fn get_value<'a>(
+                values: &'a Vec<(ValuesSource, Vec<(ColumnDef, Value)>)>,
+                column: &str,
+            ) -> Option<&'a Value> {
+                values
+                    .iter()
+                    .find(|(source, _)| *source == ValuesSource::This)
+                    .and_then(|(_, cols)| {
+                        cols.iter()
+                            .find(|(col_def, _)| col_def.name == column)
+                            .map(|(_, value)| value)
+                    })
+            }
+
+            let a_value = get_value(a, column);
+            let b_value = get_value(b, column);
 
             match (a_value, b_value) {
                 (Some(a_val), Some(b_val)) => match direction {
@@ -322,7 +322,7 @@ impl Database for IcDbmsDatabase {
         let mut table_reader = table_overlay.reader(table_reader);
 
         // prepare results vector
-        let mut results = Vec::with_capacity(query.limit.unwrap_or(DEFAULT_SELECT_LIMIT));
+        let mut results = Vec::with_capacity(query.limit.unwrap_or(DEFAULT_SELECT_CAPACITY));
         // iter and select
         let mut count = 0;
 
@@ -936,6 +936,34 @@ mod tests {
     }
 
     #[test]
+    fn test_should_select_many_entries() {
+        const COUNT: u64 = 2_000;
+        load_fixtures();
+
+        for i in 1..=COUNT {
+            let new_user = UserInsertRequest {
+                id: Uint32(1000u32 + i as u32),
+                name: Text(format!("User{}", i)),
+                email: format!("user_{i}@example.com").into(),
+                age: 20.into(),
+            };
+            assert!(
+                IcDbmsDatabase::oneshot(TestDatabaseSchema)
+                    .insert::<User>(new_user)
+                    .is_ok()
+            );
+        }
+
+        let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
+        let query = Query::<User>::builder()
+            .all()
+            .and_where(Filter::ge("id", Value::Uint32(1001.into())))
+            .build();
+        let users = dbms.select(query).expect("failed to select users");
+        assert_eq!(users.len(), COUNT as usize);
+    }
+
+    #[test]
     fn test_should_fail_loading_unexisting_relation() {
         let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
 
@@ -1183,6 +1211,40 @@ mod tests {
         // verify user is deleted
         let users = dbms.select(query).expect("failed to select users");
         assert_eq!(users.len(), 0);
+    }
+
+    #[test]
+    fn test_should_delete_many_entries() {
+        const COUNT: u64 = 2_000;
+        load_fixtures();
+
+        for i in 1..=COUNT {
+            let new_user = UserInsertRequest {
+                id: Uint32(1000u32 + i as u32),
+                name: Text(format!("User{}", i)),
+                email: format!("user_{i}@example.com").into(),
+                age: 20.into(),
+            };
+            assert!(
+                IcDbmsDatabase::oneshot(TestDatabaseSchema)
+                    .insert::<User>(new_user)
+                    .is_ok()
+            );
+        }
+
+        let mut deleted_total = 0;
+        for i in 1..=COUNT {
+            let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
+            let delete_count = dbms
+                .delete::<User>(
+                    DeleteBehavior::Restrict,
+                    Some(Filter::eq("id", Value::Uint32((1000u32 + i as u32).into()))),
+                )
+                .expect("failed to delete user");
+            assert_eq!(delete_count, 1, "failed to delete user {}", i);
+            deleted_total += delete_count;
+        }
+        assert_eq!(deleted_total, COUNT);
     }
 
     #[test]

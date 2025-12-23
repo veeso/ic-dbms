@@ -11,12 +11,12 @@ repository = { workspace = true }
 documentation = "https://docs.rs/ic-dbms-canister/"
 description = "A framework to build Database canisters on the Internet Computer using DBMS, by just providing the schema."
 include = [
-  "examples/**/*",
-  "src/**/*",
-  "../LICENSE",
-  "../README.md",
-  "../CHANGELOG.md",
-  "../assets/images/cargo/logo-128.png",
+    "examples/**/*",
+    "src/**/*",
+    "../LICENSE",
+    "../README.md",
+    "../CHANGELOG.md",
+    "../assets/images/cargo/logo-128.png",
 ]
 readme = "../README.md"
 
@@ -28,3 +28,8 @@ ic-dbms-macros = { version = "0.3", path = "../ic-dbms-macros" }
 serde = { workspace = true }
 
 [dev-dependencies]
+criterion = { workspace = true }
+
+[[bench]]
+name = "read_table"
+harness = false
