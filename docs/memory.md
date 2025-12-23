@@ -11,17 +11,20 @@ description: "Technical documentation about memory management in ic-dbms-caniste
 - [Schema Registry](#schema-registry)
 - [ACL](#acl)
 - [Table Registry](#table-registry)
-  - [Page Ledger](#page-ledger)
-  - [Free Segments Ledger](#free-segments-ledger)
-  - [Index Registry](#index-registry)
+    - [Page Ledger](#page-ledger)
+    - [Free Segments Ledger](#free-segments-ledger)
+    - [Index Registry](#index-registry)
 
 This document provides the technical details of memory management in ic-dbms-canister, also known as Layer 0 of ic-dbms.
 
 ## How Internet Computer Memory Works
 
-On the Internet Computer, canisters have access to a stable memory that persists across upgrades. This stable memory is divided into pages, each of which is 64 KiB in size.
+On the Internet Computer, canisters have access to a stable memory that persists across upgrades. This stable memory is
+divided into pages, each of which is 64 KiB in size.
 
-When a canister is first created, it starts with a small amount of stable memory, and it can grow this memory as needed by allocating additional pages. The canister can read from and write to this stable memory using specific APIs provided by the Internet Computer SDK.
+When a canister is first created, it starts with a small amount of stable memory, and it can grow this memory as needed
+by allocating additional pages. The canister can read from and write to this stable memory using specific APIs provided
+by the Internet Computer SDK.
 
 ## Memory Model
 
@@ -135,7 +138,8 @@ pub struct HeapMemoryProvider {
 
 Once we have the memory provider, we can build the memory manager on top of it.
 
-The memory manager is responsible for allocating and deallocating memory segments, and it's globally available to the rest of the system.
+The memory manager is responsible for allocating and deallocating memory segments, and it's globally available to the
+rest of the system.
 
 ```rust
 /// The memory manager is the main struct responsible for handling the stable memory operations.
@@ -196,14 +200,30 @@ where
 
 ## Encode
 
-Before talking about each specific memory structure, it's important to understand how data is encoded and decoded in memory.
+Before talking about each specific memory structure, it's important to understand how data is encoded and decoded in
+memory.
 
-Every data structure that needs to be stored in memory must implement the `Encode` trait, which provides methods for serializing and deserializing data.
+Every data structure that needs to be stored in memory must implement the `Encode` trait, which provides methods for
+serializing and deserializing data.
 
 ```rust
 /// This trait defines the encoding and decoding behaviour for data types used in the DBMS canister.
 pub trait Encode {
+    /// The size characteristic of the data type.
+    ///
+    /// The [`DataSize`] can either be a fixed size in bytes or dynamic.
     const SIZE: DataSize;
+
+    /// The alignment requirement in bytes for the data type.
+    ///
+    /// If [`Self::SIZE`] is [`DataSize::Fixed`], the alignment must be equal to the size,
+    /// otherwise it can be any value.
+    ///
+    /// This value  should never be less than 8 for [`DataSize::Dynamic`] types to ensure proper memory alignment.
+    ///
+    /// We should set a default value (probably 32) for dynamic types to avoid misalignment issues, but letting an expert user to
+    /// override it if necessary.
+    const ALIGNMENT: MSize;
 
     /// Encodes the data type into a vector of bytes.
     fn encode(&'_ self) -> Cow<'_, [u8]>;
@@ -222,8 +242,8 @@ pub trait Encode {
 pub enum DataSize {
     /// A fixed size in bytes.
     Fixed(MSize),
-    /// A variable size.
-    Variable,
+    /// A dynamic size.
+    Dynamic,
 }
 
 impl DataSize {
@@ -231,7 +251,7 @@ impl DataSize {
     pub fn get_fixed_size(&self) -> Option<MSize> {
         match self {
             DataSize::Fixed(size) => Some(*size),
-            DataSize::Variable => None,
+            DataSize::Dynamic => None,
         }
     }
 }
@@ -239,7 +259,8 @@ impl DataSize {
 
 ## Schema Registry
 
-A very important part of the memory management is the schema table, where we store the pointers to each table registry page.
+A very important part of the memory management is the schema table, where we store the pointers to each table registry
+page.
 
 ```rust
 /// Data regarding the table registry page.
@@ -256,7 +277,9 @@ pub struct SchemaRegistry {
 }
 ```
 
-The `SchemaRegistry` struct which holds a map of table fingerprints to their corresponding registry pages. The `TableRegistryPage` struct contains information about the pages used for storing the list of pages and free segments for each table.
+The `SchemaRegistry` struct which holds a map of table fingerprints to their corresponding registry pages. The
+`TableRegistryPage` struct contains information about the pages used for storing the list of pages and free segments for
+each table.
 
 The `SchemaRegistry` index the tables by a `TableFingerprint`, which is a unique identifier for each table schema.
 
@@ -319,7 +342,8 @@ impl AccessControlList {
 
 ## Table Registry
 
-The table registry is responsible for managing the records of each table, utilizing the `FreeSegmentsLedger` and `PageLedger` to determine where to read and write data.
+The table registry is responsible for managing the records of each table, utilizing the `FreeSegmentsLedger` and
+`PageLedger` to determine where to read and write data.
 
 ```rust
 /// The table registry takes care of storing the records for each table,
@@ -368,8 +392,8 @@ And there are two functions to get the page for writing the provided record, and
 /// If the provided record is larger than any page's free space,
 /// it allocates a new page and returns it.
 pub fn get_page_for_record<R>(&mut self, record: &R) -> MemoryResult<Page>
-    where
-        R: Encode;
+where
+    R: Encode;
 
 /// Commits the allocation of a record in the given page.
 ///
@@ -422,9 +446,11 @@ impl FreeSegmentsTable {
 }
 ```
 
-The `FreeSegmentsTable` must both allow to insert new free segments to reuse space, but it must also optimize space reuse when removing segments.
+The `FreeSegmentsTable` must both allow to insert new free segments to reuse space, but it must also optimize space
+reuse when removing segments.
 
-This means that whenever we remove a free segment because we want to reuse its space, if the used size is less than the total size of the free segment, we must add a new free segment for the remaining free space.
+This means that whenever we remove a free segment because we want to reuse its space, if the used size is less than the
+total size of the free segment, we must add a new free segment for the remaining free space.
 
 ```rust
 impl FreeSegmentsTable {
@@ -455,6 +481,77 @@ impl FreeSegmentsTable {
     }
 }
 ```
+
+### How Records are stored into memory
+
+Each record written in memory is an implementation of `Encode`, which means that it provides methods to encode itself
+into
+a byte array, and to decode itself from a byte array.
+
+Each record before being written into memory it is wrapped inside a `RawRecord<E>` struct, which prefix the actual
+record data with a header
+that contains the size of encoded data with two bytes Little Endian.
+
+The record is also padded according to the alignment requirement of the `Encode` implementation.
+
+When reading a record from memory, we first read the header to get the size of the encoded data, then we read the
+actual data, and finally we decode the data into the original record type.
+
+So in case the record has a `Dynamic` size, and the alignment is `32`, if the data is `24` bytes long, it will be
+encoded as follows:
+
+```mermaid
+---
+title: "Dynamic Size Record Encoding"
+---
+packet
++2: "Data Len"
++24: "Data"
++6: "Padding"
++2: "Data Len"
++24: "Data"
++6: "Padding"
+```
+
+Otherwise, if the `SIZE` is `Fixed(14)`, the record will be encoded as follows:
+
+```mermaid
+---
+title: "Fixed Size Record Encoding"
+---
+packet
++2: "Data Len"
++14: "Data"
++2: "Data Len"
++14: "Data"
+```
+
+### Record Alignment
+
+The record alignment is defined by the `ALIGNMENT` constant of the `Encode` implementation.
+
+When writing a record, we ensure that the starting offset is aligned to the specified alignment by adding padding if
+necessary.
+
+The alignment, if `SIZE` is `DataSize::Fixed`, must be equal to the size, otherwise it can be any value greater than or
+equal to 8.
+
+By default, the alignment value for dynamic types is set to 32 bytes, but expert users can override it if necessary.
+
+When writing records, we pad the data to ensure that the next record starts at an aligned offset.
+
+When reading records, we also take into account the alignment to correctly read the data.
+
+### Table Reader
+
+The table reader is returned by the table registry when we want to read records from a table.
+
+The read process is as follows:
+
+1. Read at `offset` and `offset + 1` to get the length of the data.
+2. If the length is `0`, increase `offset` by alignment and repeat step 1.
+3. Read the data bytes.
+4. Increase offset by `alignment` and repeat step 1 until the end of the page.
 
 ### Index Registry
 

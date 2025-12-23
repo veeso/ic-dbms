@@ -11,24 +11,25 @@ repository = { workspace = true }
 documentation = "https://docs.rs/ic-dbms-canister/"
 description = "A framework to build Database canisters on the Internet Computer using DBMS, by just providing the schema."
 include = [
-  "examples/**/*",
-  "src/**/*",
-  "../LICENSE",
-  "../README.md",
-  "../CHANGELOG.md",
-  "../assets/images/cargo/logo-128.png",
+    "examples/**/*",
+    "src/**/*",
+    "../LICENSE",
+    "../README.md",
+    "../CHANGELOG.md",
+    "../assets/images/cargo/logo-128.png",
 ]
 readme = "../README.md"
 
 [dependencies]
 candid = { workspace = true }
-getrandom = { workspace = true }
 ic-cdk = { workspace = true }
-ic-cdk-macros = { workspace = true }
 ic-dbms-api = { version = "0.3", path = "../ic-dbms-api" }
 ic-dbms-macros = { version = "0.3", path = "../ic-dbms-macros" }
-like = { workspace = true }
-rust_decimal = { workspace = true }
 serde = { workspace = true }
-thiserror = { workspace = true }
-uuid = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bench]]
+name = "read_table"
+harness = false

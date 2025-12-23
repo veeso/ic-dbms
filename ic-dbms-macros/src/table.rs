@@ -22,7 +22,7 @@ pub fn table(input: DeriveInput) -> syn::Result<TokenStream2> {
     let insert_impl = self::insert::generate_insert_request(&input.ident, &metadata);
     let update_impl = self::update::generate_update_request(&input.ident, &metadata);
     let foreign_fetcher_impl = self::foreign_fetcher::generate_foreign_fetcher(&metadata);
-    let encode_impl = crate::encode::encode(input)?;
+    let encode_impl = crate::encode::encode(input, metadata.alignment)?;
 
     Ok(quote::quote! {
         #table_schema_tokens

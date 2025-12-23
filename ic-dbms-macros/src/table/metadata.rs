@@ -4,6 +4,9 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::ToTokens as _;
 use syn::{DataStruct, Ident};
 
+const MIN_ALIGNMENT: u16 = 8;
+
+const ATTRIBUTE_ALIGNMENT: &str = "alignment";
 const ATTRIBUTE_TABLE: &str = "table";
 const ATTRIBUTE_PRIMARY_KEY: &str = "primary_key";
 const ATTRIBUTE_FOREIGN_KEY: &str = "foreign_key";
@@ -95,6 +98,8 @@ pub struct TableMetadata {
     pub foreign_fetcher: Option<Ident>,
     /// Fields; the order is preserved
     pub fields: Vec<Field>,
+    /// Memory alignment if provided
+    pub alignment: Option<u16>,
 }
 
 impl TableMetadata {
@@ -118,6 +123,7 @@ pub fn collect_table_metadata(
     data: &DataStruct,
     attrs: &[syn::Attribute],
 ) -> syn::Result<TableMetadata> {
+    let alignment = get_alignment(attrs)?;
     let table_name = get_table_name(attrs)?;
     let primary_key = get_primary_key_field(data)?;
     let foreign_keys = collect_foreign_keys(data)?;
@@ -145,7 +151,44 @@ pub fn collect_table_metadata(
         update: update_ident,
         foreign_fetcher: foreign_fetcher_ident,
         fields,
+        alignment,
     })
+}
+
+/// Extract the alignment from the `alignment` attribute
+fn get_alignment(attrs: &[syn::Attribute]) -> syn::Result<Option<u16>> {
+    for attr in attrs {
+        if attr.path().is_ident(ATTRIBUTE_ALIGNMENT) {
+            // syntax is #[alignment = 16]
+            let expr = &attr
+                .meta
+                .require_name_value()
+                .expect("invalid syntax for `table` attribute")
+                .value;
+
+            if let syn::Expr::Lit(syn::ExprLit {
+                lit: syn::Lit::Int(lit),
+                ..
+            }) = expr
+            {
+                let alignment: u16 = lit.base10_parse().map_err(|_| {
+                    syn::Error::new_spanned(lit, "alignment must be a valid unsigned integer")
+                })?;
+                if alignment < MIN_ALIGNMENT {
+                    return Err(syn::Error::new_spanned(
+                        lit,
+                        format!("alignment must be at least {MIN_ALIGNMENT}"),
+                    ));
+                }
+
+                return Ok(Some(alignment));
+            } else {
+                return Err(syn::Error::new_spanned(expr, "expected number literal"));
+            }
+        }
+    }
+
+    Ok(None)
 }
 
 /// Extract the table name from the `table` attribute

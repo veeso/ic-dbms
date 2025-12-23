@@ -1,7 +1,7 @@
 mod encode;
 mod error;
 
-pub use self::encode::{DataSize, Encode};
+pub use self::encode::{DEFAULT_ALIGNMENT, DataSize, Encode};
 pub use self::error::{DecodeError, MemoryError};
 
 /// Type identifying a memory page number.
