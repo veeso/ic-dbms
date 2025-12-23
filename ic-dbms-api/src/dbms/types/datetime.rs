@@ -46,9 +46,7 @@ impl DataType for DateTime {}
 impl Encode for DateTime {
     const SIZE: DataSize = DataSize::Fixed(TYPE_SIZE as MSize);
 
-    fn size(&self) -> crate::memory::MSize {
-        Self::SIZE.get_fixed_size().expect("should be fixed")
-    }
+    const ALIGNMENT: MSize = TYPE_SIZE as MSize;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         let mut bytes = Vec::with_capacity(TYPE_SIZE);
@@ -92,6 +90,10 @@ impl Encode for DateTime {
             microsecond,
             timezone_offset_minutes,
         })
+    }
+
+    fn size(&self) -> crate::memory::MSize {
+        Self::SIZE.get_fixed_size().expect("should be fixed")
     }
 }
 

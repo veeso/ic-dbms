@@ -66,9 +66,7 @@ impl<'de> Deserialize<'de> for Decimal {
 impl Encode for Decimal {
     const SIZE: DataSize = DataSize::Fixed(RUST_DECIMAL_ENCODE_SIZE);
 
-    fn size(&self) -> crate::memory::MSize {
-        Self::SIZE.get_fixed_size().expect("should be fixed size")
-    }
+    const ALIGNMENT: MSize = RUST_DECIMAL_ENCODE_SIZE;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         let buf = self.0.serialize();
@@ -92,6 +90,10 @@ impl Encode for Decimal {
             .map_err(|_| crate::memory::MemoryError::DecodeError(DecodeError::TooShort))?;
 
         Ok(Self::from(RustDecimal::deserialize(buff)))
+    }
+
+    fn size(&self) -> crate::memory::MSize {
+        Self::SIZE.get_fixed_size().expect("should be fixed size")
     }
 }
 

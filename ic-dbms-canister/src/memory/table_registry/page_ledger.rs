@@ -225,21 +225,23 @@ mod tests {
     impl Encode for TestRecord {
         const SIZE: DataSize = DataSize::Fixed(100);
 
-        fn size(&self) -> MSize {
-            100
-        }
+        const ALIGNMENT: MSize = 100;
 
         fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
             std::borrow::Cow::Borrowed(&self.data)
         }
 
-        fn decode(data: std::borrow::Cow<[u8]>) -> crate::memory::MemoryResult<Self>
+        fn decode(data: std::borrow::Cow<[u8]>) -> MemoryResult<Self>
         where
             Self: Sized,
         {
             let mut record = TestRecord { data: [0; 100] };
             record.data.copy_from_slice(&data[0..100]);
             Ok(record)
+        }
+
+        fn size(&self) -> MSize {
+            100
         }
     }
 }

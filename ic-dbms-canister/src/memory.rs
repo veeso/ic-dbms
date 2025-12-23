@@ -409,6 +409,8 @@ mod tests {
     impl Encode for FixedSizeData {
         const SIZE: DataSize = DataSize::Fixed(6);
 
+        const ALIGNMENT: MSize = 6;
+
         fn encode(&'_ self) -> Cow<'_, [u8]> {
             let mut buf = vec![0u8; self.size() as usize];
             buf[0..2].copy_from_slice(&self.a.to_le_bytes());

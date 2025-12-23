@@ -265,7 +265,7 @@ impl IcDbmsDatabase {
     ) {
         results.sort_by(|a, b| {
             fn get_value<'a>(
-                values: &'a Vec<(ValuesSource, Vec<(ColumnDef, Value)>)>,
+                values: &'a [(ValuesSource, Vec<(ColumnDef, Value)>)],
                 column: &str,
             ) -> Option<&'a Value> {
                 values

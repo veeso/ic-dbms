@@ -1,4 +1,4 @@
-use ic_dbms_api::prelude::DecodeError;
+use ic_dbms_api::prelude::{DEFAULT_ALIGNMENT, DataSize, DecodeError};
 
 use crate::memory::table_registry::RAW_RECORD_HEADER_SIZE;
 use crate::memory::{Encode, MSize, MemoryError};
@@ -30,11 +30,17 @@ impl<E> Encode for RawRecord<E>
 where
     E: Encode,
 {
-    const SIZE: crate::memory::DataSize = crate::memory::DataSize::Dynamic;
+    const SIZE: DataSize = if let DataSize::Fixed(size) = E::SIZE {
+        DataSize::Fixed(RAW_RECORD_HEADER_SIZE + size)
+    } else {
+        DataSize::Dynamic
+    };
 
-    fn size(&self) -> MSize {
-        super::RAW_RECORD_HEADER_SIZE + self.length // 1 (start) + 2 bytes for length + data size
-    }
+    const ALIGNMENT: MSize = if let DataSize::Fixed(size) = E::SIZE {
+        size + RAW_RECORD_HEADER_SIZE
+    } else {
+        DEFAULT_ALIGNMENT
+    };
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         let mut encoded = Vec::with_capacity(self.size() as usize);
@@ -67,6 +73,10 @@ where
             data: data_decoded,
         })
     }
+
+    fn size(&self) -> MSize {
+        RAW_RECORD_HEADER_SIZE + self.length // 1 (start) + 2 bytes for length + data size
+    }
 }
 
 #[cfg(test)]
@@ -93,9 +103,7 @@ mod tests {
     impl Encode for TestRecord {
         const SIZE: crate::memory::DataSize = crate::memory::DataSize::Fixed(3);
 
-        fn size(&self) -> MSize {
-            3
-        }
+        const ALIGNMENT: MSize = 3;
 
         fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
             std::borrow::Cow::Owned(vec![self.a, (self.b & 0xFF) as u8, (self.b >> 8) as u8])
@@ -111,6 +119,10 @@ mod tests {
             let a = data[0];
             let b = u16::from_le_bytes([data[1], data[2]]);
             Ok(Self { a, b })
+        }
+
+        fn size(&self) -> MSize {
+            3
         }
     }
 }

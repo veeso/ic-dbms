@@ -91,7 +91,6 @@ impl FreeSegmentsLedger {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use crate::memory::{DataSize, MSize};
 
@@ -260,9 +259,7 @@ mod tests {
     impl Encode for TestRecord {
         const SIZE: DataSize = DataSize::Fixed(100);
 
-        fn size(&self) -> MSize {
-            100
-        }
+        const ALIGNMENT: MSize = 100;
 
         fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
             std::borrow::Cow::Borrowed(&self.data)
@@ -276,6 +273,10 @@ mod tests {
             record.data.copy_from_slice(&data[0..100]);
             Ok(record)
         }
+
+        fn size(&self) -> MSize {
+            100
+        }
     }
 
     #[derive(Debug, Clone)]
@@ -286,9 +287,7 @@ mod tests {
     impl Encode for BigTestRecord {
         const SIZE: DataSize = DataSize::Fixed(200);
 
-        fn size(&self) -> MSize {
-            200
-        }
+        const ALIGNMENT: MSize = 200;
 
         fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
             std::borrow::Cow::Borrowed(&self.data)
@@ -301,6 +300,10 @@ mod tests {
             let mut record = BigTestRecord { data: [0; 200] };
             record.data.copy_from_slice(&data[0..200]);
             Ok(record)
+        }
+
+        fn size(&self) -> MSize {
+            200
         }
     }
 }

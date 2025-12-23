@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 
 use candid::Principal;
+use ic_dbms_api::prelude::DEFAULT_ALIGNMENT;
 
 use super::MEMORY_MANAGER;
 use crate::memory::{DataSize, Encode, MSize, MemoryResult};
@@ -77,14 +78,7 @@ impl AccessControlList {
 impl Encode for AccessControlList {
     const SIZE: DataSize = DataSize::Dynamic;
 
-    fn size(&self) -> MSize {
-        // 4 bytes for len + sum of each principal's length (1 byte for length + bytes)
-        4 + self
-            .allowed
-            .iter()
-            .map(|p| 1 + p.as_slice().len() as MSize)
-            .sum::<MSize>()
-    }
+    const ALIGNMENT: MSize = DEFAULT_ALIGNMENT;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         // write the number of principals as u32 followed by each principal's bytes
@@ -124,6 +118,15 @@ impl Encode for AccessControlList {
             allowed.push(principal);
         }
         Ok(AccessControlList { allowed })
+    }
+
+    fn size(&self) -> MSize {
+        // 4 bytes for len + sum of each principal's length (1 byte for length + bytes)
+        4 + self
+            .allowed
+            .iter()
+            .map(|p| 1 + p.as_slice().len() as MSize)
+            .sum::<MSize>()
     }
 }
 
