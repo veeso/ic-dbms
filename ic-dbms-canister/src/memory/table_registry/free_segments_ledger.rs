@@ -4,7 +4,7 @@ use ic_dbms_api::prelude::MSize;
 
 pub use self::free_segment::FreeSegment;
 use self::free_segment::FreeSegmentsTable;
-use crate::memory::{Encode, MEMORY_MANAGER, MemoryResult, Page, PageOffset};
+use crate::memory::{Encode, MEMORY_MANAGER, MemoryResult, Page, PageOffset, TableRegistry};
 
 /// The free segments ledger keeps track of free segments in the [`FreeSegmentsTable`] registry.
 ///
@@ -54,7 +54,7 @@ impl FreeSegmentsLedger {
     where
         E: Encode,
     {
-        let physical_size = Self::align_up(record.size() as usize, E::ALIGNMENT as usize) as MSize;
+        let physical_size = TableRegistry::align_up::<E>(record.size() as usize) as MSize;
         self.table.insert_free_segment(page, offset, physical_size);
         self.write()
     }
@@ -80,20 +80,15 @@ impl FreeSegmentsLedger {
     where
         E: Encode,
     {
-        let used_size = record.size();
+        let physical_size = TableRegistry::align_up::<E>(record.size() as usize) as MSize;
 
-        self.table.remove(page, offset, size, used_size);
+        self.table.remove(page, offset, size, physical_size);
         self.write()
     }
 
     /// Writes the current state of the free segments table back to memory.
     fn write(&self) -> MemoryResult<()> {
         MEMORY_MANAGER.with_borrow_mut(|mm| mm.write_at(self.free_segments_page, 0, &self.table))
-    }
-
-    #[inline]
-    const fn align_up(size: usize, alignment: usize) -> usize {
-        size.div_ceil(alignment) * alignment
     }
 }
 

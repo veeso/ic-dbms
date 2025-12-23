@@ -93,6 +93,10 @@ where
         };
 
         // read raw record
+        //println!(
+        //    "Reading record at page {}, offset {}",
+        //    next_record.page, next_record.offset
+        //);
         let record: RawRecord<E> =
             MEMORY_MANAGER.with_borrow(|mm| mm.read_at(next_record.page, next_record.offset))?;
 
@@ -190,7 +194,7 @@ where
         mut offset: usize,
     ) -> MemoryResult<Option<(PageOffset, MSize)>> {
         // first round the offset to the next alignment
-        offset = TableRegistry::padding::<RawRecord<E>>(offset);
+        offset = TableRegistry::align_up::<RawRecord<E>>(offset);
         // search for the first non-zero record length
         let mut data_len;
         loop {
@@ -208,6 +212,7 @@ where
         }
 
         let data_offset = offset + RAW_RECORD_HEADER_SIZE as usize;
+        //println!("Found record at offset {}, data_offset: {data_offset}, length {}", offset, data_len);
         if buf.len() < data_offset + data_len as usize {
             return Err(MemoryError::DecodeError(DecodeError::TooShort));
         }

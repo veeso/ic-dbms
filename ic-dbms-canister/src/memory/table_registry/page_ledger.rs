@@ -85,7 +85,7 @@ impl PageLedger {
                 });
             }
             // add padding to record size
-            let padding = TableRegistry::padding::<RawRecord<R>>(record_size as usize);
+            let padding = TableRegistry::align_up::<RawRecord<R>>(record_size as usize);
             // add record size + required padding
             let record_size = record_size + ((padding as u64).saturating_sub(record.size() as u64));
             page_record.free = page_record.free.saturating_sub(record_size);
