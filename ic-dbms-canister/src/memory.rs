@@ -121,18 +121,11 @@ where
         E: Encode,
     {
         // page must be allocated
-        if self.last_page().is_none_or(|last_page| page > last_page) {
-            return Err(MemoryError::SegmentationFault {
-                page,
-                offset,
-                data_size: data.size(),
-                page_size: P::PAGE_SIZE,
-            });
-        }
+        self.check_unallocated_page(page, offset, data.size())?;
 
         let encoded = data.encode();
 
-        // if page exists, the write must be within bounds
+        // if page exists, to write must be within bounds
         if offset as u64 + encoded.len() as u64 > P::PAGE_SIZE {
             return Err(MemoryError::SegmentationFault {
                 page,
@@ -153,14 +146,7 @@ where
         E: Encode,
     {
         // can't zero unallocated page
-        if self.last_page().is_none_or(|last_page| page > last_page) {
-            return Err(MemoryError::SegmentationFault {
-                page,
-                offset,
-                data_size: data.size(),
-                page_size: P::PAGE_SIZE,
-            });
-        }
+        self.check_unallocated_page(page, offset, data.size())?;
 
         let length = data.size() as usize;
 
@@ -221,6 +207,24 @@ where
             .checked_mul(P::PAGE_SIZE)
             .and_then(|page_offset| page_offset.checked_add(offset as u64))
             .expect("Overflow when calculating absolute offset")
+    }
+
+    /// Checks if the specified page is allocated.
+    fn check_unallocated_page(
+        &self,
+        page: Page,
+        offset: PageOffset,
+        data_size: MSize,
+    ) -> MemoryResult<()> {
+        if self.last_page().is_none_or(|last_page| page > last_page) {
+            return Err(MemoryError::SegmentationFault {
+                page,
+                offset,
+                data_size,
+                page_size: P::PAGE_SIZE,
+            });
+        }
+        Ok(())
     }
 }
 
@@ -381,6 +385,18 @@ mod tests {
             assert_eq!(new_page, initial_last_page + 1);
             let updated_last_page = manager.last_page().unwrap();
             assert_eq!(updated_last_page, new_page);
+        });
+    }
+
+    #[test]
+    fn test_should_check_unallocated_page() {
+        MEMORY_MANAGER.with_borrow(|manager| {
+            let result = manager.check_unallocated_page(100, 0, 10);
+            assert!(matches!(result, Err(MemoryError::SegmentationFault { .. })));
+
+            let last_page = manager.last_page().unwrap();
+            let result = manager.check_unallocated_page(last_page, 0, 10);
+            assert!(result.is_ok());
         });
     }
 
