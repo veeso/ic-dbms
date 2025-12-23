@@ -107,12 +107,12 @@ where
 
     /// Finds the next record starting from the given position.
     ///
-    /// If a record is found, returns [`Some<NextRecord>`], otherwise returns [`None`].
+    /// If a record is found, returns [`Some<NextRecord<E>>`], otherwise returns [`None`].
     /// If [`None`] is returned, the reader has reached the end of the table.
     fn find_next_record(
         &mut self,
         mut page: Page,
-        offset: PageOffset,
+        mut offset: PageOffset,
         mut page_size: u64,
     ) -> MemoryResult<Option<FoundRecord>> {
         loop {
@@ -156,6 +156,7 @@ where
             match self.next_page(page) {
                 Some(pos) => {
                     page = pos.page;
+                    offset = pos.offset;
                     page_size = pos.size;
                 }
                 None => break,
@@ -232,6 +233,7 @@ mod tests {
 
             id += 1;
         }
+        assert_eq!(id, 4_000);
     }
 
     #[test]
