@@ -2,7 +2,7 @@
 name: New feature request
 about: Suggest a new feature or enhancement
 title: "[NEW FEATURE] "
-labels: perf
+labels: new-feature
 assignees: veeso
 
 ---
