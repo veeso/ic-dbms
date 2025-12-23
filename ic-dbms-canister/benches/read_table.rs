@@ -151,7 +151,7 @@ fn free_user_table(database: &mut IcDbmsDatabase) {
 }
 
 fn bench_read_table(c: &mut Criterion) {
-    const COUNT: u64 = 10_000;
+    const COUNT: u64 = 1_000;
 
     let mut group = c.benchmark_group("read_table");
     for divisors in &[

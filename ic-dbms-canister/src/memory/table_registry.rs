@@ -253,7 +253,7 @@ mod tests {
             WriteAt::ReusedSegment(FreeSegment {
                 page,
                 offset: 256,
-                size: record.size(),
+                size: 64, // padded size
             })
         );
     }
@@ -333,7 +333,7 @@ mod tests {
             .expect("could not find the free segment after free");
         assert_eq!(free_segment.page, page);
         assert_eq!(free_segment.offset, offset);
-        assert_eq!(free_segment.size, raw_user_size);
+        assert_eq!(free_segment.size, 64); // padded
 
         // should have zeroed the memory
         let mut buffer = vec![0u8; raw_user_size as usize];
@@ -411,7 +411,7 @@ mod tests {
         };
         let new_record = User {
             id: 1u32.into(),
-            name: "Alexander".to_string().into(), // longer than "John"
+            name: "Alexanderejruwgjowergjioewrgjioewrigjewriogjweoirgjiowerjgoiwerjiogewirogjowejrgiwer".to_string().into(), // must exceed padding
             email: "new_user@example.com".into(),
             age: 30.into(),
         };
@@ -427,17 +427,23 @@ mod tests {
 
         // find where it was written
         let mut reader = registry.read::<User>();
-        let old_record = reader
+        let old_record_from_db = reader
             .try_next()
             .expect("failed to read")
             .expect("no record");
-        let page = old_record.page;
-        let offset = old_record.offset;
+        assert_eq!(old_record_from_db.record, old_record);
+        let page = old_record_from_db.page;
+        let offset = old_record_from_db.offset;
 
         // update by reallocating
         assert!(
             registry
-                .update(new_record.clone(), old_record.record.clone(), page, offset)
+                .update(
+                    new_record.clone(),
+                    old_record_from_db.record.clone(),
+                    page,
+                    offset
+                )
                 .is_ok()
         );
 
@@ -456,6 +462,82 @@ mod tests {
             .expect("no record");
         assert_ne!(updated_record.offset, offset); // should be different offset
         assert_eq!(updated_record.record, new_record);
+    }
+
+    #[test]
+    fn test_should_insert_delete_insert_many() {
+        const COUNT: u32 = 1_000;
+        let mut registry = registry();
+        for id in 0..COUNT {
+            let record = User {
+                id: id.into(),
+                name: format!("User {id}",).into(),
+                email: format!("user_{id}@example.com").into(),
+                age: 20.into(),
+            };
+
+            // insert record
+            registry.insert(record.clone()).expect("failed to insert");
+        }
+
+        // delete odd records
+        for id in (0..COUNT).filter(|id| id % 2 == 1) {
+            let record = User {
+                id: id.into(),
+                name: format!("User {id}",).into(),
+                email: format!("user_{id}@example.com").into(),
+                age: 20.into(),
+            };
+            // find where it was written
+            let mut reader = registry.read::<User>();
+            let mut deleted = false;
+            while let Some(next_record) = reader.try_next().expect("failed to read") {
+                if next_record.record.id.0 == id {
+                    registry
+                        .delete(record.clone(), next_record.page, next_record.offset)
+                        .expect("failed to delete");
+                    deleted = true;
+                    break;
+                }
+            }
+            assert!(deleted, "record with id {} was not found", id);
+        }
+
+        // now delete also the others
+        for id in (0..COUNT).filter(|id| id % 2 == 0) {
+            let record = User {
+                id: id.into(),
+                name: format!("User {id}",).into(),
+                email: format!("user_{id}@example.com").into(),
+                age: 20.into(),
+            };
+            // find where it was written
+            let mut reader = registry.read::<User>();
+            let mut deleted = false;
+            while let Some(next_record) = reader.try_next().expect("failed to read") {
+                if next_record.record.id.0 == id {
+                    registry
+                        .delete(record.clone(), next_record.page, next_record.offset)
+                        .expect("failed to delete");
+                    deleted = true;
+                    break;
+                }
+            }
+            assert!(deleted, "record with id {} was not found", id);
+        }
+
+        // insert back
+        for id in 0..COUNT {
+            let record = User {
+                id: id.into(),
+                name: format!("User {id}",).into(),
+                email: format!("user_{id}@example.com").into(),
+                age: 20.into(),
+            };
+
+            // insert record
+            registry.insert(record.clone()).expect("failed to insert");
+        }
     }
 
     #[test]

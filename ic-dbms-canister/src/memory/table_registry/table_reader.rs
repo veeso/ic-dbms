@@ -133,10 +133,6 @@ where
             {
                 // found a record; return it
                 let new_offset = next_segment_offset + next_segment_size as PageOffset;
-                println!(
-                    "Found record at page {}, offset {}, size {}",
-                    page, next_segment_offset, next_segment_size
-                );
                 let new_position = if new_offset as u64 >= page_size {
                     // move to next page
                     self.next_page(page)
@@ -204,7 +200,6 @@ where
             }
             // read next two bytes
             data_len = u16::from_le_bytes([buf[offset], buf[offset + 1]]) as MSize;
-            println!("Found data_len: {} at offset {}", data_len, offset);
             if data_len != 0 {
                 break;
             }
@@ -358,7 +353,7 @@ mod tests {
         registry
     }
 
-    fn mocked<'a>(table_registry: &'a TableRegistry) -> TableReader<'a, User> {
+    fn mocked(table_registry: &'_ TableRegistry) -> TableReader<'_, User> {
         TableReader::new(&table_registry.page_ledger)
     }
 }

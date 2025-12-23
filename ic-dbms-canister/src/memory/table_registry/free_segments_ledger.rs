@@ -1,5 +1,7 @@
 mod free_segment;
 
+use ic_dbms_api::prelude::MSize;
+
 pub use self::free_segment::FreeSegment;
 use self::free_segment::FreeSegmentsTable;
 use crate::memory::{Encode, MEMORY_MANAGER, MemoryResult, Page, PageOffset};
@@ -52,7 +54,8 @@ impl FreeSegmentsLedger {
     where
         E: Encode,
     {
-        self.table.insert_free_segment(page, offset, record.size());
+        let physical_size = Self::align_up(record.size() as usize, E::ALIGNMENT as usize) as MSize;
+        self.table.insert_free_segment(page, offset, physical_size);
         self.write()
     }
 
@@ -87,10 +90,17 @@ impl FreeSegmentsLedger {
     fn write(&self) -> MemoryResult<()> {
         MEMORY_MANAGER.with_borrow_mut(|mm| mm.write_at(self.free_segments_page, 0, &self.table))
     }
+
+    #[inline]
+    const fn align_up(size: usize, alignment: usize) -> usize {
+        size.div_ceil(alignment) * alignment
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use ic_dbms_api::prelude::DEFAULT_ALIGNMENT;
+
     use super::*;
     use crate::memory::{DataSize, MSize};
 
@@ -251,6 +261,39 @@ mod tests {
         assert!(record.is_some());
     }
 
+    #[test]
+    fn test_should_commit_also_padding_with_dynamic_records() {
+        let page = MEMORY_MANAGER
+            .with_borrow_mut(|mm| mm.allocate_page())
+            .expect("Failed to allocate page");
+        let mut ledger =
+            FreeSegmentsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
+
+        let dyn_record = DynamicTestRecord { data: [1; 200] };
+
+        ledger
+            .insert_free_segment(4, 0, &dyn_record)
+            .expect("Failed to insert deleted record");
+
+        // check if padded
+        let reusable_space = ledger
+            .find_reusable_segment(&dyn_record)
+            .expect("should find reusable space");
+        assert_eq!(reusable_space.size, 224);
+
+        // insert another
+        let dyn_record = DynamicTestRecord { data: [1; 200] };
+
+        ledger
+            .insert_free_segment(4, reusable_space.size, &dyn_record)
+            .expect("Failed to insert deleted record");
+        // there should be a contiguous free segment of size 448 now
+        let reusable_space = ledger
+            .find_reusable_segment(&dyn_record)
+            .expect("should find reusable space");
+        assert_eq!(reusable_space.size, 448);
+    }
+
     #[derive(Debug, Clone)]
     struct TestRecord {
         data: [u8; 100],
@@ -298,6 +341,34 @@ mod tests {
             Self: Sized,
         {
             let mut record = BigTestRecord { data: [0; 200] };
+            record.data.copy_from_slice(&data[0..200]);
+            Ok(record)
+        }
+
+        fn size(&self) -> MSize {
+            200
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    struct DynamicTestRecord {
+        data: [u8; 200],
+    }
+
+    impl Encode for DynamicTestRecord {
+        const SIZE: DataSize = DataSize::Dynamic;
+
+        const ALIGNMENT: MSize = DEFAULT_ALIGNMENT;
+
+        fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
+            std::borrow::Cow::Borrowed(&self.data)
+        }
+
+        fn decode(data: std::borrow::Cow<[u8]>) -> crate::memory::MemoryResult<Self>
+        where
+            Self: Sized,
+        {
+            let mut record = DynamicTestRecord { data: [0; 200] };
             record.data.copy_from_slice(&data[0..200]);
             Ok(record)
         }

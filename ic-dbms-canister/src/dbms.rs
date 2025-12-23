@@ -610,8 +610,8 @@ mod tests {
 
     use super::*;
     use crate::tests::{
-        Message, POSTS_FIXTURES, Post, TestDatabaseSchema, USERS_FIXTURES, User, UserInsertRequest,
-        UserUpdateRequest, load_fixtures,
+        Message, POSTS_FIXTURES, Post, PostInsertRequest, TestDatabaseSchema, USERS_FIXTURES, User,
+        UserInsertRequest, UserUpdateRequest, load_fixtures,
     };
 
     #[test]
@@ -1248,19 +1248,51 @@ mod tests {
     }
 
     #[test]
+    fn test_should_drop_table() {
+        const COUNT: u64 = 5_000;
+        load_fixtures();
+
+        for i in 1..=COUNT {
+            let new_post = PostInsertRequest {
+                id: Uint32(100u32 + i as u32),
+                title: Text(format!("Post{}", i)),
+                content: Text("Some content".to_string()),
+                user: Uint32(1u32),
+            };
+            assert!(
+                IcDbmsDatabase::oneshot(TestDatabaseSchema)
+                    .insert::<Post>(new_post)
+                    .is_ok()
+            );
+        }
+
+        let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
+        let delete_count = dbms
+            .delete::<Post>(
+                DeleteBehavior::Restrict,
+                Some(Filter::ge("id", Value::Uint32(101.into()))),
+            )
+            .expect("failed to delete post");
+        assert_eq!(
+            delete_count, COUNT,
+            "expected to delete all posts, but deleted {}",
+            delete_count
+        );
+    }
+
+    #[test]
     #[should_panic(expected = "Foreign key constraint violation")]
     fn test_should_not_delete_with_fk_restrict() {
         load_fixtures();
 
         // user 1 has post and messages for sure.
         let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
-        let res = dbms
-            .delete::<User>(
-                DeleteBehavior::Restrict,
-                Some(Filter::eq("id", Value::Uint32(1u32.into()))),
-            )
-            .expect("failed to delete user");
-        println!("Delete result (should not show): {}", res);
+
+        // this delete will panic
+        let _ = dbms.delete::<User>(
+            DeleteBehavior::Restrict,
+            Some(Filter::eq("id", Value::Uint32(1u32.into()))),
+        );
     }
 
     #[test]
@@ -1275,7 +1307,6 @@ mod tests {
                 Some(Filter::eq("id", Value::Uint32(1u32.into()))),
             )
             .expect("failed to delete user");
-        println!("Delete count: {}", delete_count);
         assert!(delete_count > 1); // at least user + posts + messages
 
         // verify user is deleted

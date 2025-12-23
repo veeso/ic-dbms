@@ -130,7 +130,7 @@ where
             return Err(MemoryError::SegmentationFault {
                 page,
                 offset,
-                data_size: data.size(),
+                data_size: encoded.len() as u64,
                 page_size: P::PAGE_SIZE,
             });
         }
@@ -154,7 +154,7 @@ where
             return Err(MemoryError::SegmentationFault {
                 page,
                 offset,
-                data_size: data.size(),
+                data_size: data.size() as u64,
                 page_size: P::PAGE_SIZE,
             });
         }
@@ -177,7 +177,7 @@ where
             return Err(MemoryError::SegmentationFault {
                 page,
                 offset,
-                data_size: buf.len() as MSize,
+                data_size: buf.len() as u64,
                 page_size: P::PAGE_SIZE,
             });
         }
@@ -220,7 +220,7 @@ where
             return Err(MemoryError::SegmentationFault {
                 page,
                 offset,
-                data_size,
+                data_size: data_size as u64,
                 page_size: P::PAGE_SIZE,
             });
         }
