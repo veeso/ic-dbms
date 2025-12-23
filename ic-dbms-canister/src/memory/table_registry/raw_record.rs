@@ -1,9 +1,9 @@
-use ic_dbms_api::prelude::{DEFAULT_ALIGNMENT, DataSize, DecodeError};
+use ic_dbms_api::prelude::{DataSize, DecodeError};
 
-use crate::memory::table_registry::RAW_RECORD_HEADER_SIZE;
 use crate::memory::{Encode, MSize, MemoryError};
 
-pub const RAW_RECORD_HEADER_MAGIC_NUMBER: u8 = 0xFF;
+/// Each record is prefixed with its length encoded in 2 bytes.
+pub const RAW_RECORD_HEADER_SIZE: MSize = 2;
 
 /// A raw record stored in memory, consisting of its length and data.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -39,12 +39,11 @@ where
     const ALIGNMENT: MSize = if let DataSize::Fixed(size) = E::SIZE {
         size + RAW_RECORD_HEADER_SIZE
     } else {
-        DEFAULT_ALIGNMENT
+        E::ALIGNMENT
     };
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         let mut encoded = Vec::with_capacity(self.size() as usize);
-        encoded.push(RAW_RECORD_HEADER_MAGIC_NUMBER); // start byte
         encoded.extend_from_slice(&self.length.to_le_bytes());
         encoded.extend_from_slice(&self.data.encode());
         std::borrow::Cow::Owned(encoded)
@@ -54,13 +53,10 @@ where
     where
         Self: Sized,
     {
-        if data.len() < 3 {
+        if data.len() < 2 {
             return Err(MemoryError::DecodeError(DecodeError::TooShort));
         }
-        if data[0] != RAW_RECORD_HEADER_MAGIC_NUMBER {
-            return Err(MemoryError::DecodeError(DecodeError::BadRawRecordHeader));
-        }
-        let length = u16::from_le_bytes([data[1], data[2]]) as MSize;
+        let length = u16::from_le_bytes([data[0], data[1]]) as MSize;
         if data.len() < (RAW_RECORD_HEADER_SIZE as usize) + length as usize {
             return Err(MemoryError::DecodeError(DecodeError::TooShort));
         }

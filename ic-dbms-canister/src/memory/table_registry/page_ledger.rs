@@ -2,7 +2,8 @@ mod page_table;
 
 use self::page_table::PageTable;
 use crate::memory::table_registry::page_ledger::page_table::PageRecord;
-use crate::memory::{Encode, MEMORY_MANAGER, MemoryResult, Page, PageOffset};
+use crate::memory::table_registry::raw_record::RawRecord;
+use crate::memory::{Encode, MEMORY_MANAGER, MemoryResult, Page, PageOffset, TableRegistry};
 
 /// Takes care of storing the pages for each table
 #[derive(Debug)]
@@ -51,6 +52,7 @@ impl PageLedger {
         });
         // if page found, return it
         if let Some(page_record) = next_page {
+            // NOTE: since `page_record.free` is already aligned, we don't need to recalculate alignment here
             let offset = page_size.saturating_sub(page_record.free) as PageOffset;
             return Ok((page_record.page, offset));
         }
@@ -82,6 +84,10 @@ impl PageLedger {
                     requested: record_size,
                 });
             }
+            // add padding to record size
+            let padding = TableRegistry::padding::<RawRecord<R>>(record_size as usize);
+            // add record size + required padding
+            let record_size = record_size + ((padding as u64).saturating_sub(record.size() as u64));
             page_record.free = page_record.free.saturating_sub(record_size);
             self.write()?;
             return Ok(());
@@ -107,6 +113,7 @@ mod tests {
     use super::*;
     use crate::memory::provider::{HeapMemoryProvider, MemoryProvider};
     use crate::memory::table_registry::page_ledger::page_table::PageRecord;
+    use crate::memory::table_registry::raw_record::RAW_RECORD_HEADER_SIZE;
     use crate::memory::{DataSize, MSize};
 
     #[test]
@@ -166,7 +173,7 @@ mod tests {
             .expect("failed to commit record allocation");
         assert_eq!(
             page_ledger.pages.pages[0].free,
-            HeapMemoryProvider::PAGE_SIZE - 100
+            HeapMemoryProvider::PAGE_SIZE - 100 - RAW_RECORD_HEADER_SIZE as u64
         );
 
         // reload
@@ -202,7 +209,7 @@ mod tests {
             .expect("failed to commit record allocation");
         assert_eq!(
             page_ledger.pages.pages[0].free,
-            HeapMemoryProvider::PAGE_SIZE - 100
+            HeapMemoryProvider::PAGE_SIZE - 100 - RAW_RECORD_HEADER_SIZE as u64
         );
 
         // get page for another record
@@ -210,10 +217,57 @@ mod tests {
             .get_page_and_offset_for_record(&record)
             .expect("failed to get page for record");
         assert_eq!(page_ledger.pages.pages.len(), 1);
-        assert_eq!((page_ledger.pages.pages[0].page, 100), (page, offset));
+        assert_eq!(
+            (
+                page_ledger.pages.pages[0].page,
+                100 + RAW_RECORD_HEADER_SIZE
+            ),
+            (page, offset)
+        );
         assert_eq!(
             page_ledger.pages.pages[0].free,
-            HeapMemoryProvider::PAGE_SIZE - 100
+            HeapMemoryProvider::PAGE_SIZE - 100 - RAW_RECORD_HEADER_SIZE as u64
+        );
+    }
+
+    #[test]
+    fn test_should_account_for_padding_on_commit() {
+        // allocate page
+        let ledger_page = MEMORY_MANAGER
+            .with_borrow_mut(|mm| mm.allocate_page())
+            .expect("failed to allocate ledger page");
+        let mut page_ledger = PageLedger::load(ledger_page).expect("failed to load page ledger");
+        assert!(page_ledger.pages.pages.is_empty());
+
+        // create test record with 32 bytes alignment
+        let record = RecordWith32BytesPadding { data: [1; 100] };
+        // get page for record
+        let (page, offset) = page_ledger
+            .get_page_and_offset_for_record(&record)
+            .expect("failed to get page for record");
+        assert_eq!(page_ledger.pages.pages.len(), 1);
+        assert_eq!((page_ledger.pages.pages[0].page, 0), (page, offset));
+        assert_eq!(
+            page_ledger.pages.pages[0].free,
+            HeapMemoryProvider::PAGE_SIZE
+        );
+
+        // commit record allocation
+        page_ledger
+            .commit(page, &record)
+            .expect("failed to commit record allocation");
+        assert_eq!(
+            page_ledger.pages.pages[0].free,
+            HeapMemoryProvider::PAGE_SIZE - 128
+        );
+
+        // commit another to align
+        page_ledger
+            .commit(page, &record)
+            .expect("failed to commit record allocation");
+        assert_eq!(
+            page_ledger.pages.pages[0].free,
+            HeapMemoryProvider::PAGE_SIZE - 128 - 128
         );
     }
 
@@ -236,6 +290,34 @@ mod tests {
             Self: Sized,
         {
             let mut record = TestRecord { data: [0; 100] };
+            record.data.copy_from_slice(&data[0..100]);
+            Ok(record)
+        }
+
+        fn size(&self) -> MSize {
+            100
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    struct RecordWith32BytesPadding {
+        data: [u8; 100],
+    }
+
+    impl Encode for RecordWith32BytesPadding {
+        const SIZE: DataSize = DataSize::Dynamic;
+
+        const ALIGNMENT: MSize = 32;
+
+        fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
+            std::borrow::Cow::Borrowed(&self.data)
+        }
+
+        fn decode(data: std::borrow::Cow<[u8]>) -> MemoryResult<Self>
+        where
+            Self: Sized,
+        {
+            let mut record = Self { data: [0; 100] };
             record.data.copy_from_slice(&data[0..100]);
             Ok(record)
         }

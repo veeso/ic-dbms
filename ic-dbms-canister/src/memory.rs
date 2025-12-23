@@ -106,7 +106,7 @@ where
             0u8;
             match D::SIZE {
                 DataSize::Fixed(size) => size as usize,
-                DataSize::Dynamic => (P::PAGE_SIZE as usize) - (offset as usize),
+                DataSize::Dynamic => (P::PAGE_SIZE as usize).saturating_sub(offset as usize),
             }
         ];
 
