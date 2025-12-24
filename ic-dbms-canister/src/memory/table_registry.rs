@@ -9,7 +9,9 @@ use self::page_ledger::PageLedger;
 pub use self::table_reader::TableReader;
 use self::write_at::WriteAt;
 use crate::memory::table_registry::raw_record::RawRecord;
-use crate::memory::{Encode, MEMORY_MANAGER, MemoryResult, Page, PageOffset, TableRegistryPage};
+use crate::memory::{
+    Encode, MEMORY_MANAGER, MemoryResult, Page, PageOffset, TableRegistryPage, align_up,
+};
 
 /// The table registry takes care of storing the records for each table,
 /// using the [`FreeSegmentsLedger`] and [`PageLedger`] to derive exactly where to read/write.
@@ -46,7 +48,7 @@ impl TableRegistry {
         let write_at = self.get_write_position(&raw_record)?;
 
         // align insert
-        let aligned_offset = Self::align_up::<E>(write_at.offset() as usize) as PageOffset;
+        let aligned_offset = align_up::<E>(write_at.offset() as usize) as PageOffset;
 
         // write record
         MEMORY_MANAGER
@@ -171,25 +173,6 @@ impl TableRegistry {
             }
         }
     }
-
-    /// Get the padding at the given offset to the next multiple of [`E::ALIGNMENT`].
-    ///
-    /// This is used to align records in memory.
-    pub fn align_up<E>(offset: usize) -> usize
-    where
-        E: Encode,
-    {
-        let alignment = E::ALIGNMENT as usize;
-        align_up(offset, alignment)
-    }
-}
-
-/// Get the padding at the given offset to the next multiple of `alignment`.
-///
-/// This is used to align records in memory.
-#[inline]
-const fn align_up(offset: usize, alignment: usize) -> usize {
-    offset.div_ceil(alignment) * alignment
 }
 
 #[cfg(test)]
@@ -552,19 +535,6 @@ mod tests {
             // insert record
             registry.insert(record.clone()).expect("failed to insert");
         }
-    }
-
-    #[test]
-    fn test_should_compute_padding() {
-        // alignment is 32 bytes for User
-        assert_eq!(TableRegistry::align_up::<User>(0), 0);
-        assert_eq!(TableRegistry::align_up::<User>(1), 32);
-        assert_eq!(TableRegistry::align_up::<User>(2), 32);
-        assert_eq!(TableRegistry::align_up::<User>(3), 32);
-        assert_eq!(TableRegistry::align_up::<User>(31), 32);
-        assert_eq!(TableRegistry::align_up::<User>(32), 32);
-        assert_eq!(TableRegistry::align_up::<User>(48), 64);
-        assert_eq!(TableRegistry::align_up::<User>(147), 160);
     }
 
     fn registry() -> TableRegistry {

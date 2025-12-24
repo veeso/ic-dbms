@@ -4,7 +4,7 @@ use ic_dbms_api::prelude::MSize;
 
 pub use self::free_segment::FreeSegment;
 use self::free_segment::FreeSegmentsTable;
-use crate::memory::{Encode, MEMORY_MANAGER, MemoryResult, Page, PageOffset, TableRegistry};
+use crate::memory::{Encode, MEMORY_MANAGER, MemoryResult, Page, PageOffset, align_up};
 
 /// The free segments ledger keeps track of free segments in the [`FreeSegmentsTable`] registry.
 ///
@@ -54,7 +54,7 @@ impl FreeSegmentsLedger {
     where
         E: Encode,
     {
-        let physical_size = TableRegistry::align_up::<E>(record.size() as usize) as MSize;
+        let physical_size = align_up::<E>(record.size() as usize) as MSize;
         self.table.insert_free_segment(page, offset, physical_size);
         self.write()
     }
@@ -80,7 +80,7 @@ impl FreeSegmentsLedger {
     where
         E: Encode,
     {
-        let physical_size = TableRegistry::align_up::<E>(record.size() as usize) as MSize;
+        let physical_size = align_up::<E>(record.size() as usize) as MSize;
 
         self.table.remove(page, offset, size, physical_size);
         self.write()
@@ -303,7 +303,7 @@ mod tests {
             std::borrow::Cow::Borrowed(&self.data)
         }
 
-        fn decode(data: std::borrow::Cow<[u8]>) -> crate::memory::MemoryResult<Self>
+        fn decode(data: std::borrow::Cow<[u8]>) -> MemoryResult<Self>
         where
             Self: Sized,
         {
@@ -331,7 +331,7 @@ mod tests {
             std::borrow::Cow::Borrowed(&self.data)
         }
 
-        fn decode(data: std::borrow::Cow<[u8]>) -> crate::memory::MemoryResult<Self>
+        fn decode(data: std::borrow::Cow<[u8]>) -> MemoryResult<Self>
         where
             Self: Sized,
         {
@@ -359,7 +359,7 @@ mod tests {
             std::borrow::Cow::Borrowed(&self.data)
         }
 
-        fn decode(data: std::borrow::Cow<[u8]>) -> crate::memory::MemoryResult<Self>
+        fn decode(data: std::borrow::Cow<[u8]>) -> MemoryResult<Self>
         where
             Self: Sized,
         {
