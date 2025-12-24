@@ -4,10 +4,12 @@ use candid::CandidType;
 use serde::{Deserialize, Serialize};
 
 use crate::dbms::types::DataType;
-use crate::memory::{DataSize, Encode, MSize};
+use crate::memory::{DataSize, Encode, PageOffset};
 
 /// Boolean data type for the DBMS.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
 pub struct Boolean(pub bool);
 
 impl fmt::Display for Boolean {
@@ -19,7 +21,7 @@ impl fmt::Display for Boolean {
 impl Encode for Boolean {
     const SIZE: DataSize = DataSize::Fixed(1);
 
-    const ALIGNMENT: MSize = 1;
+    const ALIGNMENT: PageOffset = 1;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         std::borrow::Cow::Owned(vec![self.0 as u8])

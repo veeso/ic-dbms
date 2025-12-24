@@ -4,11 +4,22 @@ use candid::CandidType;
 use serde::{Deserialize, Serialize};
 
 use crate::dbms::types::DataType;
-use crate::memory::{DataSize, Encode, MSize};
+use crate::memory::{DataSize, Encode, PageOffset};
 
 /// Date data type for the DBMS.
 #[derive(
-    Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, CandidType, Serialize, Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    CandidType,
+    Serialize,
+    Deserialize,
 )]
 pub struct Date {
     pub year: u16,
@@ -27,7 +38,7 @@ impl DataType for Date {}
 impl Encode for Date {
     const SIZE: DataSize = DataSize::Fixed(4);
 
-    const ALIGNMENT: MSize = 4;
+    const ALIGNMENT: PageOffset = 4;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         let mut bytes = Vec::with_capacity(4);

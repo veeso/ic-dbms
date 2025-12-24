@@ -1,6 +1,6 @@
 use ic_dbms_api::prelude::DEFAULT_ALIGNMENT;
 
-use crate::memory::{DataSize, Encode, MSize, Page};
+use crate::memory::{DataSize, Encode, MSize, Page, PageOffset};
 
 /// The list of pages in the page ledger
 #[derive(Debug, Clone, Default)]
@@ -18,7 +18,7 @@ pub struct PageRecord {
 impl Encode for PageTable {
     const SIZE: DataSize = DataSize::Dynamic;
 
-    const ALIGNMENT: MSize = DEFAULT_ALIGNMENT;
+    const ALIGNMENT: PageOffset = DEFAULT_ALIGNMENT;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         // write length of pages
@@ -68,7 +68,7 @@ impl Encode for PageTable {
 impl Encode for PageRecord {
     const SIZE: DataSize = DataSize::Fixed(size_of::<Page>() as MSize + size_of::<u64>() as MSize);
 
-    const ALIGNMENT: MSize = size_of::<Page>() as MSize + size_of::<u64>() as MSize;
+    const ALIGNMENT: PageOffset = size_of::<Page>() as MSize + size_of::<u64>() as MSize;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         let mut encoded = Vec::with_capacity(self.size() as usize);

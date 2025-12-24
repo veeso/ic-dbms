@@ -1,6 +1,6 @@
 use ic_dbms_api::prelude::{DataSize, DecodeError};
 
-use crate::memory::{Encode, MSize, MemoryError};
+use crate::memory::{Encode, MSize, MemoryError, PageOffset};
 
 /// Each record is prefixed with its length encoded in 2 bytes.
 pub const RAW_RECORD_HEADER_SIZE: MSize = 2;
@@ -36,7 +36,7 @@ where
         DataSize::Dynamic
     };
 
-    const ALIGNMENT: MSize = if let DataSize::Fixed(size) = E::SIZE {
+    const ALIGNMENT: PageOffset = if let DataSize::Fixed(size) = E::SIZE {
         size + RAW_RECORD_HEADER_SIZE
     } else {
         E::ALIGNMENT
@@ -99,7 +99,7 @@ mod tests {
     impl Encode for TestRecord {
         const SIZE: crate::memory::DataSize = crate::memory::DataSize::Fixed(3);
 
-        const ALIGNMENT: MSize = 3;
+        const ALIGNMENT: PageOffset = 3;
 
         fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
             std::borrow::Cow::Owned(vec![self.a, (self.b & 0xFF) as u8, (self.b >> 8) as u8])
