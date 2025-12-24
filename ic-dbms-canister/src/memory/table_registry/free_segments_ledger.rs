@@ -72,17 +72,13 @@ impl FreeSegmentsLedger {
     }
 
     /// Commits a reused free segment by removing it from the ledger and updating it based on the used size.
-    pub fn commit_reused_space<E>(
-        &mut self,
-        record: &E,
-        FreeSegment { page, offset, size }: FreeSegment,
-    ) -> MemoryResult<()>
+    pub fn commit_reused_space<E>(&mut self, record: &E, segment: FreeSegment) -> MemoryResult<()>
     where
         E: Encode,
     {
         let physical_size = align_up::<E>(record.size() as usize) as MSize;
 
-        self.table.remove(page, offset, size, physical_size);
+        self.table.remove(segment, physical_size);
         self.write()
     }
 

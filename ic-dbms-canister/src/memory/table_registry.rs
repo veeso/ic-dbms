@@ -537,6 +537,72 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_should_reduce_free_segment_size_with_padding() {
+        let mut registry = registry();
+
+        // first insert a user
+        let long_name = vec!['A'; 1024].into_iter().collect::<String>();
+        let record = User {
+            id: 1u32.into(),
+            name: "Test User".to_string().into(),
+            email: long_name.into(),
+            age: 30.into(),
+        };
+        registry.insert(record.clone()).expect("failed to insert");
+        // get record page
+        let mut reader = registry.read::<User>();
+        let next_record = reader
+            .try_next()
+            .expect("failed to read")
+            .expect("no record");
+        // delete user
+        registry
+            .delete(next_record.record, next_record.page, next_record.offset)
+            .expect("failed to delete");
+
+        // get the free segment
+        let raw_record = RawRecord::new(record.clone());
+        let free_segment = registry
+            .free_segments_ledger
+            .find_reusable_segment(&raw_record)
+            .expect("could not find the free segment after free");
+        // size should be at least 1024
+        assert!(free_segment.size >= 1024);
+        let previous_size = free_segment.size;
+
+        // now insert a small user at 0
+        let small_record = User {
+            id: 2u32.into(),
+            name: "Bob The Builder".to_string().into(),
+            email: "bob@hotmail.com".into(),
+            age: 22.into(),
+        };
+        registry
+            .insert(small_record.clone())
+            .expect("failed to insert small user");
+
+        // get free segment
+        let free_segment_after = registry
+            .free_segments_ledger
+            .find_reusable_segment(&small_record)
+            .expect("could not find the free segment after inserting small user");
+
+        // size should be reduced
+        assert_eq!(
+            free_segment_after.offset, 64,
+            "expected offset to be 64, but had: {}",
+            free_segment_after.offset
+        ); // which is the padding
+        assert_eq!(
+            free_segment_after.size,
+            previous_size - 64,
+            "Expected free segment to have size: {} but got: {}",
+            previous_size - 64,
+            free_segment_after.size
+        );
+    }
+
     fn registry() -> TableRegistry {
         let page_ledger_page = MEMORY_MANAGER
             .with_borrow_mut(|mm| mm.allocate_page())
