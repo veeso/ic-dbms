@@ -101,6 +101,9 @@ where
     where
         D: Encode,
     {
+        // check alignment
+        self.check_alignment::<D>(offset)?;
+
         // read until end of the page (or fixed size)
         let mut buf = vec![
             0u8;
@@ -122,6 +125,8 @@ where
     {
         // page must be allocated
         self.check_unallocated_page(page, offset, data.size())?;
+        // check alignment
+        self.check_alignment::<E>(offset)?;
 
         let encoded = data.encode();
 
@@ -137,7 +142,18 @@ where
 
         // get absolute offset
         let absolute_offset = self.absolute_offset(page, offset);
-        self.provider.write(absolute_offset, encoded.as_ref())
+        self.provider.write(absolute_offset, encoded.as_ref())?;
+
+        // zero padding bytes if any
+        let padding = align_up::<E>(encoded.len()) - encoded.len();
+        if padding > 0 {
+            let padding_offset = absolute_offset + encoded.len() as u64;
+            let padding_buffer = vec![0u8; padding];
+            self.provider
+                .write(padding_offset, padding_buffer.as_ref())?;
+        }
+
+        Ok(())
     }
 
     /// Zeros out data at the specified page and offset.
@@ -147,8 +163,10 @@ where
     {
         // can't zero unallocated page
         self.check_unallocated_page(page, offset, data.size())?;
+        // check alignment
+        self.check_alignment::<E>(offset)?;
 
-        let length = data.size() as usize;
+        let length = align_up::<E>(data.size() as usize);
 
         if offset as u64 + (length as u64) > P::PAGE_SIZE {
             return Err(MemoryError::SegmentationFault {
@@ -226,12 +244,38 @@ where
         }
         Ok(())
     }
+
+    /// Checks if the given offset is aligned according to the alignment requirement of type `E`.
+    fn check_alignment<E>(&self, offset: PageOffset) -> MemoryResult<()>
+    where
+        E: Encode,
+    {
+        let alignment = E::ALIGNMENT as PageOffset;
+        if offset % alignment != 0 {
+            return Err(MemoryError::OffsetNotAligned { offset, alignment });
+        }
+        Ok(())
+    }
+}
+
+/// Get the padding at the given offset to the next multiple of [`E::ALIGNMENT`].
+///
+/// This is used to align records in memory.
+#[inline]
+const fn align_up<E>(offset: usize) -> usize
+where
+    E: Encode,
+{
+    let alignment = E::ALIGNMENT as usize;
+    offset.div_ceil(alignment) * alignment
 }
 
 #[cfg(test)]
 mod tests {
 
     use std::borrow::Cow;
+
+    use ic_dbms_api::prelude::{DEFAULT_ALIGNMENT, Text};
 
     use super::*;
     use crate::memory::provider::HeapMemoryProvider;
@@ -276,6 +320,43 @@ mod tests {
     }
 
     #[test]
+    fn test_write_should_zero_padding() {
+        // write to ACL page
+        MEMORY_MANAGER.with_borrow_mut(|manager| {
+            let data_to_write = Text("very_long_string".to_string());
+            manager
+                .write_at(ACL_PAGE, 0, &data_to_write)
+                .expect("Failed to write data to ACL page");
+
+            // read first 32 bytes
+            let mut buffer = vec![0; 32];
+            manager
+                .read_at_raw(ACL_PAGE, 0, &mut buffer)
+                .expect("Failed to read data from ACL page");
+
+            // count non-zero
+            let non_zero_count = buffer.iter().filter(|&&b| b != 0).count();
+            assert_eq!(non_zero_count, data_to_write.size() as usize - 1); // - 1 because one byte for length is zero
+
+            // write shorter string
+            let data_to_write_short = Text("short".to_string());
+            manager
+                .write_at(ACL_PAGE, 0, &data_to_write_short)
+                .expect("Failed to write data to ACL page");
+
+            // read first 32 bytes again
+            let mut buffer = vec![0; 32];
+            manager
+                .read_at_raw(ACL_PAGE, 0, &mut buffer)
+                .expect("Failed to read data from ACL page");
+
+            // non-zero should match shorter string size
+            let non_zero_count = buffer.iter().filter(|&&b| b != 0).count();
+            assert_eq!(non_zero_count, data_to_write_short.size() as usize - 1); // - 1 because one byte for length is zero
+        });
+    }
+
+    #[test]
     fn test_should_write_and_read_variable_data_size() {
         // write to ACL page
         MEMORY_MANAGER.with_borrow_mut(|manager| {
@@ -286,7 +367,7 @@ mod tests {
                 age: 25u32.into(),
             };
             manager
-                .write_at(ACL_PAGE, 10, &data_to_write)
+                .write_at(ACL_PAGE, 32, &data_to_write)
                 .expect("Failed to write data to ACL page");
         });
     }
@@ -297,21 +378,77 @@ mod tests {
         MEMORY_MANAGER.with_borrow_mut(|manager| {
             let data_to_write = FixedSizeData { a: 100, b: 200 };
             manager
-                .write_at(ACL_PAGE, 50, &data_to_write)
+                .write_at(ACL_PAGE, 48, &data_to_write)
                 .expect("Failed to write data to ACL page");
 
             // zero the data
             manager
-                .zero(ACL_PAGE, 50, &data_to_write)
+                .zero(ACL_PAGE, 48, &data_to_write)
                 .expect("Failed to zero data on ACL page");
 
             let mut buffer = vec![0; 50];
 
             manager
-                .read_at_raw(ACL_PAGE, 50, &mut buffer)
+                .read_at_raw(ACL_PAGE, 48, &mut buffer)
                 .expect("Failed to read data from ACL page");
 
             assert!(buffer.iter().all(|&b| b == 0));
+        });
+    }
+
+    #[test]
+    fn test_should_zero_with_alignment() {
+        MEMORY_MANAGER.with_borrow_mut(|manager| {
+            let data_to_write = FixedSizeData { a: 100, b: 200 };
+            manager
+                .write_at(ACL_PAGE, 0, &data_to_write)
+                .expect("Failed to write data to ACL page");
+            let data_to_write = FixedSizeData { a: 100, b: 200 };
+            manager
+                .write_at(ACL_PAGE, 6, &data_to_write)
+                .expect("Failed to write data to ACL page");
+
+            // zero the data
+            let data_with_alignment = DataWithAlignment { a: 100, b: 200 };
+            manager
+                .zero(ACL_PAGE, 0, &data_with_alignment)
+                .expect("Failed to zero data on ACL page");
+
+            // read first 32 bytes, all must be zero
+            let mut buffer = vec![0; 32];
+            manager
+                .read_at_raw(ACL_PAGE, 0, &mut buffer)
+                .expect("Failed to read data from ACL page");
+            assert!(
+                buffer.iter().all(|&b| b == 0),
+                "First 32 bytes are not zeroed"
+            );
+        })
+    }
+
+    #[test]
+    fn test_should_check_whether_write_is_aligned() {
+        MEMORY_MANAGER.with_borrow_mut(|manager| {
+            let data_to_write = FixedSizeData { a: 100, b: 200 };
+            let res = manager.write_at(ACL_PAGE, 2, &data_to_write);
+            assert!(matches!(res, Err(MemoryError::OffsetNotAligned { .. })));
+        });
+    }
+
+    #[test]
+    fn test_should_check_whether_read_is_aligned() {
+        MEMORY_MANAGER.with_borrow_mut(|manager| {
+            let result: MemoryResult<FixedSizeData> = manager.read_at(ACL_PAGE, 3);
+            assert!(matches!(result, Err(MemoryError::OffsetNotAligned { .. })));
+        });
+    }
+
+    #[test]
+    fn test_should_check_whether_zero_is_aligned() {
+        MEMORY_MANAGER.with_borrow_mut(|manager| {
+            let data_to_zero = FixedSizeData { a: 1, b: 2 };
+            let result = manager.zero(ACL_PAGE, 5, &data_to_zero);
+            assert!(matches!(result, Err(MemoryError::OffsetNotAligned { .. })));
         });
     }
 
@@ -330,7 +467,7 @@ mod tests {
             let data_to_zero = FixedSizeData { a: 1, b: 2 };
             let result = manager.zero(
                 ACL_PAGE,
-                (HeapMemoryProvider::PAGE_SIZE - 3) as PageOffset,
+                (HeapMemoryProvider::PAGE_SIZE - 4) as PageOffset,
                 &data_to_zero,
             );
             assert!(matches!(result, Err(MemoryError::SegmentationFault { .. })));
@@ -362,7 +499,7 @@ mod tests {
             let data_to_write = FixedSizeData { a: 1, b: 2 };
             let result = manager.write_at(
                 ACL_PAGE,
-                (HeapMemoryProvider::PAGE_SIZE - 3) as PageOffset,
+                (HeapMemoryProvider::PAGE_SIZE - 4) as PageOffset,
                 &data_to_write,
             );
             assert!(matches!(result, Err(MemoryError::SegmentationFault { .. })));
@@ -400,6 +537,19 @@ mod tests {
         });
     }
 
+    #[test]
+    fn test_should_compute_padding() {
+        // alignment is 32 bytes for User
+        assert_eq!(align_up::<User>(0), 0);
+        assert_eq!(align_up::<User>(1), 32);
+        assert_eq!(align_up::<User>(2), 32);
+        assert_eq!(align_up::<User>(3), 32);
+        assert_eq!(align_up::<User>(31), 32);
+        assert_eq!(align_up::<User>(32), 32);
+        assert_eq!(align_up::<User>(48), 64);
+        assert_eq!(align_up::<User>(147), 160);
+    }
+
     #[derive(Debug, Clone, PartialEq)]
     struct FixedSizeData {
         a: u16,
@@ -425,6 +575,38 @@ mod tests {
             let a = u16::from_le_bytes([data[0], data[1]]);
             let b = u32::from_le_bytes([data[2], data[3], data[4], data[5]]);
             Ok(FixedSizeData { a, b })
+        }
+
+        fn size(&self) -> MSize {
+            6
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    struct DataWithAlignment {
+        a: u16,
+        b: u32,
+    }
+
+    impl Encode for DataWithAlignment {
+        const SIZE: DataSize = DataSize::Dynamic;
+
+        const ALIGNMENT: MSize = DEFAULT_ALIGNMENT;
+
+        fn encode(&'_ self) -> Cow<'_, [u8]> {
+            let mut buf = vec![0u8; self.size() as usize];
+            buf[0..2].copy_from_slice(&self.a.to_le_bytes());
+            buf[2..6].copy_from_slice(&self.b.to_le_bytes());
+            Cow::Owned(buf)
+        }
+
+        fn decode(data: Cow<[u8]>) -> MemoryResult<Self>
+        where
+            Self: Sized,
+        {
+            let a = u16::from_le_bytes([data[0], data[1]]);
+            let b = u32::from_le_bytes([data[2], data[3], data[4], data[5]]);
+            Ok(DataWithAlignment { a, b })
         }
 
         fn size(&self) -> MSize {
