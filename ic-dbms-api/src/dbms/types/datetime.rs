@@ -4,13 +4,24 @@ use candid::CandidType;
 use serde::{Deserialize, Serialize};
 
 use crate::dbms::types::DataType;
-use crate::memory::{DataSize, Encode, MSize};
+use crate::memory::{DataSize, Encode, MSize, PageOffset};
 
 const TYPE_SIZE: usize = 2 + 1 + 1 + 1 + 1 + 1 + 4 + 2; // year + month + day + hour + minute + second + microsecond + timezone_offset_minutes
 
 /// Date time data type for the DBMS.
 #[derive(
-    Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, CandidType, Serialize, Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    CandidType,
+    Serialize,
+    Deserialize,
 )]
 pub struct DateTime {
     pub year: u16,
@@ -46,7 +57,7 @@ impl DataType for DateTime {}
 impl Encode for DateTime {
     const SIZE: DataSize = DataSize::Fixed(TYPE_SIZE as MSize);
 
-    const ALIGNMENT: MSize = TYPE_SIZE as MSize;
+    const ALIGNMENT: PageOffset = TYPE_SIZE as MSize;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         let mut bytes = Vec::with_capacity(TYPE_SIZE);
