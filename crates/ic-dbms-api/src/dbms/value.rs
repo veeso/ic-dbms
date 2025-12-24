@@ -37,18 +37,6 @@ impl FromStr for Value {
     }
 }
 
-impl From<&str> for Value {
-    fn from(value: &str) -> Self {
-        Value::Text(types::Text(value.to_string()))
-    }
-}
-
-impl From<String> for Value {
-    fn from(value: String) -> Self {
-        Value::Text(types::Text(value))
-    }
-}
-
 // macro rules for implementing From trait for Value enum variants
 macro_rules! impl_conv_for_value {
     ($variant:ident, $ty:ty, $name:ident, $test_name:ident) => {
@@ -83,6 +71,36 @@ macro_rules! impl_conv_for_value {
     };
 }
 
+macro_rules! value_from_primitive {
+    ($variant:ident, $primitive:ty, $test_name:ident) => {
+        value_from_primitive!($variant, $primitive, $test_name, Default::default());
+    };
+
+    ($variant:ident, $primitive:ty, $test_name:ident, $default_value:expr) => {
+        impl From<$primitive> for Value {
+            fn from(value: $primitive) -> Self {
+                Value::$variant($crate::prelude::$variant(value.into()))
+            }
+        }
+
+        #[cfg(test)]
+        mod $test_name {
+            use super::*;
+
+            #[test]
+            fn test_value_from_primitive() {
+                let primitive_value: $primitive = $default_value;
+                if let Value::$variant(inner_value) = Value::from(primitive_value.clone()) {
+                    assert_eq!(inner_value.0, primitive_value);
+                } else {
+                    panic!("Value variant does not match");
+                }
+            }
+        }
+    };
+}
+
+// implement conversions for all Value variants
 impl_conv_for_value!(Blob, types::Blob, as_blob, tests_blob);
 impl_conv_for_value!(Boolean, types::Boolean, as_boolean, tests_boolean);
 impl_conv_for_value!(Date, types::Date, as_date, tests_date);
@@ -99,6 +117,29 @@ impl_conv_for_value!(Uint16, types::Uint16, as_uint16, tests_uint16);
 impl_conv_for_value!(Uint32, types::Uint32, as_uint32, tests_uint32);
 impl_conv_for_value!(Uint64, types::Uint64, as_uint64, tests_uint64);
 impl_conv_for_value!(Uuid, types::Uuid, as_uuid, tests_uuid);
+
+// from inner values of types
+value_from_primitive!(Blob, &[u8], tests_blob_primitive_slice);
+value_from_primitive!(Blob, Vec<u8>, tests_blob_primitive);
+value_from_primitive!(Boolean, bool, tests_boolean_primitive);
+value_from_primitive!(Decimal, rust_decimal::Decimal, tests_decimal_primitive);
+value_from_primitive!(Int8, i8, tests_int8_primitive);
+value_from_primitive!(Int16, i16, tests_int16_primitive);
+value_from_primitive!(Int32, i32, tests_int32_primitive);
+value_from_primitive!(Int64, i64, tests_int64_primitive);
+value_from_primitive!(Uint8, u8, tests_uint8_primitive);
+value_from_primitive!(Uint16, u16, tests_uint16_primitive);
+value_from_primitive!(Uint32, u32, tests_uint32_primitive);
+value_from_primitive!(Uint64, u64, tests_uint64_primitive);
+value_from_primitive!(
+    Principal,
+    candid::Principal,
+    tests_principal_primitive,
+    candid::Principal::anonymous()
+);
+value_from_primitive!(Text, String, tests_text_primitive_string);
+value_from_primitive!(Text, &str, tests_text_primitive_str);
+value_from_primitive!(Uuid, uuid::Uuid, tests_uuid_primitive);
 
 impl Value {
     /// Checks if the value is [`Value::Null`].
@@ -258,12 +299,9 @@ mod tests {
     }
 
     #[test]
-    fn test_value_from_string() {
+    fn test_value_from_str() {
         let str_value = "Hello, DBMS!";
-        let value: Value = Value::from(str_value);
-        assert_eq!(value.as_text().unwrap().0, str_value);
-        let value = Value::from(str_value.to_string());
-        assert_eq!(value.as_text().unwrap().0, str_value);
+
         let value = Value::from_str(str_value).unwrap();
         assert_eq!(value.as_text().unwrap().0, str_value);
     }
