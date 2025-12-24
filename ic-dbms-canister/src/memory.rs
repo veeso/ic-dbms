@@ -275,7 +275,7 @@ mod tests {
 
     use std::borrow::Cow;
 
-    use ic_dbms_api::prelude::DEFAULT_ALIGNMENT;
+    use ic_dbms_api::prelude::{DEFAULT_ALIGNMENT, Text};
 
     use super::*;
     use crate::memory::provider::HeapMemoryProvider;
@@ -316,6 +316,43 @@ mod tests {
                 .expect("Failed to read data from ACL page");
 
             assert_eq!(out, data_to_write);
+        });
+    }
+
+    #[test]
+    fn test_write_should_zero_padding() {
+        // write to ACL page
+        MEMORY_MANAGER.with_borrow_mut(|manager| {
+            let data_to_write = Text("very_long_string".to_string());
+            manager
+                .write_at(ACL_PAGE, 0, &data_to_write)
+                .expect("Failed to write data to ACL page");
+
+            // read first 32 bytes
+            let mut buffer = vec![0; 32];
+            manager
+                .read_at_raw(ACL_PAGE, 0, &mut buffer)
+                .expect("Failed to read data from ACL page");
+
+            // count non-zero
+            let non_zero_count = buffer.iter().filter(|&&b| b != 0).count();
+            assert_eq!(non_zero_count, data_to_write.size() as usize - 1); // - 1 because one byte for length is zero
+
+            // write shorter string
+            let data_to_write_short = Text("short".to_string());
+            manager
+                .write_at(ACL_PAGE, 0, &data_to_write_short)
+                .expect("Failed to write data to ACL page");
+
+            // read first 32 bytes again
+            let mut buffer = vec![0; 32];
+            manager
+                .read_at_raw(ACL_PAGE, 0, &mut buffer)
+                .expect("Failed to read data from ACL page");
+
+            // non-zero should match shorter string size
+            let non_zero_count = buffer.iter().filter(|&&b| b != 0).count();
+            assert_eq!(non_zero_count, data_to_write_short.size() as usize - 1); // - 1 because one byte for length is zero
         });
     }
 
