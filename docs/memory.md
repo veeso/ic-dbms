@@ -406,43 +406,126 @@ where
 
 ### Free Segments Ledger
 
+The free segments ledger keeps track of free segments in the `FreeSegmentsTable` registry.
+
+Free segments can occur either when a record is deleted or
+when a record is moved to a different location due to resizing after an update.
+
+Each record tracks:
+
+- The page number where the record was located
+- The offset within that page
+- The size of the free segment
+
+The responsibilities of this ledger include:
+
+- Storing metadata about free segments whenever a record is deleted or moved
+- Find a suitable location for new records by reusing space from free segments
+
+The ledger is stored in a page which contains all the pages of the `FreeSegmentsTable`s.
+
+The ledger can then load each `FreeSegmentsTable` as needed from their respective pages.
+
+The free segments ledger main page is just used to store the list of pages containing the `FreeSegmentsTable`s.
+
+While the free segments metadata are spread across multiple `FreeSegmentsTable`s to allow scalability and very
+fragmented databases.
+
 ```rust
-/// The free segments ledger keeps track of free segments in the [`FreeSegmentsTable`] registry.
-///
-/// Free segments can occur either when a record is deleted or
-/// when a record is moved to a different location due to resizing after an update.
-///
-/// Each record tracks:
-///
-/// - The page number where the record was located
-/// - The offset within that page
-/// - The size of the free segment
-///
-/// The responsibilities of this ledger include:
-///
-/// - Storing metadata about free segments whenever a record is deleted or moved
-/// - Find a suitable location for new records by reusing space from free segments
+
 pub struct FreeSegmentsLedger {
     /// The page where the free segments ledger is stored in memory.
+    ///
+    /// This page actually just holds the page numbers to the pages containing the [`FreeSegmentsTable`]s.
     free_segments_page: Page,
-    /// Free segments table that holds metadata about free segments.
-    table: FreeSegmentsTable,
+    /// Pages containing the [`FreeSegmentTable`]s.
+    tables: PagesTable,
 }
 
 impl FreeSegmentsTable {
-    /// Inserts a new [`FreeSegment`] into the table.
-    pub fn insert_free_segment(&mut self, page: Page, offset: usize, size: usize);
-
-    /// Finds a free segment that matches the given predicate.
-    pub fn find<F>(&self, predicate: F) -> Option<FreeSegment>
-    where
-        F: Fn(&&FreeSegment) -> bool;
-
-    /// Removes a free segment that matches the given parameters.
+    /// Inserts a new [`FreeSegment`] into the ledger with the specified [`Page`], offset, and size.
     ///
-    /// If `used_size` is less than `size`, the old record is removed, but a new record is added
-    /// for the remaining free space.
-    pub fn remove(&mut self, page: Page, offset: PageOffset, size: MSize, used_size: MSize);
+    /// The size is calculated based on the size of the record plus the length prefix.
+    ///
+    /// The table is then written back to memory.
+    pub fn insert_free_segment<E>(
+        &mut self,
+        page: Page,
+        offset: PageOffset,
+        record: &E,
+    ) -> MemoryResult<()>
+    where
+        E: Encode,
+    {
+        let physical_size = align_up::<E>(record.size() as usize) as MSize;
+
+        // get the first table with space to allocate the new segment
+        for table in self.tables() {
+            let mut table = table?;
+            if !table.is_full() {
+                return table.insert_free_segment(page, offset, physical_size);
+            }
+        }
+
+        // otherwise, create a new page
+        let new_page = self.create_new_page()?;
+        let mut table = FreeSegmentsTable::load(new_page)?;
+
+        table.insert_free_segment(page, offset, physical_size)
+    }
+
+    /// Finds a reusable free segment that can accommodate the size of the given record.
+    ///
+    /// - If a suitable free segment is found, it is returned as [`Some<FreeSegmentTicket>`].
+    /// - If no suitable free segment is found, [`None`] is returned.
+    /// - If an error occurs during the search, it is returned as a [`MemoryError`].
+    pub fn find_reusable_segment<E>(&self, record: &E) -> MemoryResult<Option<FreeSegmentTicket>>
+    where
+        E: Encode,
+    {
+        let required_size = record.size();
+
+        // iterate over tables to find a suitable segment
+        for table in self.tables() {
+            let table = table?;
+            if let Some(segment) = table.find(|r| r.size >= required_size) {
+                return Ok(Some(FreeSegmentTicket {
+                    segment,
+                    table: table.page(),
+                }));
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// Commits a reused free segment by removing it from the ledger and updating it based on the used size.
+    pub fn commit_reused_space<E>(
+        &mut self,
+        record: &E,
+        segment: FreeSegmentTicket,
+    ) -> MemoryResult<()>
+    where
+        E: Encode,
+    {
+        let physical_size = align_up::<E>(record.size() as usize) as MSize;
+
+        // get the table
+        let mut table = None;
+        for i_table in self.tables() {
+            let i_table = i_table?;
+            if i_table.page() == segment.table {
+                table = Some(i_table);
+                break;
+            }
+        }
+        let Some(mut table) = table else {
+            // return error, memory may be corrupted
+            return Err(MemoryError::OutOfBounds);
+        };
+
+        table.remove(segment.segment, physical_size)
+    }
 }
 ```
 
@@ -478,6 +561,51 @@ impl FreeSegmentsTable {
                 self.records.push(new_record);
             }
         }
+    }
+}
+```
+
+Also adjacent free segments are merged together when inserting new free segments to avoid fragmentation.
+
+```rust
+impl FreeSegmentsTable {
+    /// Inserts a new [`FreeSegment`] into the table.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the table is full.
+    pub fn insert_free_segment(
+        &mut self,
+        page: Page,
+        offset: PageOffset,
+        size: MSize,
+    ) -> MemoryResult<()> {
+        assert!(
+            !self.is_full(),
+            "Cannot insert new free segment: table is full"
+        );
+        // check for adjacent segments and merge if found
+        if let Some(adjacent) = self.has_adjacent_segment(page, offset, size) {
+            match adjacent {
+                AdjacentSegment::Before(seg) => {
+                    // Merge with the segment before
+                    let new_size = seg.size.saturating_add(size);
+                    self.remove(seg, seg.size)?;
+                    self.insert_free_segment(page, seg.offset, new_size)?;
+                }
+                AdjacentSegment::After(seg) => {
+                    // Merge with the segment after
+                    let new_size = size.saturating_add(seg.size);
+                    self.remove(seg, seg.size)?;
+                    self.insert_free_segment(page, offset, new_size)?;
+                }
+            }
+        } else {
+            // No adjacent segments found, insert as is
+            let record = FreeSegment { page, offset, size };
+            self.records.0.push(record);
+        }
+        self.commit()
     }
 }
 ```
