@@ -293,7 +293,7 @@ mod tests {
     impl Encode for TestRecord {
         const SIZE: DataSize = DataSize::Fixed(100);
 
-        const ALIGNMENT: MSize = 100;
+        const ALIGNMENT: PageOffset = 100;
 
         fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
             std::borrow::Cow::Borrowed(&self.data)
@@ -321,7 +321,7 @@ mod tests {
     impl Encode for BigTestRecord {
         const SIZE: DataSize = DataSize::Fixed(200);
 
-        const ALIGNMENT: MSize = 200;
+        const ALIGNMENT: PageOffset = 200;
 
         fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
             std::borrow::Cow::Borrowed(&self.data)
@@ -349,7 +349,7 @@ mod tests {
     impl Encode for DynamicTestRecord {
         const SIZE: DataSize = DataSize::Dynamic;
 
-        const ALIGNMENT: MSize = DEFAULT_ALIGNMENT;
+        const ALIGNMENT: PageOffset = DEFAULT_ALIGNMENT;
 
         fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
             std::borrow::Cow::Borrowed(&self.data)

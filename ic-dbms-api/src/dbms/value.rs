@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use candid::CandidType;
 use serde::{Deserialize, Serialize};
 
@@ -13,19 +15,43 @@ pub enum Value {
     Date(types::Date),
     DateTime(types::DateTime),
     Decimal(types::Decimal),
+    Int8(types::Int8),
+    Int16(types::Int16),
     Int32(types::Int32),
     Int64(types::Int64),
     Null,
     Principal(types::Principal),
     Text(types::Text),
+    Uint8(types::Uint8),
+    Uint16(types::Uint16),
     Uint32(types::Uint32),
     Uint64(types::Uint64),
     Uuid(types::Uuid),
 }
 
+impl FromStr for Value {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self::Text(s.into()))
+    }
+}
+
+impl From<&str> for Value {
+    fn from(value: &str) -> Self {
+        Value::Text(types::Text(value.to_string()))
+    }
+}
+
+impl From<String> for Value {
+    fn from(value: String) -> Self {
+        Value::Text(types::Text(value))
+    }
+}
+
 // macro rules for implementing From trait for Value enum variants
 macro_rules! impl_conv_for_value {
-    ($variant:ident, $ty:ty, $name:ident) => {
+    ($variant:ident, $ty:ty, $name:ident, $test_name:ident) => {
         impl From<$ty> for Value {
             fn from(value: $ty) -> Self {
                 Value::$variant(value)
@@ -42,21 +68,37 @@ macro_rules! impl_conv_for_value {
                 }
             }
         }
+
+        #[cfg(test)]
+        mod $test_name {
+            use super::*;
+
+            #[test]
+            fn test_value_conversion() {
+                let value_instance: $ty = Default::default();
+                let value: Value = value_instance.clone().into();
+                assert_eq!(value.$name(), Some(&value_instance));
+            }
+        }
     };
 }
 
-impl_conv_for_value!(Blob, types::Blob, as_blob);
-impl_conv_for_value!(Boolean, types::Boolean, as_boolean);
-impl_conv_for_value!(Date, types::Date, as_date);
-impl_conv_for_value!(DateTime, types::DateTime, as_datetime);
-impl_conv_for_value!(Decimal, types::Decimal, as_decimal);
-impl_conv_for_value!(Int32, types::Int32, as_int32);
-impl_conv_for_value!(Int64, types::Int64, as_int64);
-impl_conv_for_value!(Principal, types::Principal, as_principal);
-impl_conv_for_value!(Text, types::Text, as_text);
-impl_conv_for_value!(Uint32, types::Uint32, as_uint32);
-impl_conv_for_value!(Uint64, types::Uint64, as_uint64);
-impl_conv_for_value!(Uuid, types::Uuid, as_uuid);
+impl_conv_for_value!(Blob, types::Blob, as_blob, tests_blob);
+impl_conv_for_value!(Boolean, types::Boolean, as_boolean, tests_boolean);
+impl_conv_for_value!(Date, types::Date, as_date, tests_date);
+impl_conv_for_value!(DateTime, types::DateTime, as_datetime, tests_datetime);
+impl_conv_for_value!(Decimal, types::Decimal, as_decimal, tests_decimal);
+impl_conv_for_value!(Int8, types::Int8, as_int8, tests_int8);
+impl_conv_for_value!(Int16, types::Int16, as_int16, tests_int16);
+impl_conv_for_value!(Int32, types::Int32, as_int32, tests_int32);
+impl_conv_for_value!(Int64, types::Int64, as_int64, tests_int64);
+impl_conv_for_value!(Principal, types::Principal, as_principal, tests_principal);
+impl_conv_for_value!(Text, types::Text, as_text, tests_text);
+impl_conv_for_value!(Uint8, types::Uint8, as_uint8, tests_uint8);
+impl_conv_for_value!(Uint16, types::Uint16, as_uint16, tests_uint16);
+impl_conv_for_value!(Uint32, types::Uint32, as_uint32, tests_uint32);
+impl_conv_for_value!(Uint64, types::Uint64, as_uint64, tests_uint64);
+impl_conv_for_value!(Uuid, types::Uuid, as_uuid, tests_uuid);
 
 impl Value {
     /// Checks if the value is [`Value::Null`].
@@ -72,11 +114,15 @@ impl Value {
             Value::Date(_) => "Date",
             Value::DateTime(_) => "DateTime",
             Value::Decimal(_) => "Decimal",
+            Value::Int8(_) => "Int8",
+            Value::Int16(_) => "Int16",
             Value::Int32(_) => "Int32",
             Value::Int64(_) => "Int64",
             Value::Null => "Null",
             Value::Principal(_) => "Principal",
             Value::Text(_) => "Text",
+            Value::Uint8(_) => "Uint8",
+            Value::Uint16(_) => "Uint16",
             Value::Uint32(_) => "Uint32",
             Value::Uint64(_) => "Uint64",
             Value::Uuid(_) => "Uuid",
@@ -209,5 +255,16 @@ mod tests {
 
         let null_value = Value::Null;
         assert_eq!(null_value.type_name(), "Null");
+    }
+
+    #[test]
+    fn test_value_from_string() {
+        let str_value = "Hello, DBMS!";
+        let value: Value = Value::from(str_value);
+        assert_eq!(value.as_text().unwrap().0, str_value);
+        let value = Value::from(str_value.to_string());
+        assert_eq!(value.as_text().unwrap().0, str_value);
+        let value = Value::from_str(str_value).unwrap();
+        assert_eq!(value.as_text().unwrap().0, str_value);
     }
 }

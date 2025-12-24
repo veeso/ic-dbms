@@ -122,7 +122,7 @@ impl FreeSegmentsTable {
 impl Encode for FreeSegmentsTable {
     const SIZE: DataSize = DataSize::Dynamic;
 
-    const ALIGNMENT: MSize = DEFAULT_ALIGNMENT;
+    const ALIGNMENT: PageOffset = DEFAULT_ALIGNMENT;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         let mut buffer = Vec::with_capacity(self.size() as usize);
@@ -169,7 +169,7 @@ impl Encode for FreeSegmentsTable {
 impl Encode for FreeSegment {
     const SIZE: DataSize = DataSize::Fixed(8); // page (4) + offset (2) + size (2)
 
-    const ALIGNMENT: MSize = 8;
+    const ALIGNMENT: PageOffset = 8;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         let mut buffer = Vec::with_capacity(self.size() as usize);
