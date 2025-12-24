@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use crate::memory::{MSize, MemoryResult};
+use crate::prelude::PageOffset;
 
 /// Default alignment in bytes for [`DataSize::Dynamic`] data types.
 pub const DEFAULT_ALIGNMENT: MSize = 32;
@@ -21,7 +22,7 @@ pub trait Encode: Clone {
     ///
     /// We should set a default value (probably 32) for dynamic types to avoid misalignment issues, but letting an expert user to
     /// override it if necessary.
-    const ALIGNMENT: MSize;
+    const ALIGNMENT: PageOffset;
 
     /// Encodes the data type into a vector of bytes.
     fn encode(&'_ self) -> Cow<'_, [u8]>;

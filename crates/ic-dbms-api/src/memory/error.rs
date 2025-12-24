@@ -18,6 +18,8 @@ pub enum MemoryError {
     /// Error when failing to allocate a new page.
     #[error("Failed to allocate a new page")]
     FailedToAllocatePage,
+    #[error("Offset {offset} is not aligned to {alignment} bytes")]
+    OffsetNotAligned { offset: PageOffset, alignment: u16 },
     /// Error when attempting to access stable memory out of bounds.
     #[error("Stable memory access out of bounds")]
     OutOfBounds,

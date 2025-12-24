@@ -9,7 +9,9 @@ use self::page_ledger::PageLedger;
 pub use self::table_reader::TableReader;
 use self::write_at::WriteAt;
 use crate::memory::table_registry::raw_record::RawRecord;
-use crate::memory::{Encode, MEMORY_MANAGER, MemoryResult, Page, PageOffset, TableRegistryPage};
+use crate::memory::{
+    Encode, MEMORY_MANAGER, MemoryResult, Page, PageOffset, TableRegistryPage, align_up,
+};
 
 /// The table registry takes care of storing the records for each table,
 /// using the [`FreeSegmentsLedger`] and [`PageLedger`] to derive exactly where to read/write.
@@ -46,7 +48,7 @@ impl TableRegistry {
         let write_at = self.get_write_position(&raw_record)?;
 
         // align insert
-        let aligned_offset = Self::align_up::<E>(write_at.offset() as usize) as PageOffset;
+        let aligned_offset = align_up::<E>(write_at.offset() as usize) as PageOffset;
 
         // write record
         MEMORY_MANAGER
@@ -171,25 +173,6 @@ impl TableRegistry {
             }
         }
     }
-
-    /// Get the padding at the given offset to the next multiple of [`E::ALIGNMENT`].
-    ///
-    /// This is used to align records in memory.
-    pub fn align_up<E>(offset: usize) -> usize
-    where
-        E: Encode,
-    {
-        let alignment = E::ALIGNMENT as usize;
-        align_up(offset, alignment)
-    }
-}
-
-/// Get the padding at the given offset to the next multiple of `alignment`.
-///
-/// This is used to align records in memory.
-#[inline]
-const fn align_up(offset: usize, alignment: usize) -> usize {
-    offset.div_ceil(alignment) * alignment
 }
 
 #[cfg(test)]
@@ -555,16 +538,69 @@ mod tests {
     }
 
     #[test]
-    fn test_should_compute_padding() {
-        // alignment is 32 bytes for User
-        assert_eq!(TableRegistry::align_up::<User>(0), 0);
-        assert_eq!(TableRegistry::align_up::<User>(1), 32);
-        assert_eq!(TableRegistry::align_up::<User>(2), 32);
-        assert_eq!(TableRegistry::align_up::<User>(3), 32);
-        assert_eq!(TableRegistry::align_up::<User>(31), 32);
-        assert_eq!(TableRegistry::align_up::<User>(32), 32);
-        assert_eq!(TableRegistry::align_up::<User>(48), 64);
-        assert_eq!(TableRegistry::align_up::<User>(147), 160);
+    fn test_should_reduce_free_segment_size_with_padding() {
+        let mut registry = registry();
+
+        // first insert a user
+        let long_name = vec!['A'; 1024].into_iter().collect::<String>();
+        let record = User {
+            id: 1u32.into(),
+            name: "Test User".to_string().into(),
+            email: long_name.into(),
+            age: 30.into(),
+        };
+        registry.insert(record.clone()).expect("failed to insert");
+        // get record page
+        let mut reader = registry.read::<User>();
+        let next_record = reader
+            .try_next()
+            .expect("failed to read")
+            .expect("no record");
+        // delete user
+        registry
+            .delete(next_record.record, next_record.page, next_record.offset)
+            .expect("failed to delete");
+
+        // get the free segment
+        let raw_record = RawRecord::new(record.clone());
+        let free_segment = registry
+            .free_segments_ledger
+            .find_reusable_segment(&raw_record)
+            .expect("could not find the free segment after free");
+        // size should be at least 1024
+        assert!(free_segment.size >= 1024);
+        let previous_size = free_segment.size;
+
+        // now insert a small user at 0
+        let small_record = User {
+            id: 2u32.into(),
+            name: "Bob The Builder".to_string().into(),
+            email: "bob@hotmail.com".into(),
+            age: 22.into(),
+        };
+        registry
+            .insert(small_record.clone())
+            .expect("failed to insert small user");
+
+        // get free segment
+        let free_segment_after = registry
+            .free_segments_ledger
+            .find_reusable_segment(&small_record)
+            .expect("could not find the free segment after inserting small user");
+
+        // size should be reduced
+        assert_eq!(
+            free_segment_after.offset, 64,
+            "expected offset to be 64, but had: {}",
+            free_segment_after.offset
+        ); // which is the padding
+        assert_eq!(
+            free_segment_after.size,
+            previous_size - 64,
+            "Expected free segment to have size: {} but got: {}",
+            previous_size - 64,
+            free_segment_after.size
+        );
     }
 
     fn registry() -> TableRegistry {

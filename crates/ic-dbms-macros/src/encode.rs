@@ -32,7 +32,7 @@ pub fn encode(
     Ok(quote::quote! {
         impl #impl_generics ::ic_dbms_api::prelude::Encode for #ident #ty_generics #where_clause {
             const SIZE: ::ic_dbms_api::prelude::DataSize = #data_size;
-            const ALIGNMENT: ::ic_dbms_api::prelude::MSize = #alignment;
+            const ALIGNMENT: ::ic_dbms_api::prelude::PageOffset = #alignment;
 
             #size
 
