@@ -3,7 +3,7 @@ mod page_table;
 use self::page_table::PageTable;
 use crate::memory::table_registry::page_ledger::page_table::PageRecord;
 use crate::memory::table_registry::raw_record::RawRecord;
-use crate::memory::{Encode, MEMORY_MANAGER, MemoryResult, Page, PageOffset, TableRegistry};
+use crate::memory::{Encode, MEMORY_MANAGER, MemoryResult, Page, PageOffset, align_up};
 
 /// Takes care of storing the pages for each table
 #[derive(Debug)]
@@ -60,7 +60,7 @@ impl PageLedger {
         // otherwise allocate a new one
         let new_page = MEMORY_MANAGER.with_borrow_mut(|mm| mm.allocate_page())?;
         // add to ledger
-        self.pages.pages.push(self::page_table::PageRecord {
+        self.pages.pages.push(PageRecord {
             page: new_page,
             free: page_size, // NOTE: we commit later, so full free space
         });
@@ -85,7 +85,7 @@ impl PageLedger {
                 });
             }
             // add padding to record size
-            let padding = TableRegistry::align_up::<RawRecord<R>>(record_size as usize);
+            let padding = align_up::<RawRecord<R>>(record_size as usize);
             // add record size + required padding
             let record_size = record_size + ((padding as u64).saturating_sub(record.size() as u64));
             page_record.free = page_record.free.saturating_sub(record_size);
@@ -109,7 +109,6 @@ impl PageLedger {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use crate::memory::provider::{HeapMemoryProvider, MemoryProvider};
     use crate::memory::table_registry::page_ledger::page_table::PageRecord;

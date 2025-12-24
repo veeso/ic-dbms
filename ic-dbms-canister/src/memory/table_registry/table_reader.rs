@@ -5,7 +5,7 @@ use ic_dbms_api::prelude::DecodeError;
 use crate::memory::table_registry::page_ledger::PageLedger;
 use crate::memory::table_registry::raw_record::{RAW_RECORD_HEADER_SIZE, RawRecord};
 use crate::memory::{
-    Encode, MEMORY_MANAGER, MSize, MemoryError, MemoryResult, Page, PageOffset, TableRegistry,
+    Encode, MEMORY_MANAGER, MSize, MemoryError, MemoryResult, Page, PageOffset, align_up,
 };
 
 /// Stores the current position to read/write in memory.
@@ -194,7 +194,7 @@ where
         mut offset: usize,
     ) -> MemoryResult<Option<(PageOffset, MSize)>> {
         // first round the offset to the next alignment
-        offset = TableRegistry::align_up::<RawRecord<E>>(offset);
+        offset = align_up::<RawRecord<E>>(offset);
         // search for the first non-zero record length
         let mut data_len;
         loop {
