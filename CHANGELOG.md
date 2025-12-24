@@ -26,6 +26,10 @@ Released on 2025-12-24
 - Added `FromStr`, `From<&str>`, and `From<String>` implementations for `Value`, which automatically builds a
   `Value::Text`
   variant when converting from string types.
+- [Added `From` implementation for `Value` for inner types]((https://github.com/veeso/ic-dbms/pull/18): `i8`, `i16`,
+  `i32`, `i64`, `u8`, `u16`, `u32`, `u64`,
+  `&[u8]`, `Vec<u8>`, `Principal`, `rust_decimal::Decimal`, `Uuid`, which
+  automatically builds the corresponding `Value` variant when converting from these types.
 
 ## 0.2.1
 
