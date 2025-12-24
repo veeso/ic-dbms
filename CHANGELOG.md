@@ -20,6 +20,12 @@ Released on 2025-12-24
     - [Added a new `MemoryError::OffsetNotAligned`](https://github.com/veeso/ic-dbms/pull/16) variant to handle cases
       where field offsets are not properly aligned
       when writing, which notifies memory corruptions issues.
+- [Int8, Int16, Uint8, Uint16 data types](https://github.com/veeso/ic-dbms/pull/17): Added support for smaller integer
+  types to optimize memory usage
+  and improve performance for applications that require precise control over data sizes.
+- Added `FromStr`, `From<&str>`, and `From<String>` implementations for `Value`, which automatically builds a
+  `Value::Text`
+  variant when converting from string types.
 
 ## 0.2.1
 

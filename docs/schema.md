@@ -29,11 +29,15 @@ The following types are supported in schema definitions:
 - `Date`
 - `DateTime`
 - `Decimal`
+- `Int8`
+- `Int16`
 - `Int32`
 - `Int64`
 - `Nullable<Type>`
 - `Principal`
 - `Text`
+- `Uint8`
+- `Uint16`
 - `Uint32`
 - `Uint64`
 - `Uuid`

@@ -2,9 +2,9 @@
 
 pub use ic_dbms_api::prelude::{
     Blob, Boolean, ColumnDef, DataTypeKind, Date, DateTime, Decimal, DeleteBehavior, Filter,
-    ForeignKeyDef, InsertRecord, Int32, Int64, Nullable, OrderDirection, Principal, Query,
-    QueryBuilder, Select, TableColumns, TableError, TableRecord, Text, Uint32, Uint64,
-    UpdateRecord, Uuid, Value, ValuesSource,
+    ForeignKeyDef, InsertRecord, Int8, Int16, Int32, Int64, Nullable, OrderDirection, Principal,
+    Query, QueryBuilder, Select, TableColumns, TableError, TableRecord, Text, Uint8, Uint16,
+    Uint32, Uint64, UpdateRecord, Uuid, Value, ValuesSource,
 };
 
 #[cfg(feature = "pocket-ic")]
