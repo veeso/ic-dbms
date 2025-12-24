@@ -22,6 +22,9 @@ Released on ??
 - [Int8, Int16, Uint8, Uint16 data types](https://github.com/veeso/ic-dbms/pull/17): Added support for smaller integer
   types to optimize memory usage
   and improve performance for applications that require precise control over data sizes.
+- Added `FromStr`, `From<&str>`, and `From<String>` implementations for `Value`, which automatically builds a
+  `Value::Text`
+  variant when converting from string types.
 
 ## 0.2.0
 
