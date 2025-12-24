@@ -35,13 +35,13 @@ impl FreeSegmentsTable {
                 AdjacentSegment::Before(seg) => {
                     // Merge with the segment before
                     let new_size = seg.size.saturating_add(size);
-                    self.remove(seg.page, seg.offset, seg.size, seg.size);
+                    self.remove(seg, seg.size);
                     self.insert_free_segment(page, seg.offset, new_size);
                 }
                 AdjacentSegment::After(seg) => {
                     // Merge with the segment after
                     let new_size = size.saturating_add(seg.size);
-                    self.remove(seg.page, seg.offset, seg.size, seg.size);
+                    self.remove(seg, seg.size);
                     self.insert_free_segment(page, offset, new_size);
                 }
             }
@@ -64,7 +64,7 @@ impl FreeSegmentsTable {
     ///
     /// If `used_size` is less than `size`, the old record is removed, but a new record is added
     /// for the remaining free space.
-    pub fn remove(&mut self, page: Page, offset: PageOffset, size: MSize, used_size: MSize) {
+    pub fn remove(&mut self, FreeSegment { page, offset, size }: FreeSegment, used_size: MSize) {
         if let Some(pos) = self
             .records
             .iter()
@@ -267,7 +267,14 @@ mod tests {
         let mut table = FreeSegmentsTable::default();
         table.insert_free_segment(1, 100, 50);
 
-        table.remove(1, 100, 50, 50);
+        table.remove(
+            FreeSegment {
+                page: 1,
+                offset: 100,
+                size: 50,
+            },
+            50,
+        );
 
         assert!(table.records.is_empty());
     }
@@ -277,7 +284,14 @@ mod tests {
         let mut table = FreeSegmentsTable::default();
         table.insert_free_segment(1, 100, 50);
 
-        table.remove(1, 100, 50, 30);
+        table.remove(
+            FreeSegment {
+                page: 1,
+                offset: 100,
+                size: 50,
+            },
+            30,
+        );
 
         assert_eq!(table.records.len(), 1);
         assert_eq!(table.records[0].page, 1);
