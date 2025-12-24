@@ -16,7 +16,8 @@ Released on ??
 - [Memory Alignment](https://github.com/veeso/ic-dbms/pull/15): Changed the previous memory model which used to store
   records sequentially in a contiguous block of memory with padded fields to a more efficient model that aligns fields
   based on their data types. This change improves memory access speed and reduces fragmentation.
-    - Added a new `MemoryError::OffsetNotAligned` variant to handle cases where field offsets are not properly aligned
+    - [Added a new `MemoryError::OffsetNotAligned`](https://github.com/veeso/ic-dbms/pull/16) variant to handle cases
+      where field offsets are not properly aligned
       when writing, which notifies memory corruptions issues.
 
 ## 0.2.0
