@@ -23,13 +23,18 @@ Released on 2025-12-24
 - [Int8, Int16, Uint8, Uint16 data types](https://github.com/veeso/ic-dbms/pull/17): Added support for smaller integer
   types to optimize memory usage
   and improve performance for applications that require precise control over data sizes.
-- Added `FromStr`, `From<&str>`, and `From<String>` implementations for `Value`, which automatically builds a
-  `Value::Text`
-  variant when converting from string types.
-- [Added `From` implementation for `Value` for inner types]((https://github.com/veeso/ic-dbms/pull/18): `i8`, `i16`,
+- [Added `From` implementation for `Value` for inner types](https://github.com/veeso/ic-dbms/pull/18): `i8`, `i16`,
   `i32`, `i64`, `u8`, `u16`, `u32`, `u64`,
   `&[u8]`, `Vec<u8>`, `Principal`, `rust_decimal::Decimal`, `Uuid`, which
   automatically builds the corresponding `Value` variant when converting from these types.
+    - Added `FromStr`, `From<&str>`, and `From<String>` implementations for `Value`, which automatically builds a
+      `Value::Text`
+      variant when converting from string types.
+- [FreeSegmentLedger now uses many pages](https://github.com/veeso/ic-dbms/pull/20): The FreeSegmentLedger has been
+  updated to utilize multiple pages for tracking free segments.
+  This enhancement allows for the free segments ledger to grow and not to die when a single page is full.
+    - Added logic to handle reading and writing free segments across multiple pages.
+    - Updated tests to cover scenarios involving multiple pages in the FreeSegmentLedger.
 
 ## 0.2.1
 

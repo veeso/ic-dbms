@@ -143,7 +143,7 @@ impl TableRegistry {
         E: Encode,
     {
         // check if there is a free segment that can hold the record
-        if let Some(segment) = self.free_segments_ledger.find_reusable_segment(record) {
+        if let Some(segment) = self.free_segments_ledger.find_reusable_segment(record)? {
             return Ok(WriteAt::ReusedSegment(segment));
         }
 
@@ -245,13 +245,19 @@ mod tests {
         let write_at = registry
             .get_write_position(&record)
             .expect("failed to get write at");
+
+        let reused_segment = match write_at {
+            WriteAt::ReusedSegment(segment) => segment.segment,
+            _ => panic!("expected reused segment"),
+        };
+
         assert_eq!(
-            write_at,
-            WriteAt::ReusedSegment(FreeSegment {
+            reused_segment,
+            FreeSegment {
                 page,
                 offset: 256,
                 size: 64, // padded size
-            })
+            }
         );
     }
 
@@ -327,7 +333,9 @@ mod tests {
                 email: "new_user@example.com".into(),
                 age: 25.into(),
             })
-            .expect("could not find the free segment after free");
+            .expect("failed to find free segment")
+            .expect("could not find the free segment after free")
+            .segment;
         assert_eq!(free_segment.page, page);
         assert_eq!(free_segment.offset, offset);
         assert_eq!(free_segment.size, 64); // padded
@@ -566,7 +574,9 @@ mod tests {
         let free_segment = registry
             .free_segments_ledger
             .find_reusable_segment(&raw_record)
-            .expect("could not find the free segment after free");
+            .expect("failed to find reusable segment")
+            .expect("could not find the free segment after free")
+            .segment;
         // size should be at least 1024
         assert!(free_segment.size >= 1024);
         let previous_size = free_segment.size;
@@ -586,7 +596,9 @@ mod tests {
         let free_segment_after = registry
             .free_segments_ledger
             .find_reusable_segment(&small_record)
-            .expect("could not find the free segment after inserting small user");
+            .expect("failed to find reusable segment")
+            .expect("could not find the free segment after inserting small user")
+            .segment;
 
         // size should be reduced
         assert_eq!(

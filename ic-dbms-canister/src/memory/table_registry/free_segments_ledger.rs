@@ -1,10 +1,27 @@
 mod free_segment;
+mod free_segments_table;
+mod pages_table;
+mod tables_iter;
 
-use ic_dbms_api::prelude::MSize;
+use ic_dbms_api::prelude::{MSize, MemoryError};
 
 pub use self::free_segment::FreeSegment;
-use self::free_segment::FreeSegmentsTable;
+use self::free_segments_table::FreeSegmentsTable;
+use self::pages_table::PagesTable;
+use crate::memory::table_registry::free_segments_ledger::tables_iter::TablesIter;
 use crate::memory::{Encode, MEMORY_MANAGER, MemoryResult, Page, PageOffset, align_up};
+
+/// A ticket representing a reusable free segment.
+///
+/// This is used to track the origin of the free segment along with its metadata.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct FreeSegmentTicket {
+    pub segment: FreeSegment,
+    #[cfg(test)]
+    pub table: Page,
+    #[cfg(not(test))]
+    table: Page,
+}
 
 /// The free segments ledger keeps track of free segments in the [`FreeSegmentsTable`] registry.
 ///
@@ -21,22 +38,28 @@ use crate::memory::{Encode, MEMORY_MANAGER, MemoryResult, Page, PageOffset, alig
 ///
 /// - Storing metadata about free segments whenever a record is deleted or moved
 /// - Find a suitable location for new records by reusing space from free segments
+///
+/// The ledger is stored in a page which contains all the pages of the [`FreeSegmentsTable`]s.
+///
+/// The ledger can then load each [`FreeSegmentsTable`] as needed from their respective pages.
 pub struct FreeSegmentsLedger {
     /// The page where the free segments ledger is stored in memory.
+    ///
+    /// This page actually just holds the page numbers to the pages containing the [`FreeSegmentsTable`]s.
     free_segments_page: Page,
-    /// Free segments table that holds metadata about free segments.
-    table: FreeSegmentsTable,
+    /// Pages containing the [`FreeSegmentTable`]s.
+    tables: PagesTable,
 }
 
 impl FreeSegmentsLedger {
     /// Loads the deleted records ledger from memory
-    pub fn load(deleted_records_page: Page) -> MemoryResult<Self> {
+    pub fn load(free_segments_page: Page) -> MemoryResult<Self> {
         // read from memory
-        let table = MEMORY_MANAGER.with_borrow(|mm| mm.read_at(deleted_records_page, 0))?;
+        let tables = MEMORY_MANAGER.with_borrow(|mm| mm.read_at(free_segments_page, 0))?;
 
         Ok(Self {
-            free_segments_page: deleted_records_page,
-            table,
+            free_segments_page,
+            tables,
         })
     }
 
@@ -55,42 +78,96 @@ impl FreeSegmentsLedger {
         E: Encode,
     {
         let physical_size = align_up::<E>(record.size() as usize) as MSize;
-        self.table.insert_free_segment(page, offset, physical_size);
-        self.write()
+
+        // get the first table with space to allocate the new segment
+        for table in self.tables() {
+            let mut table = table?;
+            if !table.is_full() {
+                return table.insert_free_segment(page, offset, physical_size);
+            }
+        }
+
+        // otherwise, create a new page
+        let new_page = self.create_new_page()?;
+        let mut table = FreeSegmentsTable::load(new_page)?;
+
+        table.insert_free_segment(page, offset, physical_size)
     }
 
     /// Finds a reusable free segment that can accommodate the size of the given record.
     ///
-    /// If a suitable free segment is found, it is returned as [`Some<FreeSegment>`].
-    /// If no suitable free segment is found, [`None`] is returned.
-    pub fn find_reusable_segment<E>(&self, record: &E) -> Option<FreeSegment>
+    /// - If a suitable free segment is found, it is returned as [`Some<FreeSegmentTicket>`].
+    /// - If no suitable free segment is found, [`None`] is returned.
+    /// - If an error occurs during the search, it is returned as a [`MemoryError`].
+    pub fn find_reusable_segment<E>(&self, record: &E) -> MemoryResult<Option<FreeSegmentTicket>>
     where
         E: Encode,
     {
         let required_size = record.size();
-        self.table.find(|r| r.size >= required_size)
+
+        // iterate over tables to find a suitable segment
+        for table in self.tables() {
+            let table = table?;
+            if let Some(segment) = table.find(|r| r.size >= required_size) {
+                return Ok(Some(FreeSegmentTicket {
+                    segment,
+                    table: table.page(),
+                }));
+            }
+        }
+
+        Ok(None)
     }
 
     /// Commits a reused free segment by removing it from the ledger and updating it based on the used size.
-    pub fn commit_reused_space<E>(&mut self, record: &E, segment: FreeSegment) -> MemoryResult<()>
+    pub fn commit_reused_space<E>(
+        &mut self,
+        record: &E,
+        segment: FreeSegmentTicket,
+    ) -> MemoryResult<()>
     where
         E: Encode,
     {
         let physical_size = align_up::<E>(record.size() as usize) as MSize;
 
-        self.table.remove(segment, physical_size);
-        self.write()
+        // get the table
+        let mut table = None;
+        for i_table in self.tables() {
+            let i_table = i_table?;
+            if i_table.page() == segment.table {
+                table = Some(i_table);
+                break;
+            }
+        }
+        let Some(mut table) = table else {
+            // return error, memory may be corrupted
+            return Err(MemoryError::OutOfBounds);
+        };
+
+        table.remove(segment.segment, physical_size)
     }
 
     /// Writes the current state of the free segments table back to memory.
-    fn write(&self) -> MemoryResult<()> {
-        MEMORY_MANAGER.with_borrow_mut(|mm| mm.write_at(self.free_segments_page, 0, &self.table))
+    fn commit(&self) -> MemoryResult<()> {
+        MEMORY_MANAGER.with_borrow_mut(|mm| mm.write_at(self.free_segments_page, 0, &self.tables))
+    }
+
+    /// Creates a new page for storing additional [`FreeSegmentsTable`]s when needed.
+    fn create_new_page(&mut self) -> MemoryResult<Page> {
+        let new_page = MEMORY_MANAGER.with_borrow_mut(|mm| mm.allocate_page())?;
+        self.tables.push(new_page);
+        self.commit().map(|_| new_page)
+    }
+
+    /// Returns an iterator over the [`FreeSegmentsTable`]s in the ledger.
+    fn tables(&'_ self) -> TablesIter<'_> {
+        TablesIter::new(self.tables.pages())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use ic_dbms_api::prelude::DEFAULT_ALIGNMENT;
+    use ic_dbms_api::prelude::{DEFAULT_ALIGNMENT, DecodeError};
 
     use super::*;
     use crate::memory::{DataSize, MSize};
@@ -104,7 +181,7 @@ mod tests {
 
         let ledger = FreeSegmentsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
         assert_eq!(ledger.free_segments_page, page);
-        assert!(ledger.table.records.is_empty());
+        assert!(ledger.tables.pages().is_empty());
     }
 
     #[test]
@@ -122,19 +199,6 @@ mod tests {
         ledger
             .insert_free_segment(4, 0, &record)
             .expect("Failed to insert deleted record");
-
-        let found_record = ledger
-            .table
-            .find(|r| r.page == 4 && r.offset == 0 && r.size == record.size());
-        assert!(found_record.is_some());
-
-        // verify it's written (reload)
-        let reloaded_ledger =
-            FreeSegmentsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
-        let found_record = reloaded_ledger
-            .table
-            .find(|r| r.page == 4 && r.offset == 0 && r.size == record.size());
-        assert!(found_record.is_some());
     }
 
     #[test]
@@ -153,7 +217,10 @@ mod tests {
             .expect("Failed to insert deleted record");
 
         let record = TestRecord { data: [0; 100] };
-        let reusable_space = ledger.find_reusable_segment(&record);
+        let reusable_space = ledger
+            .find_reusable_segment(&record)
+            .expect("should find reusable space")
+            .map(|ticket| ticket.segment);
         assert_eq!(
             reusable_space,
             Some(FreeSegment {
@@ -180,7 +247,10 @@ mod tests {
             .expect("Failed to insert deleted record");
 
         let record = BigTestRecord { data: [0; 200] };
-        let reusable_space = ledger.find_reusable_segment(&record);
+        let reusable_space = ledger
+            .find_reusable_segment(&record)
+            .expect("should not find reusable space")
+            .map(|ticket| ticket.segment);
         assert_eq!(reusable_space, None);
     }
 
@@ -201,6 +271,7 @@ mod tests {
 
         let reusable_space = ledger
             .find_reusable_segment(&record)
+            .expect("should find reusable space")
             .expect("should find reusable space");
 
         ledger
@@ -208,17 +279,14 @@ mod tests {
             .expect("Failed to commit reused space");
 
         // should be empty
-        let record = ledger
-            .table
-            .find(|r| r.page == 4 && r.offset == 0 && r.size == 100);
+        let record = find_record(&ledger, 4, 0, 100);
         assert!(record.is_none());
 
         // reload
         let reloaded_ledger =
             FreeSegmentsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
-        let record = reloaded_ledger
-            .table
-            .find(|r| r.page == 4 && r.offset == 0 && r.size == 100);
+
+        let record = find_record(&reloaded_ledger, 4, 0, 100);
         assert!(record.is_none());
     }
 
@@ -239,6 +307,7 @@ mod tests {
         let small_record = TestRecord { data: [0; 100] };
         let reusable_space = ledger
             .find_reusable_segment(&small_record)
+            .expect("memory error")
             .expect("should find reusable space");
 
         ledger
@@ -246,9 +315,7 @@ mod tests {
             .expect("Failed to commit reused space");
 
         // should have a new record for the remaining space
-        let record = ledger
-            .table
-            .find(|r| r.page == 4 && r.offset == 100 && r.size == 100);
+        let record = find_record(&ledger, 4, 100, 100);
         assert!(record.is_some());
     }
 
@@ -269,20 +336,43 @@ mod tests {
         // check if padded
         let reusable_space = ledger
             .find_reusable_segment(&dyn_record)
+            .expect("memory error")
             .expect("should find reusable space");
-        assert_eq!(reusable_space.size, 224);
+        assert_eq!(reusable_space.segment.size, 224);
 
         // insert another
         let dyn_record = DynamicTestRecord { data: [1; 200] };
 
         ledger
-            .insert_free_segment(4, reusable_space.size, &dyn_record)
+            .insert_free_segment(4, reusable_space.segment.size, &dyn_record)
             .expect("Failed to insert deleted record");
         // there should be a contiguous free segment of size 448 now
         let reusable_space = ledger
             .find_reusable_segment(&dyn_record)
+            .expect("memory error")
             .expect("should find reusable space");
-        assert_eq!(reusable_space.size, 448);
+        assert_eq!(reusable_space.segment.size, 448);
+    }
+
+    #[test]
+    fn test_should_grow_out_of_first_page() {
+        // let's store 20_500 segments, non contiguously
+        let mut offset = 0;
+
+        let page = MEMORY_MANAGER
+            .with_borrow_mut(|mm| mm.allocate_page())
+            .expect("Failed to allocate page");
+        let mut ledger =
+            FreeSegmentsLedger::load(page).expect("Failed to load DeletedRecordsLedger");
+
+        for _ in 0..14_500 {
+            let record = SmallRecord { data: 42 };
+
+            ledger
+                .insert_free_segment(4, offset, &record)
+                .expect("Failed to insert deleted record");
+            offset += SmallRecord::ALIGNMENT * 2; // leave gaps
+        }
     }
 
     #[derive(Debug, Clone)]
@@ -367,5 +457,56 @@ mod tests {
         fn size(&self) -> MSize {
             200
         }
+    }
+
+    #[derive(Debug, Clone)]
+    struct SmallRecord {
+        data: u16,
+    }
+
+    impl Encode for SmallRecord {
+        const SIZE: DataSize = DataSize::Fixed(2);
+
+        const ALIGNMENT: PageOffset = 2;
+
+        fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
+            let mut buf = [0u8; 2];
+            buf[0] = (self.data & 0xFF) as u8;
+            buf[1] = ((self.data >> 8) & 0xFF) as u8;
+            std::borrow::Cow::Owned(buf.into())
+        }
+
+        fn decode(data: std::borrow::Cow<[u8]>) -> MemoryResult<Self>
+        where
+            Self: Sized,
+        {
+            if data.len() < 2 {
+                return Err(MemoryError::DecodeError(DecodeError::TooShort));
+            }
+
+            let value = (data[0] as u16) | ((data[1] as u16) << 8);
+            Ok(SmallRecord { data: value })
+        }
+
+        fn size(&self) -> MSize {
+            2
+        }
+    }
+
+    fn find_record(
+        ledger: &FreeSegmentsLedger,
+        page: Page,
+        offset: PageOffset,
+        size: MSize,
+    ) -> Option<FreeSegment> {
+        for table in ledger.tables() {
+            let table = table.expect("Failed to read table");
+            if let Some(record) =
+                table.find(|r| r.page == page && r.offset == offset && r.size == size)
+            {
+                return Some(record);
+            }
+        }
+        None
     }
 }
