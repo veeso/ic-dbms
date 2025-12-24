@@ -11,13 +11,10 @@ mod boolean;
 mod date;
 mod datetime;
 mod decimal;
-mod int32;
-mod int64;
+mod integers;
 mod nullable;
 mod principal;
 mod text;
-mod uint32;
-mod uint64;
 mod uuid;
 
 pub use self::blob::Blob;
@@ -25,13 +22,10 @@ pub use self::boolean::Boolean;
 pub use self::date::Date;
 pub use self::datetime::DateTime;
 pub use self::decimal::Decimal;
-pub use self::int32::Int32;
-pub use self::int64::Int64;
+pub use self::integers::{Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64};
 pub use self::nullable::Nullable;
 pub use self::principal::Principal;
 pub use self::text::Text;
-pub use self::uint32::Uint32;
-pub use self::uint64::Uint64;
 pub use self::uuid::Uuid;
 
 /// A trait representing a data type that can be stored in the DBMS.
@@ -47,6 +41,7 @@ pub trait DataType:
     + std::fmt::Display
     + PartialEq
     + Eq
+    + Default
     + PartialOrd
     + Ord
     + std::hash::Hash

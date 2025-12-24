@@ -4,7 +4,7 @@ use candid::Principal;
 use ic_dbms_api::prelude::DEFAULT_ALIGNMENT;
 
 use super::MEMORY_MANAGER;
-use crate::memory::{DataSize, Encode, MSize, MemoryResult};
+use crate::memory::{DataSize, Encode, MSize, MemoryResult, PageOffset};
 
 thread_local! {
     /// The global ACL.
@@ -78,7 +78,7 @@ impl AccessControlList {
 impl Encode for AccessControlList {
     const SIZE: DataSize = DataSize::Dynamic;
 
-    const ALIGNMENT: MSize = DEFAULT_ALIGNMENT;
+    const ALIGNMENT: PageOffset = DEFAULT_ALIGNMENT;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         // write the number of principals as u32 followed by each principal's bytes

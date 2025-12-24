@@ -559,7 +559,7 @@ mod tests {
     impl Encode for FixedSizeData {
         const SIZE: DataSize = DataSize::Fixed(6);
 
-        const ALIGNMENT: MSize = 6;
+        const ALIGNMENT: PageOffset = 6;
 
         fn encode(&'_ self) -> Cow<'_, [u8]> {
             let mut buf = vec![0u8; self.size() as usize];
@@ -591,7 +591,7 @@ mod tests {
     impl Encode for DataWithAlignment {
         const SIZE: DataSize = DataSize::Dynamic;
 
-        const ALIGNMENT: MSize = DEFAULT_ALIGNMENT;
+        const ALIGNMENT: PageOffset = DEFAULT_ALIGNMENT;
 
         fn encode(&'_ self) -> Cow<'_, [u8]> {
             let mut buf = vec![0u8; self.size() as usize];

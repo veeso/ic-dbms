@@ -4,12 +4,12 @@ use candid::CandidType;
 use serde::{Deserialize, Serialize};
 
 use crate::dbms::types::DataType;
-use crate::memory::{DataSize, Encode, MSize, MemoryError};
+use crate::memory::{DataSize, Encode, MSize, MemoryError, PageOffset};
 
 const UUID_SIZE: usize = 16;
 
 /// UUID data type for the DBMS.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Uuid(pub uuid::Uuid);
 
 impl fmt::Display for Uuid {
@@ -61,7 +61,7 @@ impl<'de> Deserialize<'de> for Uuid {
 impl Encode for Uuid {
     const SIZE: DataSize = DataSize::Fixed(UUID_SIZE as MSize);
 
-    const ALIGNMENT: MSize = UUID_SIZE as MSize;
+    const ALIGNMENT: PageOffset = UUID_SIZE as MSize;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         std::borrow::Cow::Borrowed(self.0.as_bytes())

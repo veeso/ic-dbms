@@ -3,7 +3,9 @@ use std::collections::HashMap;
 
 use ic_dbms_api::prelude::{DEFAULT_ALIGNMENT, TableFingerprint, TableSchema};
 
-use crate::memory::{DataSize, Encode, MEMORY_MANAGER, MSize, MemoryError, MemoryResult, Page};
+use crate::memory::{
+    DataSize, Encode, MEMORY_MANAGER, MSize, MemoryError, MemoryResult, Page, PageOffset,
+};
 
 thread_local! {
     /// The global schema registry.
@@ -78,7 +80,7 @@ impl SchemaRegistry {
 impl Encode for SchemaRegistry {
     const SIZE: DataSize = DataSize::Dynamic;
 
-    const ALIGNMENT: MSize = DEFAULT_ALIGNMENT;
+    const ALIGNMENT: PageOffset = DEFAULT_ALIGNMENT;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         // prepare buffer; size is 8 bytes for len + (8 + (4 * 2)) bytes for each entry
@@ -216,7 +218,7 @@ mod tests {
     impl Encode for AnotherTable {
         const SIZE: DataSize = DataSize::Dynamic;
 
-        const ALIGNMENT: MSize = DEFAULT_ALIGNMENT;
+        const ALIGNMENT: PageOffset = DEFAULT_ALIGNMENT;
 
         fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
             std::borrow::Cow::Owned(vec![])

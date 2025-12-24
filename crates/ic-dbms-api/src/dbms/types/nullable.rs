@@ -5,20 +5,32 @@ use serde::{Deserialize, Serialize};
 
 use crate::dbms::types::DataType;
 use crate::dbms::value::Value;
-use crate::memory::{DEFAULT_ALIGNMENT, DataSize, Encode, MSize};
+use crate::memory::{DEFAULT_ALIGNMENT, DataSize, Encode, PageOffset};
 
 /// Nullable data type for the DBMS.
 ///
 /// A nullable means that the type can either hold a value of type T or be null.
 /// It is a wrapper around another [`DataType`] T.
 #[derive(
-    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, CandidType, Serialize, Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    CandidType,
+    Serialize,
+    Deserialize,
 )]
 #[serde(bound(deserialize = "T: DataType"))]
 pub enum Nullable<T>
 where
     T: DataType,
 {
+    #[default]
     Null,
     Value(T),
 }
@@ -127,7 +139,7 @@ where
 {
     const SIZE: DataSize = DataSize::Dynamic;
 
-    const ALIGNMENT: MSize = DEFAULT_ALIGNMENT;
+    const ALIGNMENT: PageOffset = DEFAULT_ALIGNMENT;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         match self {
@@ -258,5 +270,11 @@ mod tests {
         let decoded_null: Nullable<Int32> =
             candid::decode_one(&buf_null).expect("Candid decoding failed");
         assert_eq!(src_null, decoded_null);
+    }
+
+    #[test]
+    fn test_should_default_nullable_to_null() {
+        let default_nullable: Nullable<Int32> = Default::default();
+        assert_eq!(default_nullable, Nullable::Null);
     }
 }

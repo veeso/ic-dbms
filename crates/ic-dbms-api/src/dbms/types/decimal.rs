@@ -4,12 +4,12 @@ use candid::CandidType;
 use rust_decimal::Decimal as RustDecimal;
 use serde::{Deserialize, Serialize};
 
-use crate::memory::{DataSize, DecodeError, Encode, MSize};
+use crate::memory::{DataSize, DecodeError, Encode, MSize, PageOffset};
 
 const RUST_DECIMAL_ENCODE_SIZE: MSize = 16;
 
 /// Decimal data type for the DBMS.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Decimal(pub RustDecimal);
 
 impl From<RustDecimal> for Decimal {
@@ -66,7 +66,7 @@ impl<'de> Deserialize<'de> for Decimal {
 impl Encode for Decimal {
     const SIZE: DataSize = DataSize::Fixed(RUST_DECIMAL_ENCODE_SIZE);
 
-    const ALIGNMENT: MSize = RUST_DECIMAL_ENCODE_SIZE;
+    const ALIGNMENT: PageOffset = RUST_DECIMAL_ENCODE_SIZE;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         let buf = self.0.serialize();

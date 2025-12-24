@@ -4,11 +4,17 @@ use candid::CandidType;
 use serde::{Deserialize, Serialize};
 
 use crate::dbms::types::DataType;
-use crate::memory::{DEFAULT_ALIGNMENT, DataSize, Encode, MSize};
+use crate::memory::{DEFAULT_ALIGNMENT, DataSize, Encode, PageOffset};
 
 /// Principal data type for the DBMS.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Principal(pub candid::Principal);
+
+impl Default for Principal {
+    fn default() -> Self {
+        Self(candid::Principal::anonymous())
+    }
+}
 
 impl CandidType for Principal {
     fn _ty() -> candid::types::Type {
@@ -26,7 +32,7 @@ impl CandidType for Principal {
 impl Encode for Principal {
     const SIZE: DataSize = DataSize::Dynamic;
 
-    const ALIGNMENT: MSize = DEFAULT_ALIGNMENT;
+    const ALIGNMENT: PageOffset = DEFAULT_ALIGNMENT;
 
     fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
         let principal_bytes = self.0.as_slice();
