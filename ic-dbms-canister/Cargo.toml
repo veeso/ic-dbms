@@ -23,8 +23,8 @@ readme = "../README.md"
 [dependencies]
 candid = { workspace = true }
 ic-cdk = { workspace = true }
-ic-dbms-api = { version = "0.3", path = "../ic-dbms-api" }
-ic-dbms-macros = { version = "0.3", path = "../ic-dbms-macros" }
+ic-dbms-api = { version = "0.4", path = "../ic-dbms-api" }
+ic-dbms-macros = { version = "0.4", path = "../ic-dbms-macros" }
 serde = { workspace = true }
 
 [dev-dependencies]
