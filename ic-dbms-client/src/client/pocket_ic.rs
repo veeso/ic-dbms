@@ -97,16 +97,6 @@ impl Client for IcDbmsPocketIcClient<'_> {
         .await
     }
 
-    async fn acl_allowed_principals(&self) -> IcDbmsCanisterClientResult<Vec<Principal>> {
-        self.query(
-            self.principal,
-            self.caller,
-            "acl_allowed_principals",
-            Vec::new(),
-        )
-        .await
-    }
-
     async fn acl_remove_principal(
         &self,
         principal: Principal,
@@ -116,6 +106,16 @@ impl Client for IcDbmsPocketIcClient<'_> {
             self.caller,
             "acl_remove_principal",
             Encode!(&principal).map_err(PocketIcError::Candid)?,
+        )
+        .await
+    }
+
+    async fn acl_allowed_principals(&self) -> IcDbmsCanisterClientResult<Vec<Principal>> {
+        self.query(
+            self.principal,
+            self.caller,
+            "acl_allowed_principals",
+            Vec::new(),
         )
         .await
     }
@@ -153,21 +153,20 @@ impl Client for IcDbmsPocketIcClient<'_> {
         .await
     }
 
-    async fn delete<T>(
+    async fn select<T>(
         &self,
         table: &str,
-        behaviour: ic_dbms_api::prelude::DeleteBehavior,
-        filter: Option<ic_dbms_api::prelude::Filter>,
+        query: ic_dbms_api::prelude::Query<T>,
         transaction_id: Option<ic_dbms_api::prelude::TransactionId>,
-    ) -> IcDbmsCanisterClientResult<IcDbmsResult<u64>>
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<T::Record>>>
     where
         T: ic_dbms_api::prelude::TableSchema,
     {
-        self.update(
+        self.query(
             self.principal,
             self.caller,
-            &crate::utils::table_method(table, "delete"),
-            Encode!(&behaviour, &filter, &transaction_id).map_err(PocketIcError::Candid)?,
+            &crate::utils::table_method(table, "select"),
+            Encode!(&query, &transaction_id).map_err(PocketIcError::Candid)?,
         )
         .await
     }
@@ -191,24 +190,6 @@ impl Client for IcDbmsPocketIcClient<'_> {
         .await
     }
 
-    async fn select<T>(
-        &self,
-        table: &str,
-        query: ic_dbms_api::prelude::Query<T>,
-        transaction_id: Option<ic_dbms_api::prelude::TransactionId>,
-    ) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<T::Record>>>
-    where
-        T: ic_dbms_api::prelude::TableSchema,
-    {
-        self.query(
-            self.principal,
-            self.caller,
-            &crate::utils::table_method(table, "select"),
-            Encode!(&query, &transaction_id).map_err(PocketIcError::Candid)?,
-        )
-        .await
-    }
-
     async fn update<T>(
         &self,
         table: &str,
@@ -224,6 +205,25 @@ impl Client for IcDbmsPocketIcClient<'_> {
             self.caller,
             &crate::utils::table_method(table, "update"),
             Encode!(&patch, &transaction_id).map_err(PocketIcError::Candid)?,
+        )
+        .await
+    }
+
+    async fn delete<T>(
+        &self,
+        table: &str,
+        behaviour: ic_dbms_api::prelude::DeleteBehavior,
+        filter: Option<ic_dbms_api::prelude::Filter>,
+        transaction_id: Option<ic_dbms_api::prelude::TransactionId>,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<u64>>
+    where
+        T: ic_dbms_api::prelude::TableSchema,
+    {
+        self.update(
+            self.principal,
+            self.caller,
+            &crate::utils::table_method(table, "delete"),
+            Encode!(&behaviour, &filter, &transaction_id).map_err(PocketIcError::Candid)?,
         )
         .await
     }

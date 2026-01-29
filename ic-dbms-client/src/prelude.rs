@@ -7,10 +7,16 @@ pub use ic_dbms_api::prelude::{
     Uint32, Uint64, UpdateRecord, Uuid, Value, ValuesSource,
 };
 
+#[cfg(feature = "ic-agent")]
+#[cfg_attr(docsrs, doc(cfg(feature = "ic-agent")))]
+pub use crate::client::IcDbmsAgentClient;
 #[cfg(feature = "pocket-ic")]
 #[cfg_attr(docsrs, doc(cfg(feature = "pocket-ic")))]
 pub use crate::client::IcDbmsPocketIcClient;
 pub use crate::client::{Client, IcDbmsCanisterClient};
+#[cfg(feature = "ic-agent")]
+#[cfg_attr(docsrs, doc(cfg(feature = "ic-agent")))]
+pub use crate::errors::IcAgentError;
 #[cfg(feature = "pocket-ic")]
 #[cfg_attr(docsrs, doc(cfg(feature = "pocket-ic")))]
 pub use crate::errors::PocketIcError;
