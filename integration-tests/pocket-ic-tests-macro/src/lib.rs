@@ -20,9 +20,11 @@ pub fn test(_args: TokenStream, input: TokenStream) -> TokenStream {
     let result = quote! {
         #[tokio::test]
         async fn #fn_name() {
-            let #param_ident = ::pocket_ic_tests::PocketIcTestEnv::init().await;
+            let mut #param_ident = ::pocket_ic_tests::PocketIcTestEnv::init().await;
 
-            #block
+            {
+                #block
+            }
 
             #param_ident.stop().await;
         }

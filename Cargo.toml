@@ -24,6 +24,7 @@ categories = ["database", "network-programming", "wasm"]
 candid = { version = "0.10", features = ["value"] }
 criterion = "0.8"
 getrandom = { version = "0.3", default-features = false }
+ic-agent = "0.45"
 ic-cdk = "0.19"
 ic-cdk-macros = "0.19"
 lazy-regex = "3"

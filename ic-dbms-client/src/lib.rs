@@ -12,6 +12,7 @@
 //! ## Available Clients
 //!
 //! - [`IcDbmsCanisterClient`](crate::prelude::IcDbmsCanisterClient): Client implementation to be used inside IC canisters.
+//! - [`IcDbmsAgentClient`](crate::prelude::IcDbmsAgentClient): Client implementation for external systems (frontend, backend services, CLI tools) using `ic-agent`. Requires the `ic-agent` feature.
 //! - [`IcDbmsPocketIcClient`](crate::prelude::IcDbmsPocketIcClient): Client implementation to be used in integration tests with the `pocket-ic` feature enabled.
 //!
 //! The generic interface is provided by the [`Client`](crate::prelude::Client) trait.
@@ -79,6 +80,9 @@
 //!
 //! If you want to use the client in integration tests with `pocket-ic`, you can use the
 //! [`IcDbmsPocketIcClient`](crate::prelude::IcDbmsPocketIcClient) implementation, but first you need to enable the `pocket-ic` feature.
+//!
+//! If you want to use the client from external systems (such as frontend applications, backend services, or CLI tools),
+//! you can use the [`IcDbmsAgentClient`](crate::prelude::IcDbmsAgentClient) implementation, which requires the `ic-agent` feature.
 //!
 //! ## Usage
 //!

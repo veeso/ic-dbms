@@ -12,13 +12,14 @@ publish = false
 anyhow = "1"
 candid = { workspace = true }
 flate2 = "1"
+ic-agent = { workspace = true }
 ic-dbms-api = { path = "../../ic-dbms-api" }
-
+ic-dbms-client = { path = "../../ic-dbms-client", features = ["ic-agent", "pocket-ic"] }
 pocket-ic = { workspace = true }
-reqwest = { version = "0.12", default-features = false }
+reqwest = { version = "0.13" }
 serde = { workspace = true }
 tokio = { version = "1", features = ["full"] }
+url = { workspace = true }
 
 [dev-dependencies]
-ic-dbms-client = { path = "../../ic-dbms-client", features = ["pocket-ic"] }
 pocket-ic-tests-macro = { path = "../pocket-ic-tests-macro" }
