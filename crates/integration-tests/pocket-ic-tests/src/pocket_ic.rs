@@ -21,21 +21,6 @@ pub struct PocketIcTestEnv {
 }
 
 impl TestEnv for PocketIcTestEnv {
-    fn admin(&self) -> Principal {
-        admin()
-    }
-
-    fn dbms_canister(&self) -> Principal {
-        self.dbms_canister
-    }
-
-    fn bob(&self) -> Principal {
-        bob()
-    }
-    fn alice(&self) -> Principal {
-        alice()
-    }
-
     async fn query<R>(
         &self,
         canister: Principal,
@@ -85,6 +70,25 @@ impl TestEnv for PocketIcTestEnv {
         let ret_type = Decode!(&reply, R)?;
 
         Ok(ret_type)
+    }
+
+    fn admin(&self) -> Principal {
+        admin()
+    }
+    fn bob(&self) -> Principal {
+        bob()
+    }
+
+    fn alice(&self) -> Principal {
+        alice()
+    }
+
+    fn dbms_canister(&self) -> Principal {
+        self.dbms_canister
+    }
+
+    fn endpoint(&self) -> Option<url::Url> {
+        self.pic.url()
     }
 }
 

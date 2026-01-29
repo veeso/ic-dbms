@@ -97,19 +97,18 @@ impl Client for IcDbmsCanisterClient {
         self.call("rollback", &(transaction_id,)).await
     }
 
-    async fn delete<T>(
+    async fn select<T>(
         &self,
         table: &str,
-        behaviour: ic_dbms_api::prelude::DeleteBehavior,
-        filter: Option<ic_dbms_api::prelude::Filter>,
+        query: ic_dbms_api::prelude::Query<T>,
         transaction_id: Option<ic_dbms_api::prelude::TransactionId>,
-    ) -> IcDbmsCanisterClientResult<IcDbmsResult<u64>>
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<T::Record>>>
     where
         T: ic_dbms_api::prelude::TableSchema,
     {
         self.call(
-            &crate::utils::table_method(table, "delete"),
-            &(behaviour, filter, transaction_id),
+            &crate::utils::table_method(table, "select"),
+            &(query, transaction_id),
         )
         .await
     }
@@ -131,22 +130,6 @@ impl Client for IcDbmsCanisterClient {
         .await
     }
 
-    async fn select<T>(
-        &self,
-        table: &str,
-        query: ic_dbms_api::prelude::Query<T>,
-        transaction_id: Option<ic_dbms_api::prelude::TransactionId>,
-    ) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<T::Record>>>
-    where
-        T: ic_dbms_api::prelude::TableSchema,
-    {
-        self.call(
-            &crate::utils::table_method(table, "select"),
-            &(query, transaction_id),
-        )
-        .await
-    }
-
     async fn update<T>(
         &self,
         table: &str,
@@ -159,7 +142,24 @@ impl Client for IcDbmsCanisterClient {
     {
         self.call(
             &crate::utils::table_method(table, "update"),
-            &(table, patch, transaction_id),
+            &(patch, transaction_id),
+        )
+        .await
+    }
+
+    async fn delete<T>(
+        &self,
+        table: &str,
+        behaviour: ic_dbms_api::prelude::DeleteBehavior,
+        filter: Option<ic_dbms_api::prelude::Filter>,
+        transaction_id: Option<ic_dbms_api::prelude::TransactionId>,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<u64>>
+    where
+        T: ic_dbms_api::prelude::TableSchema,
+    {
+        self.call(
+            &crate::utils::table_method(table, "delete"),
+            &(behaviour, filter, transaction_id),
         )
         .await
     }

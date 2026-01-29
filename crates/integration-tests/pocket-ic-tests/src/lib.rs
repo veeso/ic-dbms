@@ -1,4 +1,5 @@
 mod actor;
+mod agent;
 mod pocket_ic;
 pub mod table;
 mod wasm;
@@ -6,6 +7,7 @@ mod wasm;
 use candid::{CandidType, Principal};
 use serde::de::DeserializeOwned;
 
+pub use self::agent::init_new_agent;
 pub use self::pocket_ic::PocketIcTestEnv;
 
 pub trait TestEnv {
@@ -40,4 +42,7 @@ pub trait TestEnv {
 
     /// DBMS canister id
     fn dbms_canister(&self) -> Principal;
+
+    /// Returns the HTTP endpoint of the IC instance if applicable
+    fn endpoint(&self) -> Option<url::Url>;
 }
