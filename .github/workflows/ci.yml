@@ -1,7 +1,7 @@
 name: build_and_test
 
 env:
-  RUST_VERSION: 1.92.0
+  RUST_VERSION: 1.93.0
 
 on:
   push:
@@ -53,7 +53,7 @@ jobs:
         with:
           toolchain: $RUST_VERSION
           target: wasm32-unknown-unknown
-          components: rustfmt
+          components: rustfmt, clippy
 
       - name: check rust code style
         run: |
