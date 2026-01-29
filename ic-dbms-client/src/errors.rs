@@ -10,9 +10,23 @@ pub enum IcDbmCanisterClientError {
     Candid(#[from] ic_cdk::call::CandidDecodeFailed),
     #[error("IC DBMS Canister error: {0}")]
     Canister(#[from] ic_dbms_api::prelude::IcDbmsError),
+    #[error("IC Agent error: {0}")]
+    #[cfg(feature = "ic-agent")]
+    IcAgent(#[from] IcAgentError),
     #[error("Pocket IC error: {0}")]
     #[cfg(feature = "pocket-ic")]
     PocketIc(#[from] PocketIcError),
+}
+
+/// Errors that can occur when using the ic-agent client.
+#[cfg(feature = "ic-agent")]
+#[cfg_attr(docsrs, doc(cfg(feature = "ic-agent")))]
+#[derive(thiserror::Error, Debug)]
+pub enum IcAgentError {
+    #[error(transparent)]
+    Agent(#[from] ic_agent::AgentError),
+    #[error("Candid error: {0}")]
+    Candid(#[from] candid::Error),
 }
 
 /// Errors that can occur when using the pocket-ic client.

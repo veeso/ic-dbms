@@ -22,6 +22,7 @@ readme = "README.md"
 
 [dependencies]
 candid = { workspace = true }
+ic-agent = { workspace = true, optional = true }
 ic-cdk = { workspace = true }
 ic-dbms-api = { version = "0.4", path = "../ic-dbms-api" }
 pocket-ic = { workspace = true, optional = true }
@@ -33,6 +34,7 @@ tokio = { version = "1.0", features = ["full"] }
 
 [features]
 default = []
+ic-agent = ["dep:ic-agent"]
 pocket-ic = ["dep:pocket-ic"]
 
 [[example]]
@@ -40,5 +42,5 @@ name = "client"
 path = "examples/client.rs"
 
 [package.metadata.docs.rs]
-features = ["pocket-ic"]
+features = ["ic-agent", "pocket-ic"]
 rustdoc-args = ["--cfg", "docsrs"]

@@ -1,3 +1,6 @@
+#[cfg(feature = "ic-agent")]
+#[cfg_attr(docsrs, doc(cfg(feature = "ic-agent")))]
+mod agent;
 mod ic;
 #[cfg(feature = "pocket-ic")]
 #[cfg_attr(docsrs, doc(cfg(feature = "pocket-ic")))]
@@ -10,8 +13,12 @@ use ic_dbms_api::prelude::{
     UpdateRecord,
 };
 
+#[cfg(feature = "ic-agent")]
+#[cfg_attr(docsrs, doc(cfg(feature = "ic-agent")))]
+pub use self::agent::IcDbmsAgentClient;
 pub use self::ic::IcDbmsCanisterClient;
 #[cfg(feature = "pocket-ic")]
+#[cfg_attr(docsrs, doc(cfg(feature = "pocket-ic")))]
 pub use self::pocket_ic::IcDbmsPocketIcClient;
 use crate::prelude::IcDbmsCanisterClientResult;
 
