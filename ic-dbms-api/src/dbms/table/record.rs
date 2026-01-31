@@ -60,3 +60,102 @@ pub trait UpdateRecord: Sized + CandidType {
     /// Get the [`Filter`] condition for the update operation.
     fn where_clause(&self) -> Option<Filter>;
 }
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+
+    #[test]
+    fn test_should_create_values_source_this() {
+        let source = ValuesSource::This;
+        assert_eq!(source, ValuesSource::This);
+    }
+
+    #[test]
+    fn test_should_create_values_source_foreign() {
+        let source = ValuesSource::Foreign {
+            table: "users".to_string(),
+            column: "id".to_string(),
+        };
+
+        if let ValuesSource::Foreign { table, column } = source {
+            assert_eq!(table, "users");
+            assert_eq!(column, "id");
+        } else {
+            panic!("expected ValuesSource::Foreign");
+        }
+    }
+
+    #[test]
+    fn test_should_clone_values_source() {
+        let source = ValuesSource::Foreign {
+            table: "posts".to_string(),
+            column: "author_id".to_string(),
+        };
+
+        let cloned = source.clone();
+        assert_eq!(source, cloned);
+    }
+
+    #[test]
+    fn test_should_compare_values_sources() {
+        let source1 = ValuesSource::This;
+        let source2 = ValuesSource::This;
+        let source3 = ValuesSource::Foreign {
+            table: "users".to_string(),
+            column: "id".to_string(),
+        };
+        let source4 = ValuesSource::Foreign {
+            table: "users".to_string(),
+            column: "id".to_string(),
+        };
+        let source5 = ValuesSource::Foreign {
+            table: "posts".to_string(),
+            column: "id".to_string(),
+        };
+
+        assert_eq!(source1, source2);
+        assert_eq!(source3, source4);
+        assert_ne!(source1, source3);
+        assert_ne!(source3, source5);
+    }
+
+    #[test]
+    fn test_should_hash_values_source() {
+        use std::collections::HashSet;
+
+        let mut set = HashSet::new();
+        set.insert(ValuesSource::This);
+        set.insert(ValuesSource::Foreign {
+            table: "users".to_string(),
+            column: "id".to_string(),
+        });
+
+        assert!(set.contains(&ValuesSource::This));
+        assert!(set.contains(&ValuesSource::Foreign {
+            table: "users".to_string(),
+            column: "id".to_string(),
+        }));
+        assert!(!set.contains(&ValuesSource::Foreign {
+            table: "posts".to_string(),
+            column: "id".to_string(),
+        }));
+    }
+
+    #[test]
+    fn test_should_debug_values_source() {
+        let source = ValuesSource::This;
+        let debug_str = format!("{:?}", source);
+        assert_eq!(debug_str, "This");
+
+        let foreign = ValuesSource::Foreign {
+            table: "users".to_string(),
+            column: "id".to_string(),
+        };
+        let foreign_debug = format!("{:?}", foreign);
+        assert!(foreign_debug.contains("Foreign"));
+        assert!(foreign_debug.contains("users"));
+        assert!(foreign_debug.contains("id"));
+    }
+}
