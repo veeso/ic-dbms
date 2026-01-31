@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use candid::{CandidType, Decode, Encode, Principal};
 use ic_dbms_api::prelude::{IcDbmsCanisterArgs, IcDbmsCanisterInitArgs};
+use ic_dbms_client::prelude::{Client, IcDbmsPocketIcClient};
 use pocket_ic::nonblocking::PocketIc;
 use serde::de::DeserializeOwned;
 
@@ -18,6 +19,7 @@ const DEFAULT_CYCLES: u128 = 2_000_000_000_000_000;
 pub struct PocketIcTestEnv {
     pub pic: PocketIc,
     dbms_canister: Principal,
+    dbms_canister_client_integration: Principal,
 }
 
 impl TestEnv for PocketIcTestEnv {
@@ -87,6 +89,10 @@ impl TestEnv for PocketIcTestEnv {
         self.dbms_canister
     }
 
+    fn dbms_canister_client_integration(&self) -> Principal {
+        self.dbms_canister_client_integration
+    }
+
     fn endpoint(&self) -> Option<url::Url> {
         self.pic.url()
     }
@@ -108,11 +114,24 @@ impl PocketIcTestEnv {
         // create canisters
         let dbms_canister = pic.create_canister_with_settings(Some(admin()), None).await;
         println!("DBMS Canister: {dbms_canister}",);
+        let dbms_canister_client_integration =
+            pic.create_canister_with_settings(Some(admin()), None).await;
+        println!("DBMS Canister Client Integration: {dbms_canister_client_integration}",);
 
-        // install dbms canister
+        // install canisters
         Self::install_dbms_canister(&pic, dbms_canister).await;
+        Self::install_dbms_canister_client_integration(
+            &pic,
+            dbms_canister_client_integration,
+            dbms_canister,
+        )
+        .await;
 
-        Self { pic, dbms_canister }
+        Self {
+            pic,
+            dbms_canister,
+            dbms_canister_client_integration,
+        }
     }
 
     /// Stop instance -  Should be called after each test
@@ -138,6 +157,30 @@ impl PocketIcTestEnv {
 
         pic.install_canister(canister_id, wasm_bytes, init_arg, Some(admin()))
             .await;
+    }
+
+    /// Install [`Canister::DbmsCanister`] canister
+    async fn install_dbms_canister_client_integration(
+        pic: &PocketIc,
+        canister_id: Principal,
+        dbms_canister: Principal,
+    ) {
+        pic.add_cycles(canister_id, DEFAULT_CYCLES).await;
+
+        let wasm_bytes = Self::load_wasm(Canister::DbmsCanisterClientIntegration);
+
+        let init_arg = Encode!(&dbms_canister).expect("Failed to encode init arg");
+
+        pic.install_canister(canister_id, wasm_bytes, init_arg, Some(admin()))
+            .await;
+
+        // add this canister to the DBMS canister's allowed principals
+        let client = IcDbmsPocketIcClient::new(dbms_canister, admin(), pic);
+        client
+            .acl_add_principal(canister_id)
+            .await
+            .expect("failed to call canister")
+            .expect("failed to add principal to ACL");
     }
 
     fn load_wasm(canister: Canister) -> Vec<u8> {
