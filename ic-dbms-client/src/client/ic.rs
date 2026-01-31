@@ -164,3 +164,30 @@ impl Client for IcDbmsCanisterClient {
         .await
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_should_get_principal() {
+        let principal = Principal::from_text("rrkah-fqaaa-aaaaa-aaaaq-cai").unwrap();
+        let client = IcDbmsCanisterClient::new(principal);
+        assert_eq!(client.principal(), principal);
+    }
+
+    #[test]
+    fn test_should_set_timeout() {
+        let principal = Principal::from_text("rrkah-fqaaa-aaaaa-aaaaq-cai").unwrap();
+        let client = IcDbmsCanisterClient::new(principal).with_timeout(Duration::from_secs(600));
+        assert_eq!(client.timeout, Duration::from_secs(600));
+    }
+
+    #[test]
+    fn test_from_principal() {
+        let principal = Principal::from_text("rrkah-fqaaa-aaaaa-aaaaq-cai").unwrap();
+        let client: IcDbmsCanisterClient = principal.into();
+        assert_eq!(client.principal(), principal);
+    }
+}
