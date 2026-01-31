@@ -17,21 +17,25 @@ build_library_wasm32:
 
 # Build all
 [group('build')]
-build_all_canisters: pre_build build_example_canister
+build_all_canisters: pre_build build_example_canister build_dbms_canister_client_integration_canister
 
 [group('build')]
 build_example_canister:
-  just build_canister "example" "example"
+  just build_canister "example" "example" "example"
+
+[group('build')]
+build_dbms_canister_client_integration_canister:
+  just build_canister "dbms-canister-client-integration" "dbms_canister_client_integration" "dbms_canister_client_integration"
 
 [private]
 pre_build:
   mkdir -p "{{WASM_DIR}}"
 
 [private]
-build_canister canister_name wasm_name:
+build_canister package_name canister_name wasm_name:
   mkdir -p "{{WASM_DIR}}"
   echo "Building {{canister_name}} Canister"
-  cargo build --target wasm32-unknown-unknown --release --package "{{canister_name}}"
+  cargo build --target wasm32-unknown-unknown --release --package "{{package_name}}"
   ic-wasm "target/wasm32-unknown-unknown/release/{{canister_name}}.wasm" -o "{{WASM_DIR}}/{{wasm_name}}.wasm" shrink
   candid-extractor "{{WASM_DIR}}/{{wasm_name}}.wasm" > "{{WASM_DIR}}/{{wasm_name}}.did"
   gzip -k "{{WASM_DIR}}/{{wasm_name}}.wasm" --force
