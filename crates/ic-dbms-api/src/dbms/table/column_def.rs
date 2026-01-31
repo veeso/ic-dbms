@@ -25,3 +25,146 @@ pub struct ForeignKeyDef {
     /// Name of the foreign column that the FK points to (e.g., "id")
     pub foreign_column: &'static str,
 }
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+    use crate::dbms::types::DataTypeKind;
+
+    #[test]
+    fn test_should_create_column_def() {
+        let column = ColumnDef {
+            name: "id",
+            data_type: DataTypeKind::Uint32,
+            nullable: false,
+            primary_key: true,
+            foreign_key: None,
+        };
+
+        assert_eq!(column.name, "id");
+        assert_eq!(column.data_type, DataTypeKind::Uint32);
+        assert!(!column.nullable);
+        assert!(column.primary_key);
+        assert!(column.foreign_key.is_none());
+    }
+
+    #[test]
+    fn test_should_create_column_def_with_foreign_key() {
+        let fk = ForeignKeyDef {
+            local_column: "user_id",
+            foreign_table: "users",
+            foreign_column: "id",
+        };
+
+        let column = ColumnDef {
+            name: "user_id",
+            data_type: DataTypeKind::Uint32,
+            nullable: false,
+            primary_key: false,
+            foreign_key: Some(fk),
+        };
+
+        assert_eq!(column.name, "user_id");
+        assert!(column.foreign_key.is_some());
+        let fk_def = column.foreign_key.unwrap();
+        assert_eq!(fk_def.local_column, "user_id");
+        assert_eq!(fk_def.foreign_table, "users");
+        assert_eq!(fk_def.foreign_column, "id");
+    }
+
+    #[test]
+    #[allow(clippy::clone_on_copy)]
+    fn test_should_clone_column_def() {
+        let column = ColumnDef {
+            name: "email",
+            data_type: DataTypeKind::Text,
+            nullable: true,
+            primary_key: false,
+            foreign_key: None,
+        };
+
+        let cloned = column.clone();
+        assert_eq!(column, cloned);
+    }
+
+    #[test]
+    fn test_should_compare_column_defs() {
+        let column1 = ColumnDef {
+            name: "id",
+            data_type: DataTypeKind::Uint32,
+            nullable: false,
+            primary_key: true,
+            foreign_key: None,
+        };
+
+        let column2 = ColumnDef {
+            name: "id",
+            data_type: DataTypeKind::Uint32,
+            nullable: false,
+            primary_key: true,
+            foreign_key: None,
+        };
+
+        let column3 = ColumnDef {
+            name: "name",
+            data_type: DataTypeKind::Text,
+            nullable: true,
+            primary_key: false,
+            foreign_key: None,
+        };
+
+        assert_eq!(column1, column2);
+        assert_ne!(column1, column3);
+    }
+
+    #[test]
+    fn test_should_create_foreign_key_def() {
+        let fk = ForeignKeyDef {
+            local_column: "post_id",
+            foreign_table: "posts",
+            foreign_column: "id",
+        };
+
+        assert_eq!(fk.local_column, "post_id");
+        assert_eq!(fk.foreign_table, "posts");
+        assert_eq!(fk.foreign_column, "id");
+    }
+
+    #[test]
+    #[allow(clippy::clone_on_copy)]
+    fn test_should_clone_foreign_key_def() {
+        let fk = ForeignKeyDef {
+            local_column: "author_id",
+            foreign_table: "authors",
+            foreign_column: "id",
+        };
+
+        let cloned = fk.clone();
+        assert_eq!(fk, cloned);
+    }
+
+    #[test]
+    fn test_should_compare_foreign_key_defs() {
+        let fk1 = ForeignKeyDef {
+            local_column: "user_id",
+            foreign_table: "users",
+            foreign_column: "id",
+        };
+
+        let fk2 = ForeignKeyDef {
+            local_column: "user_id",
+            foreign_table: "users",
+            foreign_column: "id",
+        };
+
+        let fk3 = ForeignKeyDef {
+            local_column: "category_id",
+            foreign_table: "categories",
+            foreign_column: "id",
+        };
+
+        assert_eq!(fk1, fk2);
+        assert_ne!(fk1, fk3);
+    }
+}
