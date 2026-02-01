@@ -74,6 +74,9 @@ pub enum DecodeError {
     /// Error when the raw record header is invalid.
     #[error("Bad raw record header")]
     BadRawRecordHeader,
+    /// Error when JSON is invalid.
+    #[error("Invalid JSON: {0}")]
+    InvalidJson(String),
     /// Principal error
     #[error("Principal error: {0}")]
     PrincipalError(String),

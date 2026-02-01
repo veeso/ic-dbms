@@ -11,6 +11,11 @@
 
 Unreleased
 
+- [Issue 13](https://github.com/veeso/ic-dbms/issues/13): Added JSON filtering capabilities for querying JSON columns.
+  - `JsonFilter::Contains` for PostgreSQL `@>` style structural containment checks
+  - `JsonFilter::Extract` for extracting values at JSON paths with comparison operations
+  - `JsonFilter::HasKey` for checking path existence in JSON structures
+  - Path syntax supports dot notation with bracket array indices (e.g., `user.items[0].name`)
 - [Issue 22](https://github.com/veeso/ic-dbms/issues/22): Added `AgentClient` for the ic-dbms-canister to interact with
   the IC from an IC Agent.
 - Fixed an issue with the IcCanisterClient which called `update` with the wrong amount of arguments.
