@@ -19,6 +19,7 @@ pub enum Value {
     Int16(types::Int16),
     Int32(types::Int32),
     Int64(types::Int64),
+    Json(types::Json),
     Null,
     Principal(types::Principal),
     Text(types::Text),
@@ -110,6 +111,7 @@ impl_conv_for_value!(Int8, types::Int8, as_int8, tests_int8);
 impl_conv_for_value!(Int16, types::Int16, as_int16, tests_int16);
 impl_conv_for_value!(Int32, types::Int32, as_int32, tests_int32);
 impl_conv_for_value!(Int64, types::Int64, as_int64, tests_int64);
+impl_conv_for_value!(Json, types::Json, as_json, tests_json);
 impl_conv_for_value!(Principal, types::Principal, as_principal, tests_principal);
 impl_conv_for_value!(Text, types::Text, as_text, tests_text);
 impl_conv_for_value!(Uint8, types::Uint8, as_uint8, tests_uint8);
@@ -159,6 +161,7 @@ impl Value {
             Value::Int16(_) => "Int16",
             Value::Int32(_) => "Int32",
             Value::Int64(_) => "Int64",
+            Value::Json(_) => "Json",
             Value::Null => "Null",
             Value::Principal(_) => "Principal",
             Value::Text(_) => "Text",
