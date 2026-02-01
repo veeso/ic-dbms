@@ -75,6 +75,7 @@ use ic_dbms_api::prelude::*;
 - [`Decimal`](crate::prelude::Decimal)
 - [`Int32`](crate::prelude::Int32)
 - [`Int64`](crate::prelude::Int64)
+- [`Json`](crate::prelude::Json)
 - [`Nullable`](crate::prelude::Nullable)
 - [`Principal`](crate::prelude::Principal)
 - [`Text`](crate::prelude::Text)
