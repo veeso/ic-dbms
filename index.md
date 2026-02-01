@@ -23,6 +23,10 @@ description: "An Internet Computer framework which provides an easy way to imple
 - [Column Sanitization](./docs/sanitize.md)
 - [Column Validation](./docs/validation.md)
 
+## Types Documentation
+
+- [Json Value](./docs/json.md)
+
 ## Technical Documentation
 
 - [Memory](./docs/memory.md)

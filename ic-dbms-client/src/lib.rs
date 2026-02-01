@@ -29,6 +29,8 @@
 //!
 //! - [`DeleteBehavior`](crate::prelude::DeleteBehavior)
 //! - [`Filter`](crate::prelude::Filter)
+//! - [`JsonCmp`](crate::prelude::JsonCmp)
+//! - [`JsonFilter`](crate::prelude::JsonFilter)
 //! - [`Query`](crate::prelude::Query)
 //! - [`QueryBuilder`](crate::prelude::QueryBuilder)
 //! - [`OrderDirection`](crate::prelude::OrderDirection)
@@ -56,6 +58,7 @@
 //! - [`Int16`](crate::prelude::Int16)
 //! - [`Int32`](crate::prelude::Int32)
 //! - [`Int64`](crate::prelude::Int64)
+//! - [`Json`](crate::prelude::Json)
 //! - [`Nullable`](crate::prelude::Nullable)
 //! - [`Principal`](crate::prelude::Principal)
 //! - [`Text`](crate::prelude::Text)

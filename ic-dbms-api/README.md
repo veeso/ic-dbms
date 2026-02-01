@@ -43,6 +43,8 @@ use ic_dbms_api::prelude::*;
 
 - [`DeleteBehavior`](crate::prelude::DeleteBehavior)
 - [`Filter`](crate::prelude::Filter)
+- [`JsonCmp`](crate::prelude::JsonCmp)
+- [`JsonFilter`](crate::prelude::JsonFilter)
 - [`Query`](crate::prelude::Query)
 - [`QueryBuilder`](crate::prelude::QueryBuilder)
 - [`QueryError`](crate::prelude::QueryError)
@@ -75,6 +77,7 @@ use ic_dbms_api::prelude::*;
 - [`Decimal`](crate::prelude::Decimal)
 - [`Int32`](crate::prelude::Int32)
 - [`Int64`](crate::prelude::Int64)
+- [`Json`](crate::prelude::Json)
 - [`Nullable`](crate::prelude::Nullable)
 - [`Principal`](crate::prelude::Principal)
 - [`Text`](crate::prelude::Text)
