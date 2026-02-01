@@ -8,6 +8,8 @@ use crate::dbms::value::Value;
 use crate::prelude::QueryError;
 
 /// [`super::Query`] filters.
+///
+/// The first value refers to the column name, and the second to the value to compare against.
 #[derive(Debug, Clone, PartialEq, Eq, CandidType, Serialize, Deserialize)]
 pub enum Filter {
     Eq(String, Value),

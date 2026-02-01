@@ -12,6 +12,7 @@ mod date;
 mod datetime;
 mod decimal;
 mod integers;
+mod json;
 mod nullable;
 mod principal;
 mod text;
@@ -23,6 +24,7 @@ pub use self::date::Date;
 pub use self::datetime::DateTime;
 pub use self::decimal::Decimal;
 pub use self::integers::{Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64};
+pub use self::json::Json;
 pub use self::nullable::Nullable;
 pub use self::principal::Principal;
 pub use self::text::Text;
@@ -63,6 +65,7 @@ pub enum DataTypeKind {
     Decimal,
     Int32,
     Int64,
+    Json,
     Principal,
     Text,
     Uint32,
@@ -87,6 +90,7 @@ mod test {
             DataTypeKind::Decimal,
             DataTypeKind::Int32,
             DataTypeKind::Int64,
+            DataTypeKind::Json,
             DataTypeKind::Principal,
             DataTypeKind::Text,
             DataTypeKind::Uint32,
@@ -94,7 +98,7 @@ mod test {
             DataTypeKind::Uuid,
         ];
 
-        assert_eq!(kinds.len(), 12);
+        assert_eq!(kinds.len(), 13);
     }
 
     #[test]
@@ -143,6 +147,7 @@ mod test {
         assert_eq!(format!("{:?}", DataTypeKind::Decimal), "Decimal");
         assert_eq!(format!("{:?}", DataTypeKind::Int32), "Int32");
         assert_eq!(format!("{:?}", DataTypeKind::Int64), "Int64");
+        assert_eq!(format!("{:?}", DataTypeKind::Json), "Json");
         assert_eq!(format!("{:?}", DataTypeKind::Principal), "Principal");
         assert_eq!(format!("{:?}", DataTypeKind::Text), "Text");
         assert_eq!(format!("{:?}", DataTypeKind::Uint32), "Uint32");

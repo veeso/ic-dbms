@@ -33,6 +33,7 @@ The following types are supported in schema definitions:
 - `Int16`
 - `Int32`
 - `Int64`
+- `Json`
 - `Nullable<Type>`
 - `Principal`
 - `Text`
