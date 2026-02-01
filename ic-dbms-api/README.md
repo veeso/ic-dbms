@@ -43,6 +43,8 @@ use ic_dbms_api::prelude::*;
 
 - [`DeleteBehavior`](crate::prelude::DeleteBehavior)
 - [`Filter`](crate::prelude::Filter)
+- [`JsonCmp`](crate::prelude::JsonCmp)
+- [`JsonFilter`](crate::prelude::JsonFilter)
 - [`Query`](crate::prelude::Query)
 - [`QueryBuilder`](crate::prelude::QueryBuilder)
 - [`QueryError`](crate::prelude::QueryError)

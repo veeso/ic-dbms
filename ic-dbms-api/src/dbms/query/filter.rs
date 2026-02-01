@@ -1,6 +1,9 @@
+mod json_filter;
+
 use candid::CandidType;
 use serde::{Deserialize, Serialize};
 
+pub use self::json_filter::{JsonCmp, JsonFilter};
 use crate::dbms::query::QueryResult;
 use crate::dbms::table::ColumnDef;
 use crate::dbms::types::Text;
@@ -18,6 +21,8 @@ pub enum Filter {
     Lt(String, Value),
     Ge(String, Value),
     In(String, Vec<Value>),
+    /// JSON filter applied to a column.
+    Json(String, JsonFilter),
     Le(String, Value),
     Like(String, String),
     NotNull(String),
@@ -78,6 +83,11 @@ impl Filter {
         Filter::IsNull(field.to_string())
     }
 
+    /// Creates a JSON filter.
+    pub fn json(field: &str, json_filter: JsonFilter) -> Self {
+        Filter::Json(field.to_string(), json_filter)
+    }
+
     /// Chain two filters with AND.
     pub fn and(self, other: Filter) -> Self {
         Filter::And(Box::new(self), Box::new(other))
@@ -118,6 +128,16 @@ impl Filter {
             Filter::In(field, list) => values
                 .iter()
                 .any(|(col, val)| col.name == *field && list.iter().any(|v| v == val)),
+            Filter::Json(field, json_filter) => {
+                let json = values
+                    .iter()
+                    .find(|(col, _)| col.name == *field)
+                    .and_then(|(_, val)| val.as_json())
+                    .ok_or_else(|| {
+                        QueryError::InvalidQuery(format!("Column '{field}' is not a Json type"))
+                    })?;
+                return json_filter.matches(json);
+            }
             Filter::Like(field, pattern) => {
                 for (col, val) in values {
                     if col.name == *field {
@@ -658,6 +678,294 @@ mod tests {
             },
             Value::Int32(40.into()),
         )];
+        let result = filter.matches(&values).unwrap();
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_should_check_json_extract() {
+        use std::str::FromStr;
+
+        use crate::dbms::types::Json;
+
+        let json_value = Json::from_str(r#"{"user": {"name": "Alice", "age": 30}}"#).unwrap();
+        let filter = Filter::json(
+            "data",
+            JsonFilter::extract_eq("user.name", Value::Text("Alice".into())),
+        );
+        let values = vec![(
+            ColumnDef {
+                name: "data",
+                data_type: DataTypeKind::Json,
+                nullable: false,
+                primary_key: false,
+                foreign_key: None,
+            },
+            Value::Json(json_value),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(result);
+    }
+
+    #[test]
+    fn test_should_check_json_extract_no_match() {
+        use std::str::FromStr;
+
+        use crate::dbms::types::Json;
+
+        let json_value = Json::from_str(r#"{"user": {"name": "Bob"}}"#).unwrap();
+        let filter = Filter::json(
+            "data",
+            JsonFilter::extract_eq("user.name", Value::Text("Alice".into())),
+        );
+        let values = vec![(
+            ColumnDef {
+                name: "data",
+                data_type: DataTypeKind::Json,
+                nullable: false,
+                primary_key: false,
+                foreign_key: None,
+            },
+            Value::Json(json_value),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_should_check_json_contains() {
+        use std::str::FromStr;
+
+        use crate::dbms::types::Json;
+
+        let json_value = Json::from_str(r#"{"active": true, "role": "admin"}"#).unwrap();
+        let pattern = Json::from_str(r#"{"active": true}"#).unwrap();
+        let filter = Filter::json("data", JsonFilter::contains(pattern));
+        let values = vec![(
+            ColumnDef {
+                name: "data",
+                data_type: DataTypeKind::Json,
+                nullable: false,
+                primary_key: false,
+                foreign_key: None,
+            },
+            Value::Json(json_value),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(result);
+    }
+
+    #[test]
+    fn test_should_check_json_has_key() {
+        use std::str::FromStr;
+
+        use crate::dbms::types::Json;
+
+        let json_value = Json::from_str(r#"{"email": "alice@example.com"}"#).unwrap();
+        let filter = Filter::json("data", JsonFilter::has_key("email"));
+        let values = vec![(
+            ColumnDef {
+                name: "data",
+                data_type: DataTypeKind::Json,
+                nullable: false,
+                primary_key: false,
+                foreign_key: None,
+            },
+            Value::Json(json_value),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(result);
+
+        // Test missing key
+        let json_value = Json::from_str(r#"{"name": "Alice"}"#).unwrap();
+        let values = vec![(
+            ColumnDef {
+                name: "data",
+                data_type: DataTypeKind::Json,
+                nullable: false,
+                primary_key: false,
+                foreign_key: None,
+            },
+            Value::Json(json_value),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_should_error_json_filter_on_non_json_column() {
+        let filter = Filter::json("name", JsonFilter::has_key("email"));
+        let values = vec![(
+            ColumnDef {
+                name: "name",
+                data_type: DataTypeKind::Text,
+                nullable: false,
+                primary_key: false,
+                foreign_key: None,
+            },
+            Value::Text(Text("Alice".to_string())),
+        )];
+
+        let result = filter.matches(&values);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_should_check_json_combined_with_and() {
+        use std::str::FromStr;
+
+        use crate::dbms::types::Json;
+
+        let json_value = Json::from_str(r#"{"user": {"name": "Alice", "age": 25}}"#).unwrap();
+
+        // has email key AND user.age > 18
+        let filter = Filter::json("data", JsonFilter::has_key("user.name")).and(Filter::json(
+            "data",
+            JsonFilter::extract_gt("user.age", Value::Int64(18.into())),
+        ));
+
+        let values = vec![(
+            ColumnDef {
+                name: "data",
+                data_type: DataTypeKind::Json,
+                nullable: false,
+                primary_key: false,
+                foreign_key: None,
+            },
+            Value::Json(json_value),
+        )];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(result);
+    }
+
+    #[test]
+    fn test_should_check_json_combined_with_or() {
+        use std::str::FromStr;
+
+        use crate::dbms::types::Json;
+
+        // user.role = "admin" OR user.role = "moderator"
+        let filter = Filter::json(
+            "data",
+            JsonFilter::extract_eq("role", Value::Text("admin".into())),
+        )
+        .or(Filter::json(
+            "data",
+            JsonFilter::extract_eq("role", Value::Text("moderator".into())),
+        ));
+
+        // Test admin
+        let json_value = Json::from_str(r#"{"role": "admin"}"#).unwrap();
+        let values = vec![(
+            ColumnDef {
+                name: "data",
+                data_type: DataTypeKind::Json,
+                nullable: false,
+                primary_key: false,
+                foreign_key: None,
+            },
+            Value::Json(json_value),
+        )];
+        assert!(filter.matches(&values).unwrap());
+
+        // Test moderator
+        let json_value = Json::from_str(r#"{"role": "moderator"}"#).unwrap();
+        let values = vec![(
+            ColumnDef {
+                name: "data",
+                data_type: DataTypeKind::Json,
+                nullable: false,
+                primary_key: false,
+                foreign_key: None,
+            },
+            Value::Json(json_value),
+        )];
+        assert!(filter.matches(&values).unwrap());
+
+        // Test user (should fail)
+        let json_value = Json::from_str(r#"{"role": "user"}"#).unwrap();
+        let values = vec![(
+            ColumnDef {
+                name: "data",
+                data_type: DataTypeKind::Json,
+                nullable: false,
+                primary_key: false,
+                foreign_key: None,
+            },
+            Value::Json(json_value),
+        )];
+        assert!(!filter.matches(&values).unwrap());
+    }
+
+    #[test]
+    fn test_should_check_json_with_other_filters() {
+        use std::str::FromStr;
+
+        use crate::dbms::types::Json;
+
+        // id = 1 AND data contains {"active": true}
+        let pattern = Json::from_str(r#"{"active": true}"#).unwrap();
+        let filter = Filter::eq("id", Value::Int32(1.into()))
+            .and(Filter::json("data", JsonFilter::contains(pattern)));
+
+        let json_value = Json::from_str(r#"{"active": true, "name": "Test"}"#).unwrap();
+        let values = vec![
+            (
+                ColumnDef {
+                    name: "id",
+                    data_type: DataTypeKind::Int32,
+                    nullable: false,
+                    primary_key: true,
+                    foreign_key: None,
+                },
+                Value::Int32(1.into()),
+            ),
+            (
+                ColumnDef {
+                    name: "data",
+                    data_type: DataTypeKind::Json,
+                    nullable: false,
+                    primary_key: false,
+                    foreign_key: None,
+                },
+                Value::Json(json_value),
+            ),
+        ];
+
+        let result = filter.matches(&values).unwrap();
+        assert!(result);
+
+        // Test with wrong id
+        let json_value = Json::from_str(r#"{"active": true}"#).unwrap();
+        let values = vec![
+            (
+                ColumnDef {
+                    name: "id",
+                    data_type: DataTypeKind::Int32,
+                    nullable: false,
+                    primary_key: true,
+                    foreign_key: None,
+                },
+                Value::Int32(2.into()),
+            ),
+            (
+                ColumnDef {
+                    name: "data",
+                    data_type: DataTypeKind::Json,
+                    nullable: false,
+                    primary_key: false,
+                    foreign_key: None,
+                },
+                Value::Json(json_value),
+            ),
+        ];
+
         let result = filter.matches(&values).unwrap();
         assert!(!result);
     }

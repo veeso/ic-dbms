@@ -59,6 +59,13 @@ impl From<Value> for Json {
     }
 }
 
+impl Json {
+    /// Returns a reference to the underlying JSON value.
+    pub fn value(&self) -> &Value {
+        &self.value
+    }
+}
+
 impl PartialEq for Json {
     fn eq(&self, other: &Self) -> bool {
         self.value == other.value
@@ -242,7 +249,7 @@ impl<'de> Deserialize<'de> for Json {
     {
         // deserialize as string (matching the Serialize and CandidType impls)
         let s: String = serde::Deserialize::deserialize(deserializer)?;
-        // parse json
+        // parse json_filter
         let value: Value = serde_json::from_str(&s).map_err(serde::de::Error::custom)?;
         Ok(Self { value, repr: s })
     }
@@ -894,7 +901,7 @@ mod tests {
 
     #[test]
     fn test_from_str_invalid_json() {
-        let result: Result<Json, _> = "not valid json".parse();
+        let result: Result<Json, _> = "not valid json_filter".parse();
         assert!(result.is_err());
     }
 
@@ -1042,7 +1049,7 @@ mod tests {
                 "total": 2,
                 "page": 1
             },
-            "tags": ["rust", "json", "dbms"]
+            "tags": ["rust", "json_filter", "dbms"]
         }));
 
         let encoded = original.encode();
@@ -1090,7 +1097,7 @@ mod tests {
         use crate::memory::{DecodeError, MemoryError};
 
         // Valid UTF-8 but invalid JSON
-        let invalid_json = b"not json";
+        let invalid_json = b"not json_filter";
         let len = invalid_json.len() as u16;
         let mut data = len.to_le_bytes().to_vec();
         data.extend_from_slice(invalid_json);
