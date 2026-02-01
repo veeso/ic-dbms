@@ -13,7 +13,7 @@ use thiserror::Error;
 
 pub use self::builder::QueryBuilder;
 pub use self::delete::DeleteBehavior;
-pub use self::filter::Filter;
+pub use self::filter::{Filter, JsonCmp, JsonFilter};
 use crate::dbms::table::TableSchema;
 use crate::dbms::value::Value;
 use crate::memory::MemoryError;

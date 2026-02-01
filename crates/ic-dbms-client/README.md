@@ -157,6 +157,8 @@ use ic_dbms_client::prelude::*;
 
 - [`DeleteBehavior`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.DeleteBehavior.html)
 - [`Filter`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Filter.html)
+- [`JsonCmp`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/enum.JsonCmp.html)
+- [`JsonFilter`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.JsonFilter.html)
 - [`Query`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Query.html)
 - [`QueryBuilder`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.QueryBuilder.html)
 - [`OrderDirection`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/enum.OrderDirection.html)
@@ -184,6 +186,7 @@ use ic_dbms_client::prelude::*;
 - [`Int16`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Int16.html)
 - [`Int32`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Int32.html)
 - [`Int64`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Int64.html)
+- [`Json`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Json.html)
 - [`Nullable`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Nullable.html)
 - [`Principal`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Principal.html)
 - [`Text`](https://docs.rs/ic-dbms-client/latest/ic_dbms_client/prelude/struct.Text.html)

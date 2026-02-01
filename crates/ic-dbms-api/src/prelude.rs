@@ -5,7 +5,8 @@ pub use ic_dbms_macros::{Encode, Table};
 pub use crate::dbms::database::Database;
 pub use crate::dbms::foreign_fetcher::{ForeignFetcher, NoForeignFetcher};
 pub use crate::dbms::query::{
-    DeleteBehavior, Filter, OrderDirection, Query, QueryBuilder, QueryError, QueryResult, Select,
+    DeleteBehavior, Filter, JsonCmp, JsonFilter, OrderDirection, Query, QueryBuilder, QueryError,
+    QueryResult, Select,
 };
 pub use crate::dbms::sanitize::*;
 pub use crate::dbms::table::*;
