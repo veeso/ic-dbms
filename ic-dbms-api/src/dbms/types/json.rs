@@ -652,7 +652,7 @@ mod tests {
 
     #[test]
     fn test_sorting() {
-        let mut values = vec![
+        let mut values = [
             j(json!({"a": 1})),
             j(json!([1, 2])),
             j(json!("hello")),
