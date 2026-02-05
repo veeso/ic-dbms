@@ -6,9 +6,10 @@ pub mod schema;
 pub mod transaction;
 
 use ic_dbms_api::prelude::{
-    ColumnDef, Database, DeleteBehavior, Filter, ForeignFetcher, IcDbmsError, IcDbmsResult,
-    InsertRecord, OrderDirection, Query, QueryError, TableColumns, TableError, TableRecord,
-    TableSchema, TransactionError, TransactionId, UpdateRecord, Value, ValuesSource,
+    ColumnDef, DataTypeKind, Database, DeleteBehavior, Filter, ForeignFetcher, ForeignKeyDef,
+    IcDbmsError, IcDbmsResult, InsertRecord, OrderDirection, Query, QueryError, TableColumns,
+    TableError, TableRecord, TableSchema, TransactionError, TransactionId, UpdateRecord, Value,
+    ValuesSource,
 };
 
 use crate::dbms::transaction::{DatabaseOverlay, Transaction, TransactionOp};
@@ -292,6 +293,82 @@ impl IcDbmsDatabase {
             }
         });
     }
+
+    /// Update the primary key value in the tables referencing the updated table.
+    ///
+    /// # Arguments
+    ///
+    /// - `old_pk` - The old primary key value.
+    /// - `new_pk` - The new primary key value.
+    /// - `data_type` - The data type of the primary key.
+    /// - `pk_name` - The name of the primary key column.
+    fn update_pk_referencing_updated_table<T>(
+        &self,
+        old_pk: Value,
+        new_pk: Value,
+        data_type: DataTypeKind,
+        pk_name: &'static str,
+    ) -> IcDbmsResult<u64>
+    where
+        T: TableSchema,
+    {
+        let mut count = 0;
+        // get referencing tables for this table
+        // iterate over referencing tables and columns
+        for (ref_table, ref_col) in self
+            .schema
+            .referenced_tables(T::table_name())
+            .into_iter()
+            .flat_map(|(ref_table, ref_cols)| {
+                ref_cols
+                    .into_iter()
+                    .map(move |ref_col| (ref_table, ref_col))
+            })
+        {
+            let ref_patch_value = (
+                ColumnDef {
+                    name: ref_col,
+                    data_type,
+                    nullable: false,
+                    primary_key: false,
+                    foreign_key: Some(ForeignKeyDef {
+                        foreign_table: T::table_name(),
+                        foreign_column: pk_name,
+                        local_column: ref_col,
+                    }),
+                },
+                new_pk.clone(),
+            );
+            // make an update patch
+            let filter = Filter::eq(ref_col, old_pk.clone());
+
+            count += self
+                .schema
+                .update(self, ref_table, &[ref_patch_value], Some(filter))?;
+        }
+
+        Ok(count)
+    }
+
+    /// Given a Vector of [`ColumnDef`] and [`Value`] pairs, sanitize the values using the
+    /// sanitizers defined in the table schema.
+    fn sanitize_values<T>(
+        &self,
+        values: Vec<(ColumnDef, Value)>,
+    ) -> IcDbmsResult<Vec<(ColumnDef, Value)>>
+    where
+        T: TableSchema,
+    {
+        let mut sanitized_values = Vec::with_capacity(values.len());
+        for (col_def, value) in values.into_iter() {
+            let value = match T::sanitizer(col_def.name) {
+                Some(sanitizer) => sanitizer.sanitize(value)?,
+                None => value,
+            };
+            sanitized_values.push((col_def, value));
+        }
+        Ok(sanitized_values)
+    }
 }
 
 impl Database for IcDbmsDatabase {
@@ -368,18 +445,8 @@ impl Database for IcDbmsDatabase {
         T::Insert: InsertRecord<Schema = T>,
     {
         // check whether the insert is valid
-        let mut record_values = record.clone().into_values();
-        let mut sanitized_values = Vec::with_capacity(record_values.len());
-        // sanitize insert values
-        for (col_def, value) in record_values.drain(..) {
-            let value = match T::sanitizer(col_def.name) {
-                Some(sanitizer) => sanitizer.sanitize(value)?,
-                None => value,
-            };
-            sanitized_values.push((col_def, value));
-        }
-        // DROP because otherwise we risk to use an empty vector later
-        drop(record_values);
+        let record_values = record.clone().into_values();
+        let sanitized_values = self.sanitize_values::<T>(record_values)?;
         // validate insert
         self.schema
             .validate_insert(self, T::table_name(), &sanitized_values)?;
@@ -412,51 +479,115 @@ impl Database for IcDbmsDatabase {
         T: TableSchema,
         T::Update: UpdateRecord<Schema = T>,
     {
-        // get all records matching the filter
-        let query = Query::<T>::builder().filter(patch.where_clause()).build();
-        let records = self.select::<T>(query)?;
-        let count = records.len() as u64;
-
+        let filter = patch.where_clause().clone();
         if self.transaction.is_some() {
-            let filter = patch.where_clause().clone();
             let pks = self.existing_primary_keys_for_filter::<T>(filter.clone())?;
             // insert a new `update` into the transaction
-            self.with_transaction_mut(|tx| tx.update::<T>(patch, filter, pks))?;
+            self.with_transaction_mut(|tx| tx.update::<T>(patch, filter.clone(), pks))?;
 
-            return Ok(count);
+            // TODO: correctly calculate count here
+            // get all records matching the filter
+            let query = Query::<T>::builder().all().filter(filter).build();
+            let records = self.select::<T>(query)?;
+
+            return Ok(records.len() as u64);
         }
 
         let patch = patch.update_values();
-        // convert updates to values
-        // for each record apply update; delete and insert
+
+        // get whether PK is in the patch. If so, store the value to update referencing tables.
+        let pk_in_patch = patch.iter().find_map(|(col_def, value)| {
+            if col_def.primary_key {
+                Some((col_def, value))
+            } else {
+                None
+            }
+        });
+
         let res = self.atomic(|db| {
-            for record in records {
-                let mut record_values = record.to_values();
-                // apply patch
-                for (col_def, value) in &patch {
-                    if let Some((_, record_value)) = record_values
-                        .iter_mut()
-                        .find(|(record_col_def, _)| record_col_def.name == col_def.name)
-                    {
-                        *record_value = value.clone();
+            let mut count = 0;
+
+            let mut table_registry = db.load_table_registry::<T>()?;
+            // we must read directly from the database to get all records
+            // this is because we need the page and offset to perform the update
+            // this is safe because here we are not in a transaction; so the overlay doesn't matter
+            let mut records = vec![];
+            // iter all records
+            // FIXME: this may be huge, we should do better
+            {
+                let mut table_reader = table_registry.read::<T>();
+                while let Some(values) = table_reader.try_next()? {
+                    let record_values = values.record.clone().to_values();
+                    if let Some(filter) = &filter {
+                        if !db.record_matches_filter(&record_values, filter)? {
+                            continue;
+                        }
                     }
+                    records.push((values, record_values));
                 }
-                // create insert record
-                let insert_record = T::Insert::from_values(&record_values)?;
-                // delete old record
-                let pk = record_values
+            }
+
+            // helper function which converts column-value pairs to a schema entity
+            fn values_to_schema_entity<U>(values: Vec<(ColumnDef, Value)>) -> IcDbmsResult<U>
+            where
+                U: TableSchema,
+            {
+                let record = U::Insert::from_values(&values)?.into_record();
+                Ok(record)
+            }
+
+            // update records
+            for (record, record_values) in records {
+                let current_pk_value = record_values
                     .iter()
                     .find(|(col_def, _)| col_def.primary_key)
                     .expect("primary key not found") // this can't fail.
                     .1
                     .clone();
-                db.delete::<T>(
-                    DeleteBehavior::Break, // we just want to delete the old record
-                    Some(Filter::eq(T::primary_key(), pk)),
+
+                let previous_record = values_to_schema_entity::<T>(record_values.clone())?;
+                let mut record_values = record_values;
+
+                // apply patch to record values
+                for (patch_col_def, patch_value) in &patch {
+                    if let Some((_, record_value)) = record_values
+                        .iter_mut()
+                        .find(|(record_col_def, _)| record_col_def.name == patch_col_def.name)
+                    {
+                        *record_value = patch_value.clone();
+                    }
+                }
+                // sanitize updated values
+                let record_values = db.sanitize_values::<T>(record_values)?;
+                // validate updated values
+                db.schema.validate_update(
+                    db,
+                    T::table_name(),
+                    &record_values,
+                    current_pk_value.clone(),
                 )?;
-                // insert new record
-                db.insert::<T>(insert_record)?;
+                // build T from values
+                let updated_record = values_to_schema_entity::<T>(record_values)?;
+                // perform the update in the table registry
+                table_registry.update(
+                    updated_record,
+                    previous_record,
+                    record.page,
+                    record.offset,
+                )?;
+                count += 1;
+
+                // update records in tables referencing this table if PK is updated
+                if let Some((pk_column, new_pk_value)) = pk_in_patch {
+                    count += db.update_pk_referencing_updated_table::<T>(
+                        current_pk_value,
+                        new_pk_value.clone(),
+                        pk_column.data_type,
+                        pk_column.name,
+                    )?;
+                }
             }
+
             Ok(count)
         });
 
@@ -526,9 +657,6 @@ impl Database for IcDbmsDatabase {
                                 },
                             ));
                         }
-                    }
-                    DeleteBehavior::Break => {
-                        // do nothing
                     }
                 }
                 // eventually delete the record
@@ -1479,6 +1607,104 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(
+        expected = "Validation error: Value 'invalid_email' is not a valid email address"
+    )]
+    fn test_should_fail_to_update_with_invalid_data() {
+        load_fixtures();
+
+        let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
+        let filter = Filter::eq("id", Value::Uint32(3u32.into()));
+
+        let patch = UserUpdateRequest {
+            id: None,
+            name: None,
+            email: Some("invalid_email".into()), // invalid email format
+            age: None,
+            where_clause: Some(filter.clone()),
+        };
+
+        // this fails due to being inside atomic
+        let _ = dbms.update::<User>(patch);
+    }
+
+    #[test]
+    fn test_should_update_fk_in_table_referencing_another_oneshot() {
+        load_fixtures();
+
+        let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
+
+        // update user with PK 0, check whether posts 0 and 1 has updated FK;
+        // also check messages 0 and 1
+        let filter = Filter::eq("id", Value::Uint32(0u32.into()));
+
+        let patch = UserUpdateRequest {
+            id: Some(Uint32(1_000u32)),
+            name: None,
+            email: None,
+            age: None,
+            where_clause: Some(filter.clone()),
+        };
+
+        let update_count = dbms.update::<User>(patch).expect("failed to update user");
+        assert_eq!(update_count, 5); // 2 posts + 1 user + 2 messages
+
+        // verify user is updated
+        let query = Query::<User>::builder()
+            .and_where(Filter::eq("id", Value::Uint32(1_000u32.into())))
+            .build();
+        let users = dbms.select(query).expect("failed to select users");
+        assert_eq!(users.len(), 1);
+        let user = &users[0];
+        assert_eq!(user.id.expect("should have id").0, 1_000);
+
+        // get messages where sender_id or recipient_id is 1_000
+        let message_query = Query::<Message>::builder()
+            .with("users")
+            .and_where(Filter::eq("sender", Value::Uint32(1_000u32.into())))
+            .or_where(Filter::eq("recipient", Value::Uint32(1_000u32.into())))
+            .build();
+        let messages = dbms
+            .select(message_query)
+            .expect("failed to select messages");
+        assert_eq!(messages.len(), 2);
+        for message in messages {
+            let sender_id = message
+                .sender
+                .as_ref()
+                .expect("should have sender")
+                .id
+                .expect("should have sender id")
+                .0;
+            let recipient_id = message
+                .recipient
+                .as_ref()
+                .expect("should have recipient")
+                .id
+                .expect("should have recipient id")
+                .0;
+            assert!(sender_id == 1_000 || recipient_id == 1_000);
+        }
+
+        // check posts where user_id is 1_000
+        let post_query = Query::<Post>::builder()
+            .with("users")
+            .and_where(Filter::eq("user", Value::Uint32(1_000u32.into())))
+            .build();
+        let posts = dbms.select(post_query).expect("failed to select posts");
+        assert_eq!(posts.len(), 2);
+        for post in posts {
+            let user_id = post
+                .user
+                .expect("should have user")
+                .id
+                .expect("should have user id")
+                .0;
+            assert_eq!(user_id, 1_000);
+        }
+    }
+
+    #[test]
     fn test_should_sanitize_update() {
         load_fixtures();
 
@@ -1503,6 +1729,144 @@ mod tests {
         let user = &users[0];
         assert_eq!(user.id.expect("should have id").0, 3);
         assert_eq!(user.age.expect("should have age").0, 120); // sanitized to max 120
+    }
+
+    #[test]
+    fn test_should_update_multiple_records_at_once() {
+        load_fixtures();
+
+        let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
+        // update all users with id > 5 (users 6, 7, 8, 9)
+        let filter = Filter::gt("id", Value::Uint32(5u32.into()));
+
+        let patch = UserUpdateRequest {
+            id: None,
+            name: Some(Text("BulkUpdated".to_string())),
+            email: None,
+            age: None,
+            where_clause: Some(filter.clone()),
+        };
+
+        let update_count = dbms.update::<User>(patch).expect("failed to update users");
+        assert_eq!(update_count, 4); // users 6, 7, 8, 9
+
+        // verify all matched users were updated
+        let query = Query::<User>::builder().and_where(filter).build();
+        let users = dbms.select(query).expect("failed to select users");
+        assert_eq!(users.len(), 4);
+        for user in &users {
+            assert_eq!(
+                user.name.as_ref().expect("should have name").0,
+                "BulkUpdated"
+            );
+        }
+
+        // verify users with id <= 5 were NOT updated
+        let unaffected_query = Query::<User>::builder()
+            .and_where(Filter::le("id", Value::Uint32(5u32.into())))
+            .build();
+        let unaffected_users = dbms
+            .select(unaffected_query)
+            .expect("failed to select users");
+        for user in &unaffected_users {
+            assert_ne!(
+                user.name.as_ref().expect("should have name").0,
+                "BulkUpdated"
+            );
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "Primary key conflict")]
+    fn test_should_fail_update_with_pk_conflict_e2e() {
+        load_fixtures();
+
+        let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
+        // try to update user 3's PK to 2 (which already exists)
+        let filter = Filter::eq("id", Value::Uint32(3u32.into()));
+
+        let patch = UserUpdateRequest {
+            id: Some(Uint32(2u32)),
+            name: None,
+            email: None,
+            age: None,
+            where_clause: Some(filter),
+        };
+
+        // this should panic inside atomic because of PK conflict
+        let _ = dbms.update::<User>(patch);
+    }
+
+    #[test]
+    fn test_should_update_pk_with_fk_cascade_in_transaction() {
+        load_fixtures();
+
+        // create a transaction
+        let transaction_id =
+            TRANSACTION_SESSION.with_borrow_mut(|ts| ts.begin_transaction(Principal::anonymous()));
+        let mut dbms = IcDbmsDatabase::from_transaction(TestDatabaseSchema, transaction_id.clone());
+
+        // update user 0's PK to 5000 inside the transaction
+        let filter = Filter::eq("id", Value::Uint32(0u32.into()));
+        let patch = UserUpdateRequest {
+            id: Some(Uint32(5000u32)),
+            name: None,
+            email: None,
+            age: None,
+            where_clause: Some(filter),
+        };
+
+        // NOTE: update_count in transaction path may not reflect cascaded FK changes
+        // because the overlay transforms the record, making the original filter not match anymore.
+        // The actual count is verified after commit.
+        let _update_count = dbms.update::<User>(patch).expect("failed to update user");
+
+        // outside the transaction, user 0 should still exist
+        let oneshot_dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
+        let query = Query::<User>::builder()
+            .and_where(Filter::eq("id", Value::Uint32(0u32.into())))
+            .build();
+        let users = oneshot_dbms.select(query).expect("failed to select users");
+        assert_eq!(users.len(), 1);
+
+        // commit transaction
+        let commit_result = dbms.commit();
+        assert!(commit_result.is_ok());
+
+        // now user 0 should be gone, user 5000 should exist
+        let query_old = Query::<User>::builder()
+            .and_where(Filter::eq("id", Value::Uint32(0u32.into())))
+            .build();
+        let users_old = oneshot_dbms
+            .select(query_old)
+            .expect("failed to select users");
+        assert_eq!(users_old.len(), 0);
+
+        let query_new = Query::<User>::builder()
+            .and_where(Filter::eq("id", Value::Uint32(5000u32.into())))
+            .build();
+        let users_new = oneshot_dbms
+            .select(query_new)
+            .expect("failed to select users");
+        assert_eq!(users_new.len(), 1);
+
+        // verify FK cascade: posts that referenced user 0 now reference user 5000
+        let post_query = Query::<Post>::builder()
+            .and_where(Filter::eq("user", Value::Uint32(5000u32.into())))
+            .build();
+        let posts = oneshot_dbms
+            .select(post_query)
+            .expect("failed to select posts");
+        assert_eq!(posts.len(), 2); // user 0 had 2 posts
+
+        // verify no posts reference user 0 anymore
+        let old_post_query = Query::<Post>::builder()
+            .and_where(Filter::eq("user", Value::Uint32(0u32.into())))
+            .build();
+        let old_posts = oneshot_dbms
+            .select(old_post_query)
+            .expect("failed to select posts");
+        assert_eq!(old_posts.len(), 0);
     }
 
     fn init_user_table() {

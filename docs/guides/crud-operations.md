@@ -1,27 +1,28 @@
 # CRUD Operations
 
-- [Overview](#overview)
-- [Insert](#insert)
-  - [Basic Insert](#basic-insert)
-  - [Handling Primary Keys](#handling-primary-keys)
-  - [Nullable Fields](#nullable-fields)
-  - [Insert with Transaction](#insert-with-transaction)
-- [Select](#select)
-  - [Select All Records](#select-all-records)
-  - [Select with Filter](#select-with-filter)
-  - [Select Specific Columns](#select-specific-columns)
-  - [Select with Eager Loading](#select-with-eager-loading)
-- [Update](#update)
-  - [Basic Update](#basic-update)
-  - [Partial Updates](#partial-updates)
-  - [Update with Filter](#update-with-filter)
-  - [Update Return Value](#update-return-value)
-- [Delete](#delete)
-  - [Delete with Filter](#delete-with-filter)
-  - [Delete Behaviors](#delete-behaviors)
-  - [Delete All Records](#delete-all-records)
-- [Operations with Transactions](#operations-with-transactions)
-- [Error Handling](#error-handling)
+- [CRUD Operations](#crud-operations)
+  - [Overview](#overview)
+  - [Insert](#insert)
+    - [Basic Insert](#basic-insert)
+    - [Handling Primary Keys](#handling-primary-keys)
+    - [Nullable Fields](#nullable-fields)
+    - [Insert with Transaction](#insert-with-transaction)
+  - [Select](#select)
+    - [Select All Records](#select-all-records)
+    - [Select with Filter](#select-with-filter)
+    - [Select Specific Columns](#select-specific-columns)
+    - [Select with Eager Loading](#select-with-eager-loading)
+  - [Update](#update)
+    - [Basic Update](#basic-update)
+    - [Partial Updates](#partial-updates)
+    - [Update with Filter](#update-with-filter)
+    - [Update Return Value](#update-return-value)
+  - [Delete](#delete)
+    - [Delete with Filter](#delete-with-filter)
+    - [Delete Behaviors](#delete-behaviors)
+    - [Delete All Records](#delete-all-records)
+  - [Operations with Transactions](#operations-with-transactions)
+  - [Error Handling](#error-handling)
 
 ---
 
@@ -286,7 +287,6 @@ When deleting records that are referenced by foreign keys, you must specify a be
 |----------|-------------|
 | `Restrict` | Fail if any foreign keys reference this record |
 | `Cascade` | Delete all records that reference this record |
-| `Break` | Set foreign key references to null (if nullable) or break the reference |
 
 **Restrict Example:**
 
@@ -315,18 +315,6 @@ match result {
 client.delete::<User>(
     User::table_name(),
     DeleteBehavior::Cascade,
-    Some(Filter::eq("id", Value::Uint32(1.into()))),
-    None
-).await??;
-```
-
-**Break Example:**
-
-```rust
-// Deletes the user; posts' author_id becomes broken/null
-client.delete::<User>(
-    User::table_name(),
-    DeleteBehavior::Break,
     Some(Filter::eq("id", Value::Uint32(1.into()))),
     None
 ).await??;

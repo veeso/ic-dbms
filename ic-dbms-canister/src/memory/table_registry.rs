@@ -26,7 +26,6 @@ pub struct TableRegistry {
     page_ledger: PageLedger,
 }
 
-#[allow(dead_code)]
 impl TableRegistry {
     /// Loads the table registry from memory
     pub fn load(table_pages: TableRegistryPage) -> MemoryResult<Self> {
