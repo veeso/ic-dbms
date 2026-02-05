@@ -1,10 +1,10 @@
 [workspace]
 members = [
   "example",
-  "ic-dbms-api",
-  "ic-dbms-canister",
-  "ic-dbms-client",
-  "ic-dbms-macros",
+  "crates/ic-dbms-api",
+  "crates/ic-dbms-canister",
+  "crates/ic-dbms-client",
+  "crates/ic-dbms-macros",
   "integration-tests/dbms-canister-client-integration",
   "integration-tests/pocket-ic-tests",
   "integration-tests/pocket-ic-tests-macro",
