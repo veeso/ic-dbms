@@ -13,10 +13,10 @@ description = "Public API types for ic-dbms-canister. This crate provides shared
 include = [
   "examples/**/*",
   "src/**/*",
-  "../LICENSE",
+  "../../LICENSE",
   "README.md",
-  "../CHANGELOG.md",
-  "../assets/images/cargo/logo-128.png",
+  "../../CHANGELOG.md",
+  "../../assets/images/cargo/logo-128.png",
 ]
 readme = "README.md"
 
