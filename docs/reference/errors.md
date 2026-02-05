@@ -1,24 +1,25 @@
 # Errors Reference
 
-- [Overview](#overview)
-- [Error Hierarchy](#error-hierarchy)
-- [IcDbmsError](#icdbmserror)
-- [Query Errors](#query-errors)
-  - [PrimaryKeyConflict](#primarykeyconflict)
-  - [BrokenForeignKeyReference](#brokenforeignkeyreference)
-  - [ForeignKeyConstraintViolation](#foreignkeyconstraintviolation)
-  - [UnknownColumn](#unknowncolumn)
-  - [MissingNonNullableField](#missingnonnullablefield)
-  - [RecordNotFound](#recordnotfound)
-  - [InvalidQuery](#invalidquery)
-- [Transaction Errors](#transaction-errors)
-  - [TransactionNotFound](#transactionnotfound)
-- [Validation Errors](#validation-errors)
-- [Sanitization Errors](#sanitization-errors)
-- [Memory Errors](#memory-errors)
-- [Client Error Handling](#client-error-handling)
-  - [Double Result Pattern](#double-result-pattern)
-  - [Error Handling Examples](#error-handling-examples)
+- [Errors Reference](#errors-reference)
+  - [Overview](#overview)
+  - [Error Hierarchy](#error-hierarchy)
+  - [IcDbmsError](#icdbmserror)
+  - [Query Errors](#query-errors)
+    - [PrimaryKeyConflict](#primarykeyconflict)
+    - [BrokenForeignKeyReference](#brokenforeignkeyreference)
+    - [ForeignKeyConstraintViolation](#foreignkeyconstraintviolation)
+    - [UnknownColumn](#unknowncolumn)
+    - [MissingNonNullableField](#missingnonnullablefield)
+    - [RecordNotFound](#recordnotfound)
+    - [InvalidQuery](#invalidquery)
+  - [Transaction Errors](#transaction-errors)
+    - [TransactionNotFound](#transactionnotfound)
+  - [Validation Errors](#validation-errors)
+  - [Sanitization Errors](#sanitization-errors)
+  - [Memory Errors](#memory-errors)
+  - [Client Error Handling](#client-error-handling)
+    - [Double Result Pattern](#double-result-pattern)
+    - [Error Handling Examples](#error-handling-examples)
 
 ---
 
@@ -188,9 +189,9 @@ match result {
 ```
 
 **Solutions:**
+
 - Delete related records first
 - Use `DeleteBehavior::Cascade` to delete related records automatically
-- Use `DeleteBehavior::Break` to break the references
 
 ### UnknownColumn
 

@@ -8,7 +8,7 @@ use ic_dbms_api::prelude::{
 };
 use ic_dbms_canister::prelude::{
     DatabaseSchema, IcDbmsDatabase, InsertIntegrityValidator, SCHEMA_REGISTRY, Table, Text, Uint64,
-    get_referenced_tables,
+    UpdateIntegrityValidator, get_referenced_tables,
 };
 use serde::Deserialize;
 
@@ -49,7 +49,7 @@ impl DatabaseSchema for TestDatabaseSchema {
         &self,
         dbms: &IcDbmsDatabase,
         table_name: &'static str,
-        delete_behavior: ic_dbms_api::prelude::DeleteBehavior,
+        delete_behavior: DeleteBehavior,
         filter: Option<Filter>,
     ) -> ic_dbms_api::prelude::IcDbmsResult<u64> {
         if table_name == User::table_name() {
@@ -86,6 +86,22 @@ impl DatabaseSchema for TestDatabaseSchema {
     ) -> ic_dbms_api::prelude::IcDbmsResult<()> {
         if table_name == User::table_name() {
             InsertIntegrityValidator::<User>::new(dbms).validate(record_values)
+        } else {
+            Err(ic_dbms_api::prelude::IcDbmsError::Query(
+                QueryError::TableNotFound(table_name.to_string()),
+            ))
+        }
+    }
+
+    fn validate_update(
+        &self,
+        dbms: &IcDbmsDatabase,
+        table_name: &'static str,
+        record_values: &[(ColumnDef, Value)],
+        old_pk: Value,
+    ) -> ic_dbms_api::prelude::IcDbmsResult<()> {
+        if table_name == User::table_name() {
+            UpdateIntegrityValidator::<User>::new(dbms, old_pk).validate(record_values)
         } else {
             Err(ic_dbms_api::prelude::IcDbmsError::Query(
                 QueryError::TableNotFound(table_name.to_string()),
