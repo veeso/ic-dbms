@@ -12,7 +12,7 @@ use ic_dbms_api::prelude::{DataSize, Encode, MSize, MemoryError, MemoryResult, P
 pub use self::acl::ACL;
 use self::provider::MemoryProvider;
 pub use self::schema_registry::{SCHEMA_REGISTRY, SchemaRegistry, TableRegistryPage};
-pub use self::table_registry::{TableReader, TableRegistry};
+pub use self::table_registry::{NextRecord, TableReader, TableRegistry};
 
 // instantiate a static memory manager with the stable memory provider
 thread_local! {

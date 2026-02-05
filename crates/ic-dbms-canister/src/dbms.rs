@@ -13,7 +13,7 @@ use ic_dbms_api::prelude::{
 };
 
 use crate::dbms::transaction::{DatabaseOverlay, Transaction, TransactionOp};
-use crate::memory::{SCHEMA_REGISTRY, TableRegistry};
+use crate::memory::{NextRecord, SCHEMA_REGISTRY, TableRegistry};
 use crate::prelude::{DatabaseSchema, TRANSACTION_SESSION};
 use crate::utils::trap;
 
@@ -89,8 +89,8 @@ impl IcDbmsDatabase {
             TransactionError::NoActiveTransaction,
         ))?;
 
-        TRANSACTION_SESSION.with_borrow_mut(|ts| {
-            let tx = ts.get_transaction_mut(txid)?;
+        TRANSACTION_SESSION.with_borrow(|ts| {
+            let tx = ts.get_transaction(txid)?;
             f(tx)
         })
     }
@@ -116,21 +116,19 @@ impl IcDbmsDatabase {
     where
         T: TableSchema,
     {
+        let pk = record_values
+            .iter()
+            .find(|(col_def, _)| col_def.primary_key)
+            .ok_or(IcDbmsError::Query(QueryError::UnknownColumn(
+                T::primary_key().to_string(),
+            )))?
+            .1
+            .clone();
+
         let mut count = 0;
-        // verify referenced tables for foreign key constraints
         for (table, columns) in self.schema.referenced_tables(T::table_name()) {
             for column in columns.iter() {
-                // prepare filter
-                let pk = record_values
-                    .iter()
-                    .find(|(col_def, _)| col_def.primary_key)
-                    .ok_or(IcDbmsError::Query(QueryError::UnknownColumn(
-                        column.to_string(),
-                    )))?
-                    .1
-                    .clone();
-                // make filter to find records in the referenced table
-                let filter = Filter::eq(column, pk);
+                let filter = Filter::eq(column, pk.clone());
                 let res = self
                     .schema
                     .delete(self, table, DeleteBehavior::Cascade, Some(filter))?;
@@ -217,6 +215,8 @@ impl IcDbmsDatabase {
     }
 
     /// Retrieves existing primary keys for records matching the given filter.
+    ///
+    /// Only the primary key column is selected to avoid loading unnecessary data.
     fn existing_primary_keys_for_filter<T>(
         &self,
         filter: Option<Filter>,
@@ -225,7 +225,8 @@ impl IcDbmsDatabase {
         T: TableSchema,
     {
         let pk = T::primary_key();
-        let fields = self.select(Query::<T>::builder().filter(filter).build())?;
+        let query = Query::<T>::builder().field(pk).filter(filter).build();
+        let fields = self.select(query)?;
         let pks = fields
             .into_iter()
             .map(|record| {
@@ -233,7 +234,7 @@ impl IcDbmsDatabase {
                     .to_values()
                     .into_iter()
                     .find(|(col_def, _value)| col_def.name == pk)
-                    .expect("primary key not found") // this can't fail.
+                    .expect("primary key not found")
                     .1
             })
             .collect::<Vec<Value>>();
@@ -369,6 +370,41 @@ impl IcDbmsDatabase {
         }
         Ok(sanitized_values)
     }
+
+    /// Collects all records matching the given filter from the table registry.
+    ///
+    /// Returns each matching record along with its page, offset, and column-value pairs.
+    #[allow(clippy::type_complexity)]
+    fn collect_matching_records<T>(
+        &self,
+        table_registry: &TableRegistry,
+        filter: &Option<Filter>,
+    ) -> IcDbmsResult<Vec<(NextRecord<T>, Vec<(ColumnDef, Value)>)>>
+    where
+        T: TableSchema,
+    {
+        let mut table_reader = table_registry.read::<T>();
+        let mut records = vec![];
+        while let Some(values) = table_reader.try_next()? {
+            let record_values = values.record.clone().to_values();
+            if let Some(filter) = filter {
+                if !self.record_matches_filter(&record_values, filter)? {
+                    continue;
+                }
+            }
+            records.push((values, record_values));
+        }
+        Ok(records)
+    }
+}
+
+/// Converts column-value pairs to a schema entity.
+fn values_to_schema_entity<T>(values: Vec<(ColumnDef, Value)>) -> IcDbmsResult<T>
+where
+    T: TableSchema,
+{
+    let record = T::Insert::from_values(&values)?.into_record();
+    Ok(record)
 }
 
 impl Database for IcDbmsDatabase {
@@ -454,11 +490,14 @@ impl Database for IcDbmsDatabase {
             // insert a new `insert` into the transaction
             self.with_transaction_mut(|tx| tx.insert::<T>(sanitized_values))?;
         } else {
-            // insert directly into the database
-            let mut table_registry = self.load_table_registry::<T>()?;
-            // convert sanitized values back to record
-            let record = T::Insert::from_values(&sanitized_values)?;
-            table_registry.insert(record.into_record())?;
+            // insert directly into the database; wrap in atomic for consistency
+            // with update/delete paths
+            self.atomic(|db| {
+                let mut table_registry = db.load_table_registry::<T>()?;
+                let record = T::Insert::from_values(&sanitized_values)?;
+                table_registry.insert(record.into_record())?;
+                Ok(())
+            });
         }
 
         Ok(())
@@ -482,15 +521,10 @@ impl Database for IcDbmsDatabase {
         let filter = patch.where_clause().clone();
         if self.transaction.is_some() {
             let pks = self.existing_primary_keys_for_filter::<T>(filter.clone())?;
-            // insert a new `update` into the transaction
-            self.with_transaction_mut(|tx| tx.update::<T>(patch, filter.clone(), pks))?;
+            let count = pks.len() as u64;
+            self.with_transaction_mut(|tx| tx.update::<T>(patch, filter, pks))?;
 
-            // TODO: correctly calculate count here
-            // get all records matching the filter
-            let query = Query::<T>::builder().all().filter(filter).build();
-            let records = self.select::<T>(query)?;
-
-            return Ok(records.len() as u64);
+            return Ok(count);
         }
 
         let patch = patch.update_values();
@@ -508,35 +542,8 @@ impl Database for IcDbmsDatabase {
             let mut count = 0;
 
             let mut table_registry = db.load_table_registry::<T>()?;
-            // we must read directly from the database to get all records
-            // this is because we need the page and offset to perform the update
-            // this is safe because here we are not in a transaction; so the overlay doesn't matter
-            let mut records = vec![];
-            // iter all records
-            // FIXME: this may be huge, we should do better
-            {
-                let mut table_reader = table_registry.read::<T>();
-                while let Some(values) = table_reader.try_next()? {
-                    let record_values = values.record.clone().to_values();
-                    if let Some(filter) = &filter {
-                        if !db.record_matches_filter(&record_values, filter)? {
-                            continue;
-                        }
-                    }
-                    records.push((values, record_values));
-                }
-            }
+            let records = db.collect_matching_records::<T>(&table_registry, &filter)?;
 
-            // helper function which converts column-value pairs to a schema entity
-            fn values_to_schema_entity<U>(values: Vec<(ColumnDef, Value)>) -> IcDbmsResult<U>
-            where
-                U: TableSchema,
-            {
-                let record = U::Insert::from_values(&values)?.into_record();
-                Ok(record)
-            }
-
-            // update records
             for (record, record_values) in records {
                 let current_pk_value = record_values
                     .iter()
@@ -619,26 +626,8 @@ impl Database for IcDbmsDatabase {
 
         // delete must be atomic
         let res = self.atomic(|db| {
-            // delete directly from the database
-            // select all records matching the filter
-            // read table
             let mut table_registry = db.load_table_registry::<T>()?;
-            let mut records = vec![];
-            // iter all records
-            // FIXME: this may be huge, we should do better
-            {
-                let mut table_reader = table_registry.read::<T>();
-                while let Some(values) = table_reader.try_next()? {
-                    let record_values = values.record.clone().to_values();
-                    if let Some(filter) = &filter {
-                        if !db.record_matches_filter(&record_values, filter)? {
-                            continue;
-                        }
-                    }
-                    records.push((values, record_values));
-                }
-            }
-            // deleted records
+            let records = db.collect_matching_records::<T>(&table_registry, &filter)?;
             let mut count = records.len() as u64;
             for (record, record_values) in records {
                 // match delete behaviour
