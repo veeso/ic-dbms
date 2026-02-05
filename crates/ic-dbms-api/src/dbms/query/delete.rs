@@ -10,10 +10,6 @@ pub enum DeleteBehavior {
     /// Cascade delete to related records.
     /// Any records that reference the deleted records via foreign keys will also be deleted.
     Cascade,
-    /// Break the foreign key references.
-    /// If there are foreign key constraints, the references will be broken.
-    /// Don't use this option unless you are sure what you're doing!
-    Break,
 }
 
 #[cfg(test)]
@@ -25,11 +21,9 @@ mod test {
     fn test_should_create_delete_behavior_variants() {
         let restrict = DeleteBehavior::Restrict;
         let cascade = DeleteBehavior::Cascade;
-        let break_fk = DeleteBehavior::Break;
 
         assert_eq!(restrict, DeleteBehavior::Restrict);
         assert_eq!(cascade, DeleteBehavior::Cascade);
-        assert_eq!(break_fk, DeleteBehavior::Break);
     }
 
     #[test]
@@ -52,26 +46,18 @@ mod test {
     fn test_should_compare_delete_behaviors() {
         assert_eq!(DeleteBehavior::Restrict, DeleteBehavior::Restrict);
         assert_eq!(DeleteBehavior::Cascade, DeleteBehavior::Cascade);
-        assert_eq!(DeleteBehavior::Break, DeleteBehavior::Break);
         assert_ne!(DeleteBehavior::Restrict, DeleteBehavior::Cascade);
-        assert_ne!(DeleteBehavior::Cascade, DeleteBehavior::Break);
-        assert_ne!(DeleteBehavior::Restrict, DeleteBehavior::Break);
     }
 
     #[test]
     fn test_should_debug_delete_behavior() {
         assert_eq!(format!("{:?}", DeleteBehavior::Restrict), "Restrict");
         assert_eq!(format!("{:?}", DeleteBehavior::Cascade), "Cascade");
-        assert_eq!(format!("{:?}", DeleteBehavior::Break), "Break");
     }
 
     #[test]
     fn test_should_candid_encode_decode_delete_behavior() {
-        for behavior in [
-            DeleteBehavior::Restrict,
-            DeleteBehavior::Cascade,
-            DeleteBehavior::Break,
-        ] {
+        for behavior in [DeleteBehavior::Restrict, DeleteBehavior::Cascade] {
             let encoded = candid::encode_one(behavior).expect("failed to encode");
             let decoded: DeleteBehavior = candid::decode_one(&encoded).expect("failed to decode");
             assert_eq!(behavior, decoded);

@@ -18,7 +18,9 @@ pub use self::post::{POSTS_FIXTURES, Post, PostInsertRequest, PostRecord, PostUp
 #[allow(unused_imports)]
 pub use self::user::{USERS_FIXTURES, User, UserInsertRequest, UserRecord, UserUpdateRequest};
 use crate::dbms::IcDbmsDatabase;
-use crate::prelude::{DatabaseSchema, InsertIntegrityValidator, get_referenced_tables};
+use crate::prelude::{
+    DatabaseSchema, InsertIntegrityValidator, UpdateIntegrityValidator, get_referenced_tables,
+};
 
 /// Loads fixtures into the database for testing purposes.
 ///
@@ -120,6 +122,26 @@ impl DatabaseSchema for TestDatabaseSchema {
             InsertIntegrityValidator::<Post>::new(dbms).validate(record_values)
         } else if table_name == Message::table_name() {
             InsertIntegrityValidator::<Message>::new(dbms).validate(record_values)
+        } else {
+            Err(ic_dbms_api::prelude::IcDbmsError::Query(
+                QueryError::TableNotFound(table_name.to_string()),
+            ))
+        }
+    }
+
+    fn validate_update(
+        &self,
+        dbms: &IcDbmsDatabase,
+        table_name: &'static str,
+        record_values: &[(ColumnDef, Value)],
+        old_pk: Value,
+    ) -> ic_dbms_api::prelude::IcDbmsResult<()> {
+        if table_name == User::table_name() {
+            UpdateIntegrityValidator::<User>::new(dbms, old_pk).validate(record_values)
+        } else if table_name == Post::table_name() {
+            UpdateIntegrityValidator::<Post>::new(dbms, old_pk).validate(record_values)
+        } else if table_name == Message::table_name() {
+            UpdateIntegrityValidator::<Message>::new(dbms, old_pk).validate(record_values)
         } else {
             Err(ic_dbms_api::prelude::IcDbmsError::Query(
                 QueryError::TableNotFound(table_name.to_string()),

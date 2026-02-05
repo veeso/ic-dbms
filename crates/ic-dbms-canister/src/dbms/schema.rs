@@ -57,4 +57,18 @@ pub trait DatabaseSchema {
         table_name: &'static str,
         record_values: &[(ColumnDef, Value)],
     ) -> IcDbmsResult<()>;
+
+    /// Validates an update operation for the given table name and record values.
+    ///
+    /// The `old_pk` is the current primary key value of the record being updated, used to
+    /// distinguish a PK conflict from the record simply keeping its own PK.
+    ///
+    /// Use a [`crate::prelude::UpdateIntegrityValidator`] to perform the validation.
+    fn validate_update(
+        &self,
+        dbms: &IcDbmsDatabase,
+        table_name: &'static str,
+        record_values: &[(ColumnDef, Value)],
+        old_pk: Value,
+    ) -> IcDbmsResult<()>;
 }
