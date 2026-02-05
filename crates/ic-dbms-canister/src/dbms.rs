@@ -464,8 +464,10 @@ impl Database for IcDbmsDatabase {
             }
         }
 
-        // sort results if needed and map to records
-        for (column, direction) in query.order_by {
+        // Sort results if needed, applying in reverse order so the primary sort key
+        // (first in the list) is applied last. Since `sort_by` is a stable sort,
+        // this produces correct multi-column ordering.
+        for (column, direction) in query.order_by.into_iter().rev() {
             self.sort_query_results(&mut results, &column, direction);
         }
 

@@ -329,6 +329,55 @@ fn test_should_select_users_sorted_by_name_descending() {
 }
 
 #[test]
+fn test_should_select_users_sorted_by_multiple_columns() {
+    load_fixtures();
+    let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
+
+    // Insert users with duplicate names but different ages to test multi-column sort.
+    // The fixture users have unique names, so we add duplicates here.
+    for (id, (name, age)) in [("Alice", 50u32), ("Alice", 30), ("Bob", 25), ("Bob", 40)]
+        .iter()
+        .enumerate()
+    {
+        let new_user = UserInsertRequest {
+            id: Uint32(500 + id as u32),
+            name: Text(name.to_string()),
+            email: format!("dup_{}@example.com", id).into(),
+            age: (*age).into(),
+        };
+        dbms.insert::<User>(new_user)
+            .expect("failed to insert user");
+    }
+
+    // Sort by name ASC, age DESC — primary key is name, secondary is age descending.
+    let query = Query::<User>::builder()
+        .all()
+        .and_where(Filter::ge("id", Value::Uint32(500.into())))
+        .order_by_asc("name")
+        .order_by_desc("age")
+        .build();
+    let users = dbms.select(query).expect("failed to select users");
+
+    assert_eq!(users.len(), 4);
+
+    // Expected order: Alice(50), Alice(30), Bob(40), Bob(25)
+    let expected = [("Alice", 50u32), ("Alice", 30), ("Bob", 40), ("Bob", 25)];
+    for (i, user) in users.iter().enumerate() {
+        let (expected_name, expected_age) = expected[i];
+        assert_eq!(
+            user.name.as_ref().expect("should have name").0,
+            expected_name,
+            "name mismatch at index {i}"
+        );
+        assert_eq!(
+            user.age.expect("should have age").0,
+            expected_age,
+            "age mismatch at index {i}"
+        );
+    }
+}
+
+#[test]
 fn test_should_select_many_entries() {
     const COUNT: u64 = 2_000;
     load_fixtures();
