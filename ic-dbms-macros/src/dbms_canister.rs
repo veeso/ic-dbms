@@ -303,6 +303,34 @@ fn impl_database_schema(tables: &[TableMetadata]) -> TokenStream2 {
         }
     };
 
+    let mut validate_update_arms = vec![];
+    for table in tables {
+        let table_name = &table.table;
+        validate_update_arms.push(quote::quote! {
+            name if name == #table_name::table_name() => {
+                ::ic_dbms_canister::prelude::UpdateIntegrityValidator::<#table_name>::new(dbms, old_pk).validate(record_values)
+            }
+        });
+    }
+
+    let validate_update_fn = quote::quote! {
+        fn validate_update(
+            &self,
+            dbms: &::ic_dbms_canister::prelude::IcDbmsDatabase,
+            table_name: &'static str,
+            record_values: &[(::ic_dbms_api::prelude::ColumnDef, ::ic_dbms_api::prelude::Value)],
+            old_pk: ::ic_dbms_api::prelude::Value,
+        ) -> ::ic_dbms_api::prelude::IcDbmsResult<()> {
+            use ::ic_dbms_api::prelude::TableSchema as _;
+            match table_name {
+                #(#validate_update_arms)*
+                _ => Err(::ic_dbms_api::prelude::IcDbmsError::Query(
+                    ::ic_dbms_api::prelude::QueryError::TableNotFound(table_name.to_string()),
+                )),
+            }
+        }
+    };
+
     quote::quote! {
         pub struct CanisterDatabaseSchema;
 
@@ -312,6 +340,7 @@ fn impl_database_schema(tables: &[TableMetadata]) -> TokenStream2 {
             #delete_tables_fn
             #update_tables_fn
             #validate_insert_fn
+            #validate_update_fn
         }
     }
 }

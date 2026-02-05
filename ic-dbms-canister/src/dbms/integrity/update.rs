@@ -6,38 +6,52 @@ use ic_dbms_api::prelude::{
 use super::common;
 use crate::dbms::IcDbmsDatabase;
 
-/// Integrity validator for insert operations.
-pub struct InsertIntegrityValidator<'a, T>
+/// Integrity validator for update operations.
+///
+/// Unlike [`super::InsertIntegrityValidator`], this validator allows the primary key to remain
+/// unchanged during an update. It verifies that:
+///
+/// - All column values pass their respective validators.
+/// - If the primary key changed, no other record already holds the new value.
+/// - All foreign keys reference existing records.
+/// - All non-nullable columns are provided.
+pub struct UpdateIntegrityValidator<'a, T>
 where
     T: TableSchema,
 {
     database: &'a IcDbmsDatabase,
+    /// The primary key value of the record being updated.
+    old_pk: Value,
     _marker: std::marker::PhantomData<T>,
 }
 
-impl<'a, T> InsertIntegrityValidator<'a, T>
+impl<'a, T> UpdateIntegrityValidator<'a, T>
 where
     T: TableSchema,
 {
-    /// Creates a new insert integrity validator.
-    pub fn new(dbms: &'a IcDbmsDatabase) -> Self {
+    /// Creates a new update integrity validator.
+    ///
+    /// The `old_pk` is the current primary key value of the record being updated, used to
+    /// distinguish a PK conflict from the record simply keeping its own PK.
+    pub fn new(dbms: &'a IcDbmsDatabase, old_pk: Value) -> Self {
         Self {
             database: dbms,
+            old_pk,
             _marker: std::marker::PhantomData,
         }
     }
 }
 
-impl<T> InsertIntegrityValidator<'_, T>
+impl<T> UpdateIntegrityValidator<'_, T>
 where
     T: TableSchema,
 {
-    /// Verify whether the given insert record is valid.
+    /// Verifies whether the given updated record values are valid.
     ///
-    /// An insert is valid when:
+    /// An update is valid when:
     ///
     /// - All column values pass their respective validators.
-    /// - No primary key conflicts with existing records.
+    /// - No primary key conflict with a *different* existing record.
     /// - All foreign keys reference existing records.
     /// - All non-nullable columns are provided.
     pub fn validate(&self, record_values: &[(ColumnDef, Value)]) -> IcDbmsResult<()> {
@@ -51,12 +65,14 @@ where
         Ok(())
     }
 
-    /// Checks for primary key conflicts.
+    /// Checks for primary key conflicts with *other* records.
     ///
-    /// For inserts, *any* existing record with the same PK is a conflict.
+    /// The update is allowed if:
+    /// - No record exists with the new PK, or
+    /// - Exactly one record exists and it is the record being updated (i.e. the PK did not change).
     fn check_primary_key_conflict(&self, record_values: &[(ColumnDef, Value)]) -> IcDbmsResult<()> {
         let pk_name = T::primary_key();
-        let pk = record_values
+        let new_pk = record_values
             .iter()
             .find(|(col_def, _)| col_def.name == pk_name)
             .map(|(_, value)| value.clone())
@@ -64,16 +80,25 @@ where
                 pk_name.to_string(),
             )))?;
 
+        // query for records with the new PK value
         let query: Query<T> = Query::builder()
             .field(pk_name)
-            .and_where(Filter::Eq(pk_name.to_string(), pk))
+            .and_where(Filter::Eq(pk_name.to_string(), new_pk.clone()))
             .build();
 
         let res = self.database.select(query)?;
-        if res.is_empty() {
-            Ok(())
-        } else {
-            Err(IcDbmsError::Query(QueryError::PrimaryKeyConflict))
+        match res.len() {
+            0 => Ok(()),
+            1 => {
+                // there is one record; it's fine only if its PK matches our old PK
+                // (meaning the record being updated is the same one we found)
+                if new_pk == self.old_pk {
+                    Ok(())
+                } else {
+                    Err(IcDbmsError::Query(QueryError::PrimaryKeyConflict))
+                }
+            }
+            _ => Err(IcDbmsError::Query(QueryError::PrimaryKeyConflict)),
         }
     }
 }
@@ -81,34 +106,80 @@ where
 #[cfg(test)]
 mod tests {
 
-    use ic_dbms_api::prelude::DateTime;
-
     use super::*;
-    use crate::tests::{Message, Post, TestDatabaseSchema, User, load_fixtures};
+    use crate::tests::{Post, TestDatabaseSchema, User, load_fixtures};
 
     #[test]
-    fn test_should_not_pass_email_validation() {
+    fn test_should_pass_update_with_unchanged_pk() {
         load_fixtures();
         let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
 
+        // user with id=1 already exists; updating it with the same PK should pass
         let values = User::columns()
             .iter()
             .cloned()
             .zip(vec![
-                Value::Uint32(10.into()),
-                Value::Text("Bob".to_string().into()),
-                Value::Text("invalid-email".to_string().into()),
-                Value::Uint32(25.into()), // age field
+                Value::Uint32(1.into()),
+                Value::Text("UpdatedAlice".to_string().into()),
+                Value::Text("alice@example.com".into()),
+                Value::Uint32(30.into()),
             ])
             .collect::<Vec<(ColumnDef, Value)>>();
 
-        let validator = InsertIntegrityValidator::<User>::new(&dbms);
+        let validator = UpdateIntegrityValidator::<User>::new(&dbms, Value::Uint32(1.into()));
         let result = validator.validate(&values);
-        assert!(matches!(result, Err(IcDbmsError::Validation(_))));
+        assert!(result.is_ok());
     }
 
     #[test]
-    fn test_should_not_pass_check_for_pk_conflict() {
+    fn test_should_pass_update_with_new_unique_pk() {
+        load_fixtures();
+        let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
+
+        // user with id=1 changes PK to 9999 (unused)
+        let values = User::columns()
+            .iter()
+            .cloned()
+            .zip(vec![
+                Value::Uint32(9999.into()),
+                Value::Text("Alice".to_string().into()),
+                Value::Text("alice@example.com".into()),
+                Value::Uint32(30.into()),
+            ])
+            .collect::<Vec<(ColumnDef, Value)>>();
+
+        let validator = UpdateIntegrityValidator::<User>::new(&dbms, Value::Uint32(1.into()));
+        let result = validator.validate(&values);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_should_fail_update_with_conflicting_pk() {
+        load_fixtures();
+        let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
+
+        // user with id=1 tries to change PK to id=2 (which already belongs to another user)
+        let values = User::columns()
+            .iter()
+            .cloned()
+            .zip(vec![
+                Value::Uint32(2.into()),
+                Value::Text("Alice".to_string().into()),
+                Value::Text("alice@example.com".into()),
+                Value::Uint32(30.into()),
+            ])
+            .collect::<Vec<(ColumnDef, Value)>>();
+
+        let validator = UpdateIntegrityValidator::<User>::new(&dbms, Value::Uint32(1.into()));
+        let result = validator.validate(&values);
+        assert!(matches!(
+            result,
+            Err(IcDbmsError::Query(QueryError::PrimaryKeyConflict))
+        ));
+    }
+
+    #[test]
+    fn test_should_fail_update_with_invalid_column_value() {
         load_fixtures();
         let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
 
@@ -118,42 +189,18 @@ mod tests {
             .zip(vec![
                 Value::Uint32(1.into()),
                 Value::Text("Alice".to_string().into()),
-                Value::Text("alice@example.com".into()),
-                Value::Uint32(30.into()), // age field
+                Value::Text("invalid-email".to_string().into()),
+                Value::Uint32(30.into()),
             ])
             .collect::<Vec<(ColumnDef, Value)>>();
 
-        let validator = InsertIntegrityValidator::<User>::new(&dbms);
+        let validator = UpdateIntegrityValidator::<User>::new(&dbms, Value::Uint32(1.into()));
         let result = validator.validate(&values);
-        assert!(matches!(
-            result,
-            Err(IcDbmsError::Query(QueryError::PrimaryKeyConflict))
-        ));
-    }
-    #[test]
-    fn test_should_pass_check_for_pk_conflict() {
-        load_fixtures();
-        let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
-
-        // no conflict case
-        let values = User::columns()
-            .iter()
-            .cloned()
-            .zip(vec![
-                Value::Uint32(1000.into()),
-                Value::Text("Alice".to_string().into()),
-                Value::Text("alice@example.com".into()),
-                Value::Uint32(30.into()), // age field
-            ])
-            .collect::<Vec<(ColumnDef, Value)>>();
-
-        let validator = InsertIntegrityValidator::<User>::new(&dbms);
-        let result = validator.validate(&values);
-        assert!(result.is_ok());
+        assert!(matches!(result, Err(IcDbmsError::Validation(_))));
     }
 
     #[test]
-    fn test_should_not_pass_check_for_fk_conflict() {
+    fn test_should_fail_update_with_invalid_fk() {
         load_fixtures();
         let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
 
@@ -179,7 +226,7 @@ mod tests {
     }
 
     #[test]
-    fn test_should_pass_check_for_fk_conflict() {
+    fn test_should_pass_update_with_valid_fk() {
         load_fixtures();
         let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
 
@@ -199,73 +246,29 @@ mod tests {
     }
 
     #[test]
-    fn test_should_not_pass_non_nullable_field_check() {
+    fn test_should_fail_update_with_missing_non_nullable_field() {
         load_fixtures();
+        let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
 
+        // omit the "title" non-nullable field from Post
         let values = Post::columns()
             .iter()
             .cloned()
-            .filter(|col| col.name != "title") // omit non-nullable field
+            .filter(|col| col.name != "title")
             .zip(vec![
                 Value::Uint32(1.into()),
-                // Missing title
+                // title is omitted
                 Value::Text("Content".to_string().into()),
                 Value::Uint32(1.into()),
             ])
             .collect::<Vec<(ColumnDef, Value)>>();
 
-        let result = common::check_non_nullable_fields::<Post>(&values);
+        let validator = UpdateIntegrityValidator::<Post>::new(&dbms, Value::Uint32(1.into()));
+        let result = validator.validate(&values);
         assert!(matches!(
             result,
-            Err(IcDbmsError::Query(QueryError::MissingNonNullableField(
-                field_name
-            ))) if field_name == "title"
+            Err(IcDbmsError::Query(QueryError::MissingNonNullableField(field_name)))
+                if field_name == "title"
         ));
-    }
-
-    #[test]
-    fn test_should_pass_non_nullable_field_check() {
-        load_fixtures();
-
-        let values = Message::columns()
-            .iter()
-            .filter(|col| !col.nullable)
-            .cloned()
-            .zip(vec![
-                Value::Uint32(100.into()),
-                Value::Text("Hello".to_string().into()),
-                Value::Uint32(1.into()),
-                Value::Uint32(2.into()),
-            ])
-            .collect::<Vec<(ColumnDef, Value)>>();
-
-        let result = common::check_non_nullable_fields::<Message>(&values);
-        assert!(result.is_ok());
-
-        // should pass with nullable set
-
-        let values = Message::columns()
-            .iter()
-            .cloned()
-            .zip(vec![
-                Value::Uint32(100.into()),
-                Value::Text("Hello".to_string().into()),
-                Value::Uint32(1.into()),
-                Value::Uint32(2.into()),
-                Value::DateTime(DateTime {
-                    year: 2024,
-                    month: 6,
-                    day: 1,
-                    hour: 12,
-                    minute: 0,
-                    second: 0,
-                    microsecond: 0,
-                    timezone_offset_minutes: 0,
-                }),
-            ])
-            .collect::<Vec<(ColumnDef, Value)>>();
-
-        let result = common::check_non_nullable_fields::<Message>(&values);
-        assert!(result.is_ok());
     }
 }
