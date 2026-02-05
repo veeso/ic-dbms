@@ -127,3 +127,4 @@ ic_cdk::export_candid!();
 
 - Uses Conventional Commits
 - Output artifacts go to `.artifact/` (`.wasm`, `.did`, `.wasm.gz`)
+- Always update the CHANGELOG.md with significant changes
