@@ -13,10 +13,10 @@ description = "Macros and derive ic-dbms-canister"
 include = [
   "examples/**/*",
   "src/**/*",
-  "../LICENSE",
+  "../../LICENSE",
   "README.md",
-  "../CHANGELOG.md",
-  "../assets/images/cargo/logo-128.png",
+  "../../CHANGELOG.md",
+  "../../assets/images/cargo/logo-128.png",
 ]
 readme = "README.md"
 

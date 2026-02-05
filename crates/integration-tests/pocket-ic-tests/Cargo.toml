@@ -13,8 +13,8 @@ anyhow = "1"
 candid = { workspace = true }
 flate2 = "1"
 ic-agent = { workspace = true }
-ic-dbms-api = { path = "../../ic-dbms-api" }
-ic-dbms-client = { path = "../../ic-dbms-client", features = ["ic-agent", "pocket-ic"] }
+ic-dbms-api = { path = "../../crates/ic-dbms-api" }
+ic-dbms-client = { path = "../../crates/ic-dbms-client", features = ["ic-agent", "pocket-ic"] }
 pocket-ic = { workspace = true }
 reqwest = { version = "0.13" }
 serde = { workspace = true }
