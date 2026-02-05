@@ -1,25 +1,25 @@
 # Relationships
 
-- [Overview](#overview)
-- [Defining Foreign Keys](#defining-foreign-keys)
-  - [Foreign Key Syntax](#foreign-key-syntax)
-  - [Foreign Key Constraints](#foreign-key-constraints)
-- [Referential Integrity](#referential-integrity)
-  - [Insert Validation](#insert-validation)
-  - [Update Validation](#update-validation)
-- [Delete Behaviors](#delete-behaviors)
-  - [Restrict](#restrict)
-  - [Cascade](#cascade)
-  - [Break](#break)
-  - [Choosing a Delete Behavior](#choosing-a-delete-behavior)
-- [Eager Loading](#eager-loading)
-  - [Basic Eager Loading](#basic-eager-loading)
-  - [Multiple Relations](#multiple-relations)
-  - [Eager Loading with Filters](#eager-loading-with-filters)
-- [Common Patterns](#common-patterns)
-  - [One-to-Many](#one-to-many)
-  - [Many-to-Many](#many-to-many)
-  - [Self-Referential](#self-referential)
+- [Relationships](#relationships)
+  - [Overview](#overview)
+  - [Defining Foreign Keys](#defining-foreign-keys)
+    - [Foreign Key Syntax](#foreign-key-syntax)
+    - [Foreign Key Constraints](#foreign-key-constraints)
+  - [Referential Integrity](#referential-integrity)
+    - [Insert Validation](#insert-validation)
+    - [Update Validation](#update-validation)
+  - [Delete Behaviors](#delete-behaviors)
+    - [Restrict](#restrict)
+    - [Cascade](#cascade)
+    - [Choosing a Delete Behavior](#choosing-a-delete-behavior)
+  - [Eager Loading](#eager-loading)
+    - [Basic Eager Loading](#basic-eager-loading)
+    - [Multiple Relations](#multiple-relations)
+    - [Eager Loading with Filters](#eager-loading-with-filters)
+  - [Common Patterns](#common-patterns)
+    - [One-to-Many](#one-to-many)
+    - [Many-to-Many](#many-to-many)
+    - [Self-Referential](#self-referential)
 
 ---
 
@@ -215,31 +215,10 @@ client.delete::<User>(
 
 **Use when**: Related records have no meaning without the parent (e.g., comments on a deleted post).
 
-### Break
-
-**Behavior**: Break the foreign key reference. If the foreign key is nullable, set it to null. Otherwise, the reference becomes invalid.
-
-```rust
-// Posts' author_id references will be broken
-client.delete::<User>(
-    User::table_name(),
-    DeleteBehavior::Break,
-    Some(Filter::eq("id", Value::Uint32(1.into()))),
-    None
-).await??;
-
-// Posts still exist but author_id points to non-existent user
-```
-
-**Use when**: Related records should be preserved but can exist without the parent.
-
-> **Warning**: Using `Break` with non-nullable foreign keys results in orphaned records with invalid references. Consider using `Nullable<Uint32>` for foreign keys where `Break` behavior is desired.
-
 ### Choosing a Delete Behavior
 
 | Scenario | Recommended Behavior |
 |----------|---------------------|
-| User account deletion (keep posts) | `Break` with nullable FK |
 | User account deletion (remove everything) | `Cascade` |
 | Prevent accidental deletion | `Restrict` |
 | Soft delete pattern | Don't delete; use status field |
