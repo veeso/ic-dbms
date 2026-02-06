@@ -113,14 +113,12 @@ impl Like {
                     }
                     _ => {
                         // mismatch — extend the last '%' match by one character
-                        if let Some(s_ti) = star_ti {
-                            if let Some(c) = input[star_ii..].chars().next() {
-                                star_ii += c.len_utf8();
-                                ii = star_ii;
-                                ti = s_ti;
-                            } else {
-                                return false;
-                            }
+                        if let Some(s_ti) = star_ti
+                            && let Some(c) = input[star_ii..].chars().next()
+                        {
+                            star_ii += c.len_utf8();
+                            ii = star_ii;
+                            ti = s_ti;
                         } else {
                             return false;
                         }
@@ -293,8 +291,7 @@ mod tests {
         assert!(!pattern.matches("hello world"));
 
         // mixed wildcards with multi-byte chars
-        let pattern =
-            Like::parse("_\u{00e9}%\u{1f600}_").expect("failed to parse pattern");
+        let pattern = Like::parse("_\u{00e9}%\u{1f600}_").expect("failed to parse pattern");
         assert!(pattern.matches("b\u{00e9}er\u{1f600}!"));
         assert!(pattern.matches("c\u{00e9}\u{1f600}x"));
         assert!(!pattern.matches("\u{00e9}\u{1f600}x"));
