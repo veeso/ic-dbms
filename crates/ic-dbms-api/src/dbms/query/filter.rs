@@ -1,4 +1,5 @@
 mod json_filter;
+mod like;
 
 use candid::CandidType;
 use serde::{Deserialize, Serialize};
@@ -142,14 +143,13 @@ impl Filter {
                 for (col, val) in values {
                     if col.name == *field {
                         if let Value::Text(Text(text)) = val {
-                            let res =
-                                like::Like::<true>::like(text.as_str(), pattern).map_err(|e| {
+                            return Ok(like::Like::parse(pattern)
+                                .map_err(|e| {
                                     QueryError::InvalidQuery(format!(
                                         "Invalid LIKE pattern {pattern}: {e}"
                                     ))
-                                })?;
-
-                            return Ok(res);
+                                })?
+                                .matches(text));
                         }
                         return Err(QueryError::InvalidQuery(
                             "LIKE operator can only be applied to Text values".to_string(),
