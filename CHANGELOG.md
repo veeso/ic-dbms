@@ -9,17 +9,39 @@
 
 ## 0.4.0
 
-Unreleased
+Released on 2026-02-06
 
-- [Issue 13](https://github.com/veeso/ic-dbms/issues/13): Added JSON filtering capabilities for querying JSON columns.
-  - `JsonFilter::Contains` for PostgreSQL `@>` style structural containment checks
-  - `JsonFilter::Extract` for extracting values at JSON paths with comparison operations
-  - `JsonFilter::HasKey` for checking path existence in JSON structures
-  - Path syntax supports dot notation with bracket array indices (e.g., `user.items[0].name`)
-- [Issue 22](https://github.com/veeso/ic-dbms/issues/22): Added `AgentClient` for the ic-dbms-canister to interact with
-  the IC from an IC Agent.
-- Fixed an issue with the IcCanisterClient which called `update` with the wrong amount of arguments.
-- [Issue 12](https://github.com/veeso/ic-dbms/issues/12): Bump pocket-ic to 12.0.0.
+- New features:
+  - [Issue 13](https://github.com/veeso/ic-dbms/issues/13): Added JSON filtering capabilities for querying JSON columns.
+    - `JsonFilter::Contains` for PostgreSQL `@>` style structural containment checks
+    - `JsonFilter::Extract` for extracting values at JSON paths with comparison operations
+    - `JsonFilter::HasKey` for checking path existence in JSON structures
+    - Path syntax supports dot notation with bracket array indices (e.g., `user.items[0].name`)
+  - [Issue 22](https://github.com/veeso/ic-dbms/issues/22): Added `AgentClient` for the ic-dbms-canister to interact with
+    the IC from an IC Agent.
+- Performance improvements:
+  - [Issue 11](https://github.com/veeso/ic-dbms/issues/11): Implemented in-place update instead of delete+insert strategy
+    ([#37](https://github.com/veeso/ic-dbms/pull/37)).
+    - Records whose size is unchanged are now overwritten directly in stable memory, avoiding unnecessary reallocation.
+    - Records whose size changes still fall back to delete+reinsert.
+    - Added `UpdateIntegrityValidator` that allows keeping the same primary key during updates.
+    - Cascade primary key changes to referencing tables via `update_pk_referencing_updated_table`.
+    - Extracted shared validation logic into `integrity::common` module.
+  - Replaced the external `like` crate with a custom SQL LIKE pattern engine ([#42](https://github.com/veeso/ic-dbms/pull/42)).
+    - The new iterative two-pointer algorithm runs in O(n*m) worst-case with O(1) space and zero heap allocation, replacing the previous recursive approach that had exponential worst-case complexity.
+- Bug fixes:
+  - Fixed an issue with the IcCanisterClient which called `update` with the wrong amount of arguments.
+  - Fixed multi-column `order_by` applying sorts in the wrong order, causing only the last column's sort to survive
+    ([#39](https://github.com/veeso/ic-dbms/pull/39)).
+- Refactoring:
+  - Moved workspace crates into `crates/` directory for better project organization
+  ([#38](https://github.com/veeso/ic-dbms/pull/38)).
+  - Cleaned up `dbms.rs` with extracted helpers, immutable borrow fixes, and moved tests to a separate file
+  ([#40](https://github.com/veeso/ic-dbms/pull/40)).
+  - Reorganized and expanded project documentation ([#31](https://github.com/veeso/ic-dbms/pull/31)).
+  - Increased test coverage for ic-dbms-api, ic-dbms-canister, and ic-dbms-client.
+- Dependencies:
+  - [Issue 12](https://github.com/veeso/ic-dbms/issues/12): Bump pocket-ic to 12.0.0.
 
 ## 0.3.0
 
