@@ -23,6 +23,13 @@
     - [Select All Fields](#select-all-fields)
     - [Select Specific Fields](#select-specific-fields)
   - [Eager Loading](#eager-loading)
+  - [Joins](#joins)
+    - [Join Types](#join-types)
+    - [Basic Join](#basic-join)
+    - [Left, Right, and Full Joins](#left-right-and-full-joins)
+    - [Chaining Multiple Joins](#chaining-multiple-joins)
+    - [Qualified Column Names](#qualified-column-names)
+    - [Joins vs Eager Loading](#joins-vs-eager-loading)
 
 ---
 
@@ -36,6 +43,7 @@ and can include:
 - **Pagination** - Limit results and implement pagination
 - **Field Selection** - Choose which columns to return
 - **Eager Loading** - Load related records in a single query
+- **Joins** - Combine rows from multiple tables
 
 ---
 
@@ -77,6 +85,7 @@ A query consists of these optional components:
 | Limit         | `.limit()`               | Maximum records to return |
 | Offset        | `.offset()`              | Records to skip           |
 | Eager Loading | `.with()`                | Related tables to load    |
+| Join          | `.inner_join()`, etc.    | Cross-table join          |
 
 ---
 
@@ -389,3 +398,122 @@ let posts = client.select::<Post>(Post::table_name(), query, None).await? ?;
 ```
 
 See the [Relationships Guide](./relationships.md) for more on eager loading.
+
+---
+
+## Joins
+
+Joins combine rows from two or more tables based on a related column, producing a single result set with columns from all joined tables. Use joins when you need to correlate data across tables in a single flat result — for example, listing posts alongside their author names.
+
+> **Note:** Joins only work through the untyped `select_raw` path (or the `select` canister endpoint). Typed `select::<T>` rejects queries that contain joins with a `JoinInsideTypedSelect` error.
+
+### Join Types
+
+| Type | Builder Method | Description |
+|------|---------------|-------------|
+| INNER | `.inner_join()` | Returns only rows where both sides match |
+| LEFT | `.left_join()` | Returns all left rows; unmatched right columns are NULL |
+| RIGHT | `.right_join()` | Returns all right rows; unmatched left columns are NULL |
+| FULL | `.full_join()` | Returns all rows from both sides; unmatched columns are NULL |
+
+### Basic Join
+
+Use `.inner_join(table, left_column, right_column)` to join two tables:
+
+```rust
+use ic_dbms_api::prelude::*;
+
+// Join users with their posts (INNER JOIN)
+let query = Query::builder()
+    .all()
+    .inner_join("posts", "id", "user_id")
+    .build();
+
+// Use select_raw since joins return untyped rows
+let rows = client.select_raw("users", query, None).await??;
+
+// Each row contains columns from both "users" and "posts"
+for row in &rows {
+    for (col_def, value) in row {
+        // col_def.table tells you which table the column came from
+        println!("{}.{} = {:?}", col_def.table.as_deref().unwrap_or("?"), col_def.name, value);
+    }
+}
+```
+
+### Left, Right, and Full Joins
+
+```rust
+// LEFT JOIN: all users, even those without posts
+let query = Query::builder()
+    .all()
+    .left_join("posts", "id", "user_id")
+    .build();
+
+// RIGHT JOIN: all posts, even those with missing/deleted authors
+let query = Query::builder()
+    .all()
+    .right_join("posts", "id", "user_id")
+    .build();
+
+// FULL JOIN: all users and all posts, matched where possible
+let query = Query::builder()
+    .all()
+    .full_join("posts", "id", "user_id")
+    .build();
+```
+
+For LEFT, RIGHT, and FULL joins, columns from the unmatched side are filled with `Value::Null`.
+
+### Chaining Multiple Joins
+
+Chain multiple joins to combine more than two tables:
+
+```rust
+// Users → Posts → Comments
+let query = Query::builder()
+    .all()
+    .inner_join("posts", "id", "user_id")
+    .left_join("comments", "posts.id", "post_id")
+    .build();
+
+let rows = client.select_raw("users", query, None).await??;
+```
+
+Joins are processed left-to-right. The second join operates on the result of the first.
+
+### Qualified Column Names
+
+When joining tables that share column names, use `table.column` syntax to disambiguate:
+
+```rust
+// Both "users" and "posts" have an "id" column
+let query = Query::builder()
+    .field("users.id")
+    .field("users.name")
+    .field("posts.title")
+    .inner_join("posts", "users.id", "user_id")
+    .and_where(Filter::eq("users.name", Value::Text("Alice".into())))
+    .order_by_asc("posts.title")
+    .build();
+```
+
+Qualified names (`table.column`) work in:
+- Field selection (`.field()`)
+- Filters (`.and_where()`, `.or_where()`)
+- Ordering (`.order_by_asc()`, `.order_by_desc()`)
+- Join ON conditions
+
+Unqualified names default to the FROM table (the table passed to `select_raw`).
+
+### Joins vs Eager Loading
+
+| | Eager Loading | Joins |
+|--|--------------|-------|
+| **Result type** | Typed (`Vec<T>`) | Untyped (`Vec<Vec<(CandidColumnDef, Value)>>`) |
+| **Result format** | Separate related records | Flat combined rows |
+| **API method** | `select::<T>` | `select_raw` / `select` endpoint |
+| **Column disambiguation** | Not needed | Use `table.column` syntax |
+| **Use case** | Load parent with children | Correlate columns across tables |
+
+Use **eager loading** when you want typed results with related records attached. Use **joins** when you need a flat, cross-table result set — for example, for reporting, search, or when you need columns from multiple tables in a single row.

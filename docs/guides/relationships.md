@@ -16,6 +16,7 @@
     - [Basic Eager Loading](#basic-eager-loading)
     - [Multiple Relations](#multiple-relations)
     - [Eager Loading with Filters](#eager-loading-with-filters)
+    - [Cross-Table Queries with Joins](#cross-table-queries-with-joins)
   - [Common Patterns](#common-patterns)
     - [One-to-Many](#one-to-many)
     - [Many-to-Many](#many-to-many)
@@ -283,6 +284,12 @@ let query = Query::builder()
 
 let posts = client.select::<Post>(Post::table_name(), query, None).await??;
 ```
+
+### Cross-Table Queries with Joins
+
+In addition to eager loading, ic-dbms supports SQL-style joins (INNER, LEFT, RIGHT, FULL) for combining rows from multiple tables into a flat result set. Joins are useful when you need columns from several tables in a single row — for example, listing post titles alongside author names. Unlike eager loading, joins return untyped results via the `select_raw` path.
+
+See the [Querying Guide — Joins](./querying.md#joins) section for full details and examples.
 
 ---
 
