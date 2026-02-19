@@ -13,6 +13,7 @@
 - [Data Flow](#data-flow)
   - [Insert Operation](#insert-operation)
   - [Select Operation](#select-operation)
+  - [Select with Join](#select-with-join)
   - [Transaction Flow](#transaction-flow)
 - [Extension Points](#extension-points)
 
@@ -98,6 +99,7 @@ See [Memory Documentation](./memory.md) for detailed technical information.
 | `Transaction` | Overlay for uncommitted changes |
 | `QueryExecutor` | Executes queries with filters |
 | `ForeignKeyHandler` | Validates and cascades foreign keys |
+| `JoinEngine` | Executes cross-table join queries |
 
 **Transaction model:**
 
@@ -151,6 +153,9 @@ insert_users(UserInsertRequest, Option<TxId>) -> Result<()>
 select_users(Query, Option<TxId>) -> Result<Vec<UserRecord>>
 update_users(UserUpdateRequest, Option<TxId>) -> Result<u64>
 delete_users(DeleteBehavior, Option<Filter>, Option<TxId>) -> Result<u64>
+
+// Untyped select (supports joins):
+select(table: String, Query, Option<TxId>) -> Result<Vec<Vec<(CandidColumnDef, Value)>>>
 
 // Global operations:
 begin_transaction() -> TxId
@@ -278,6 +283,31 @@ ic-dbms/
               │
 6. Return Result<Vec<Record>>
 ```
+
+### Select with Join
+
+```
+1. Client calls select(table, query_with_joins, tx_id)
+              │
+2. ACL guard checks caller authorization
+              │
+3. API layer checks query.has_joins()
+              │ (true)
+4. JoinEngine:
+   a. Read all rows from FROM table
+   b. For each JOIN clause:
+      - Read all rows from joined table
+      - Resolve column references
+      - Execute nested-loop join
+   c. Apply filter on combined rows
+   d. Apply ordering
+   e. Apply offset/limit
+   f. Flatten to output with CandidColumnDef
+              │
+5. Return Result<Vec<Vec<(CandidColumnDef, Value)>>>
+```
+
+See [Join Engine](./join-engine.md) for implementation details.
 
 ### Transaction Flow
 

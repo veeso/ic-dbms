@@ -49,6 +49,7 @@ For advanced users and contributors:
 
 - [Architecture](./docs/technical/architecture.md) - Three-layer system overview
 - [Memory Management](./docs/technical/memory.md) - Stable memory internals
+- [Join Engine](./docs/technical/join-engine.md) - Cross-table join query internals
 
 ---
 
