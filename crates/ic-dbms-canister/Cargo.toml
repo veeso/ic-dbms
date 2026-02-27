@@ -16,7 +16,6 @@ include = [
   "../../LICENSE",
   "../../README.md",
   "../../CHANGELOG.md",
-  "../../assets/images/cargo/logo-128.png",
 ]
 readme = "../../README.md"
 
