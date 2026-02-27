@@ -1,9 +1,10 @@
 ---
 title: "IC-DBMS Canister"
 description: "An Internet Computer framework which provides an easy way to implement a database canister by just providing the database schema."
+nav_order: 1
 ---
 
-![logo](./assets/images/cargo/logo-128.png)
+![logo](https://wasm-dbms.cc/logo-128.png)
 
 [![license-mit](https://img.shields.io/crates/l/ic-dbms-canister.svg)](https://opensource.org/licenses/MIT)
 [![repo-stars](https://img.shields.io/github/stars/veeso/ic-dbms?style=flat)](https://github.com/veeso/ic-dbms/stargazers)
@@ -95,13 +96,13 @@ let client = IcDbmsCanisterClient::new(canister_id);
 
 // Insert
 let user = UserInsertRequest { id: 1.into(), name: "Alice".into(), email: "alice@example.com".into() };
-client.insert::<User>(User::table_name(), user, None).await??;
+client.insert::<User>(User::table_name(), user, None).await? ?;
 
 // Query
 let query = Query::builder()
-    .filter(Filter::eq("name", Value::Text("Alice".into())))
-    .build();
-let users = client.select::<User>(User::table_name(), query, None).await??;
+.filter(Filter::eq("name", Value::Text("Alice".into())))
+.build();
+let users = client.select::<User>(User::table_name(), query, None).await? ?;
 ```
 
 ---

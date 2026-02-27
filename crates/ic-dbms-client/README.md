@@ -1,6 +1,6 @@
 # ic-dbms-client
 
-![logo](../assets/images/cargo/logo-128.png)
+![logo](https://wasm-dbms.cc/logo-128.png)
 
 [![license-mit](https://img.shields.io/crates/l/ic-dbms-client.svg)](https://opensource.org/licenses/MIT)
 [![repo-stars](https://img.shields.io/github/stars/veeso/ic-dbms?style=flat)](https://github.com/veeso/ic-dbms/stargazers)
