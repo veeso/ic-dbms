@@ -184,10 +184,10 @@ fn test_should_select_queried_fields() {
         .collect::<Vec<(ColumnDef, Value)>>();
 
     let query = Query::builder().field("name").build();
-    let selected_fields = dbms
-        .select_queried_fields::<User>(record_values, &query)
-        .expect("failed to select queried fields");
-    let user_fields = selected_fields
+    let mut results = vec![vec![(ValuesSource::This, record_values)]];
+    dbms.apply_column_selection::<User>(&mut results, &query);
+    let user_fields = results
+        .remove(0)
         .into_iter()
         .find(|(table_name, _)| *table_name == ValuesSource::This)
         .map(|(_, cols)| cols)
@@ -234,9 +234,11 @@ fn test_should_select_queried_fields_with_relations() {
         .field("title")
         .with(User::table_name())
         .build();
-    let selected_fields = dbms
-        .select_queried_fields::<Post>(record_values, &query)
-        .expect("failed to select queried fields");
+    let mut results = vec![vec![(ValuesSource::This, record_values)]];
+    dbms.batch_load_eager_relations::<Post>(&mut results, &query)
+        .expect("failed to batch load eager relations");
+    dbms.apply_column_selection::<Post>(&mut results, &query);
+    let selected_fields = &results[0];
 
     // check post fields
     let post_fields = selected_fields
@@ -439,7 +441,8 @@ fn test_should_fail_loading_unexisting_relation() {
         .field("title")
         .with("unexisting_relation")
         .build();
-    let result = dbms.select_queried_fields::<Post>(record_values, &query);
+    let mut results = vec![vec![(ValuesSource::This, record_values)]];
+    let result = dbms.batch_load_eager_relations::<Post>(&mut results, &query);
     assert!(result.is_err());
 }
 

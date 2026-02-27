@@ -9,6 +9,7 @@ mod tests;
 pub mod transaction;
 
 use std::cmp::Ordering;
+use std::collections::HashSet;
 
 use ic_dbms_api::prelude::{
     ColumnDef, DataTypeKind, Database, DeleteBehavior, Filter, ForeignFetcher, ForeignKeyDef,
@@ -157,67 +158,164 @@ impl IcDbmsDatabase {
         filter.matches(record_values).map_err(IcDbmsError::from)
     }
 
-    /// Select only the queried fields from the given record values.
-    ///
-    /// It also loads eager relations if any.
-    fn select_queried_fields<T>(
-        &self,
-        mut record_values: Vec<(ColumnDef, Value)>,
-        query: &Query,
-    ) -> IcDbmsResult<TableColumns>
+    /// Filter record columns down to only the selected fields from the query.
+    fn apply_column_selection<T>(&self, results: &mut [TableColumns], query: &Query)
     where
         T: TableSchema,
     {
-        let mut queried_fields = vec![];
+        if query.all_selected() {
+            return;
+        }
+        let selected_columns = query.columns::<T>();
+        results
+            .iter_mut()
+            .flat_map(|record| record.iter_mut())
+            .filter(|(source, _)| *source == ValuesSource::This)
+            .for_each(|(_, cols)| {
+                cols.retain(|(col_def, _)| selected_columns.contains(&col_def.name.to_string()));
+            });
+    }
 
-        // handle eager relations
-        // FIXME: currently we fetch the FK for each record, which is shit.
-        // In the future, we should batch fetch foreign keys for all records in the result set.
+    /// Batch-fetches all eager relations for the collected result set.
+    ///
+    /// For each eager relation, collects all distinct FK values across all records,
+    /// performs a single batch query, and attaches the foreign data to each record.
+    /// This resolves the N+1 query problem.
+    fn batch_load_eager_relations<T>(
+        &self,
+        results: &mut [TableColumns],
+        query: &Query,
+    ) -> IcDbmsResult<()>
+    where
+        T: TableSchema,
+    {
+        if query.eager_relations.is_empty() {
+            return Ok(());
+        }
+
+        let fetcher = T::foreign_fetcher();
+
         for relation in &query.eager_relations {
-            let mut fetched = false;
-            // iter all foreign key with that table
-            for (fk, fk_value) in record_values
-                .iter()
-                .filter(|(col_def, _)| {
-                    col_def
-                        .foreign_key
-                        .is_some_and(|fk| fk.foreign_table == *relation)
-                })
-                .map(|(col, value)| {
-                    (
-                        col.foreign_key.as_ref().expect("cannot be empty"),
-                        value.clone(),
-                    )
-                })
-            {
-                // get foreign values
-                queried_fields.extend(T::foreign_fetcher().fetch(
-                    self,
-                    relation,
-                    fk.local_column,
-                    fk_value,
-                )?);
-                fetched = true;
+            let fk_columns = Self::collect_fk_values::<T>(results, relation)?;
+
+            for (local_column, pk_values) in &fk_columns {
+                let batch_map = fetcher.fetch_batch(self, relation, pk_values)?;
+
+                Self::verify_fk_batch(&batch_map, pk_values, relation)?;
+                Self::attach_foreign_data(results, &batch_map, relation, local_column);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Collects distinct FK values across all records for a given relation.
+    ///
+    /// Returns a list of `(local_column, distinct_pk_values)` pairs.
+    fn collect_fk_values<T>(
+        results: &[TableColumns],
+        relation: &str,
+    ) -> IcDbmsResult<Vec<(&'static str, Vec<Value>)>>
+    where
+        T: TableSchema,
+    {
+        let mut fk_columns: Vec<(&'static str, HashSet<Value>)> = vec![];
+
+        for record_columns in results {
+            let Some(cols) = Self::this_columns(record_columns) else {
+                continue;
+            };
+
+            let mut found_fk = false;
+            for (col_def, value) in cols {
+                let Some(fk) = &col_def.foreign_key else {
+                    continue;
+                };
+                if *fk.foreign_table != *relation {
+                    continue;
+                }
+
+                found_fk = true;
+                match fk_columns.iter_mut().find(|(lc, _)| *lc == fk.local_column) {
+                    Some((_, values)) => {
+                        values.insert(value.clone());
+                    }
+                    None => {
+                        let mut set = HashSet::new();
+                        set.insert(value.clone());
+                        fk_columns.push((fk.local_column, set));
+                    }
+                }
             }
 
-            if !fetched {
+            if !found_fk {
                 return Err(IcDbmsError::Query(QueryError::InvalidQuery(format!(
-                    "Cannot load relation '{}' for table '{}': no foreign key found",
-                    relation,
+                    "Cannot load relation '{relation}' for table '{}': no foreign key found",
                     T::table_name()
                 ))));
             }
         }
 
-        // short-circuit if all selected
-        if query.all_selected() {
-            queried_fields.push((ValuesSource::This, record_values));
-            return Ok(queried_fields);
+        Ok(fk_columns
+            .into_iter()
+            .map(|(col, set)| (col, set.into_iter().collect()))
+            .collect())
+    }
+
+    /// Verifies that every FK value was found in the batch result.
+    fn verify_fk_batch(
+        batch_map: &std::collections::HashMap<Value, Vec<(ColumnDef, Value)>>,
+        pk_values: &[Value],
+        relation: &str,
+    ) -> IcDbmsResult<()> {
+        if let Some(missing) = pk_values.iter().find(|v| !batch_map.contains_key(v)) {
+            return Err(IcDbmsError::Query(QueryError::BrokenForeignKeyReference {
+                table: relation.to_string(),
+                key: missing.clone(),
+            }));
         }
-        let selected_columns = query.columns::<T>();
-        record_values.retain(|(col_def, _)| selected_columns.contains(&col_def.name.to_string()));
-        queried_fields.push((ValuesSource::This, record_values));
-        Ok(queried_fields)
+        Ok(())
+    }
+
+    /// Attaches batch-fetched foreign data to each record that references the given relation.
+    fn attach_foreign_data(
+        results: &mut [TableColumns],
+        batch_map: &std::collections::HashMap<Value, Vec<(ColumnDef, Value)>>,
+        relation: &str,
+        local_column: &str,
+    ) {
+        for record_columns in results.iter_mut() {
+            let fk_value = Self::this_columns(record_columns).and_then(|cols| {
+                cols.iter().find_map(|(col_def, value)| {
+                    let fk = col_def.foreign_key.as_ref()?;
+                    (fk.foreign_table == relation && fk.local_column == local_column)
+                        .then(|| value.clone())
+                })
+            });
+
+            let Some(fk_val) = fk_value else { continue };
+            let Some(foreign_values) = batch_map.get(&fk_val) else {
+                continue;
+            };
+
+            record_columns.push((
+                ValuesSource::Foreign {
+                    table: relation.to_string(),
+                    column: local_column.to_string(),
+                },
+                foreign_values.clone(),
+            ));
+        }
+    }
+
+    /// Extracts the `ValuesSource::This` columns from a record.
+    fn this_columns(
+        record: &[(ValuesSource, Vec<(ColumnDef, Value)>)],
+    ) -> Option<&Vec<(ColumnDef, Value)>> {
+        record
+            .iter()
+            .find(|(src, _)| *src == ValuesSource::This)
+            .map(|(_, cols)| cols)
     }
 
     /// Retrieves existing primary keys for records matching the given filter.
@@ -264,10 +362,9 @@ impl IcDbmsDatabase {
     /// Sorts the query results based on the specified column and order direction.
     ///
     /// We only sort values which have [`ValuesSource::This`].
-    #[allow(clippy::type_complexity)]
     fn sort_query_results(
         &self,
-        results: &mut [Vec<(ValuesSource, Vec<(ColumnDef, Value)>)>],
+        results: &mut [TableColumns],
         column: &str,
         direction: OrderDirection,
     ) {
@@ -353,15 +450,19 @@ impl IcDbmsDatabase {
             if query.offset.is_some_and(|offset| count <= offset) {
                 continue;
             }
-            // get queried fields
-            let values = self.select_queried_fields::<T>(values, &query)?;
-            // push to results
-            results.push(values);
+            // wrap raw column values as This source (all columns preserved for FK lookup)
+            results.push(vec![(ValuesSource::This, values)]);
             // check whether reached limit
             if query.limit.is_some_and(|limit| results.len() >= limit) {
                 break;
             }
         }
+
+        // batch-load eager relations for all collected records
+        self.batch_load_eager_relations::<T>(&mut results, &query)?;
+
+        // apply column selection after eager loading (FK columns must be available during batch load)
+        self.apply_column_selection::<T>(&mut results, &query);
 
         // Sort results if needed, applying in reverse order so the primary sort key
         // (first in the list) is applied last. Since `sort_by` is a stable sort,
