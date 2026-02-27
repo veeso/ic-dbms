@@ -1,4 +1,5 @@
 use std::str::FromStr;
+use std::sync::OnceLock;
 
 use candid::CandidType;
 use serde::{Deserialize, Serialize};
@@ -163,10 +164,17 @@ impl Value {
             Value::Uint64(_) => "Uint64",
             Value::Uuid(_) => "Uuid",
             Value::Custom(cv) => {
-                let s = format!("Custom({})", cv.type_tag);
-                // Leak is acceptable here — type_name() returns &'static str and
-                // the number of unique type tags is bounded at compile time.
-                s.leak()
+                // Cache custom type names to avoid repeated allocations.
+                // The number of unique type tags is bounded at compile time,
+                // so the map grows to a fixed size.
+                static CACHE: OnceLock<std::sync::Mutex<std::collections::HashMap<String, &'static str>>> = OnceLock::new();
+                let cache = CACHE.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+                let mut map = cache.lock().unwrap_or_else(|e| e.into_inner());
+                map.entry(cv.type_tag.clone())
+                    .or_insert_with(|| {
+                        let s = format!("Custom({})", cv.type_tag);
+                        s.leak()
+                    })
             }
         }
     }
