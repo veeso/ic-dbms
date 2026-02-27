@@ -21,7 +21,6 @@ pub enum Value {
     Int64(types::Int64),
     Json(types::Json),
     Null,
-    Principal(types::Principal),
     Text(types::Text),
     Uint8(types::Uint8),
     Uint16(types::Uint16),
@@ -113,7 +112,6 @@ impl_conv_for_value!(Int16, types::Int16, as_int16, tests_int16);
 impl_conv_for_value!(Int32, types::Int32, as_int32, tests_int32);
 impl_conv_for_value!(Int64, types::Int64, as_int64, tests_int64);
 impl_conv_for_value!(Json, types::Json, as_json, tests_json);
-impl_conv_for_value!(Principal, types::Principal, as_principal, tests_principal);
 impl_conv_for_value!(Text, types::Text, as_text, tests_text);
 impl_conv_for_value!(Uint8, types::Uint8, as_uint8, tests_uint8);
 impl_conv_for_value!(Uint16, types::Uint16, as_uint16, tests_uint16);
@@ -134,12 +132,6 @@ value_from_primitive!(Uint8, u8, tests_uint8_primitive);
 value_from_primitive!(Uint16, u16, tests_uint16_primitive);
 value_from_primitive!(Uint32, u32, tests_uint32_primitive);
 value_from_primitive!(Uint64, u64, tests_uint64_primitive);
-value_from_primitive!(
-    Principal,
-    candid::Principal,
-    tests_principal_primitive,
-    candid::Principal::anonymous()
-);
 value_from_primitive!(Text, String, tests_text_primitive_string);
 value_from_primitive!(Text, &str, tests_text_primitive_str);
 value_from_primitive!(Uuid, uuid::Uuid, tests_uuid_primitive);
@@ -164,7 +156,6 @@ impl Value {
             Value::Int64(_) => "Int64",
             Value::Json(_) => "Json",
             Value::Null => "Null",
-            Value::Principal(_) => "Principal",
             Value::Text(_) => "Text",
             Value::Uint8(_) => "Uint8",
             Value::Uint16(_) => "Uint16",
@@ -278,10 +269,16 @@ mod tests {
     }
 
     #[test]
-    fn test_value_conversion_principal() {
+    fn test_value_conversion_principal_as_custom() {
         let principal = types::Principal(candid::Principal::from_text("aaaaa-aa").unwrap());
         let value: Value = principal.clone().into();
-        assert_eq!(value.as_principal(), Some(&principal));
+        // Principal is now a custom type
+        let custom = value.as_custom().expect("expected Custom variant");
+        assert_eq!(custom.type_tag, "principal");
+        let decoded: types::Principal = value
+            .as_custom_type()
+            .expect("should decode principal from Custom variant");
+        assert_eq!(decoded, principal);
     }
 
     #[test]
