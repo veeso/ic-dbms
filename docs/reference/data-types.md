@@ -19,6 +19,7 @@
   - [Semi-Structured Data](#semi-structured-data)
     - [Json](#json)
   - [Nullable](#nullable)
+  - [Custom Types](#custom-types)
   - [Type Conversion Reference](#type-conversion-reference)
 
 ---
@@ -528,6 +529,27 @@ pub struct Employee {
     pub manager_id: Nullable<Uint32>,  // Top-level employees have no manager
 }
 ```
+
+---
+
+## Custom Types
+
+Beyond the built-in types listed above, ic-dbms supports **user-defined custom data types**. Custom types let you store enums, structs, and newtypes in your tables by implementing the `CustomDataType` trait.
+
+```rust
+use ic_dbms_api::prelude::*;
+
+#[derive(Debug, Table, CandidType, Deserialize, Clone, PartialEq, Eq)]
+#[table = "tasks"]
+pub struct Task {
+    #[primary_key]
+    pub id: Uint32,
+    #[custom_type]
+    pub priority: Priority,  // User-defined custom type
+}
+```
+
+See the [Custom Data Types Guide](../guides/custom-data-types.md) for step-by-step instructions on defining and using custom types.
 
 ---
 

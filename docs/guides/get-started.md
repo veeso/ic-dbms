@@ -383,5 +383,6 @@ Now that you have a working canister, explore these topics:
 - [Transactions](./transactions.md) - ACID transactions with commit/rollback
 - [Relationships](./relationships.md) - Foreign keys and eager loading
 - [Access Control](./access-control.md) - Managing the ACL
+- [Custom Data Types](./custom-data-types.md) - Define your own data types (enums, structs)
 - [Schema Definition](../reference/schema.md) - Complete schema reference
 - [Data Types](../reference/data-types.md) - All supported field types

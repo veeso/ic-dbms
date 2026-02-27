@@ -8,6 +8,7 @@
   - [Column Attributes](#column-attributes)
     - [Primary Key](#primary-key)
     - [Foreign Key](#foreign-key)
+    - [Custom Type](#custom-type)
     - [Sanitizer](#sanitizer)
     - [Validate](#validate)
     - [Alignment](#alignment)
@@ -166,6 +167,32 @@ pub struct Category {
     pub parent_id: Nullable<Uint32>,
 }
 ```
+
+### Custom Type
+
+Mark a field as a user-defined custom data type:
+
+```rust
+#[derive(Table, ...)]
+#[table = "tasks"]
+pub struct Task {
+    #[primary_key]
+    pub id: Uint32,
+    #[custom_type]
+    pub priority: Priority,  // User-defined type
+}
+```
+
+The `#[custom_type]` attribute tells the `Table` macro that this field implements the `CustomDataType` trait. Without it, the macro won't know how to serialize and deserialize the field.
+
+**Nullable custom types:**
+
+```rust
+#[custom_type]
+pub priority: Nullable<Priority>,  // Optional custom type
+```
+
+See the [Custom Data Types Guide](../guides/custom-data-types.md) for how to define custom types.
 
 ### Sanitizer
 
