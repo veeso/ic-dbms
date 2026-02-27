@@ -83,7 +83,6 @@ pub enum DataTypeKind {
     Int32,
     Int64,
     Json,
-    Principal,
     Text,
     Uint32,
     Uint64,
@@ -109,14 +108,13 @@ mod test {
             DataTypeKind::Int32,
             DataTypeKind::Int64,
             DataTypeKind::Json,
-            DataTypeKind::Principal,
             DataTypeKind::Text,
             DataTypeKind::Uint32,
             DataTypeKind::Uint64,
             DataTypeKind::Uuid,
         ];
 
-        assert_eq!(kinds.len(), 13);
+        assert_eq!(kinds.len(), 12);
     }
 
     #[test]
@@ -166,7 +164,6 @@ mod test {
         assert_eq!(format!("{:?}", DataTypeKind::Int32), "Int32");
         assert_eq!(format!("{:?}", DataTypeKind::Int64), "Int64");
         assert_eq!(format!("{:?}", DataTypeKind::Json), "Json");
-        assert_eq!(format!("{:?}", DataTypeKind::Principal), "Principal");
         assert_eq!(format!("{:?}", DataTypeKind::Text), "Text");
         assert_eq!(format!("{:?}", DataTypeKind::Uint32), "Uint32");
         assert_eq!(format!("{:?}", DataTypeKind::Uint64), "Uint64");

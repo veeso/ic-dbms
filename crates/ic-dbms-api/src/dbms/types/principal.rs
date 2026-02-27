@@ -81,6 +81,20 @@ impl fmt::Display for Principal {
 
 impl DataType for Principal {}
 
+impl crate::dbms::types::CustomDataType for Principal {
+    const TYPE_TAG: &'static str = "principal";
+}
+
+impl From<Principal> for crate::dbms::value::Value {
+    fn from(val: Principal) -> crate::dbms::value::Value {
+        crate::dbms::value::Value::Custom(crate::dbms::custom_value::CustomValue {
+            type_tag: "principal".to_string(),
+            encoded: crate::memory::Encode::encode(&val).into_owned(),
+            display: val.to_string(),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
 

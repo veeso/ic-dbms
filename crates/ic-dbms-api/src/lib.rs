@@ -74,7 +74,7 @@
 //! - [`Int64`](crate::prelude::Int64)
 //! - [`Json`](crate::prelude::Json)
 //! - [`Nullable`](crate::prelude::Nullable)
-//! - [`Principal`](crate::prelude::Principal)
+//! - [`Principal`](crate::prelude::Principal) (custom type — use with `#[custom_type]`)
 //! - [`Text`](crate::prelude::Text)
 //! - [`Uint8`](crate::prelude::Uint8)
 //! - [`Uint16`](crate::prelude::Uint16)
