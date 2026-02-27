@@ -7,6 +7,44 @@
   - [0.2.0](#020)
   - [0.1.0](#010)
 
+## 0.5.0
+
+Released on 2026-02-27
+
+### ⚠ Breaking Changes
+
+- Remove generic T from Query, since it's unnecessary
+  > Remove `T` from `Query` and `QueryBuilder`
+
+### Added
+
+- 💥 Remove generic T from Query, since it's unnecessary
+  > The `T: TableSchema` argument from `Query` and `QueryBuilder` was actually unnecessary, because it didn't provide
+  any meaningful information. The T argument has just been moved to the dbms `select` method, in order to bring
+  information to the selected entity.
+- add generic select endpoint for untyped table queries (#10)
+  > Add a `select_raw` method to the Database trait and a `select` canister
+  > endpoint that returns `Vec<Vec<(CandidColumnDef, Value)>>`, enabling
+  > table queries by name without compile-time type information. This lays
+  > the groundwork for future SQL and JOIN support.
+- **ic-dbms-client:** add `select_raw` method to allow selecting untyped columns
+- implement JOIN support (INNER, LEFT, RIGHT, FULL) (#47)
+  > Add user-facing join guide content to the querying and relationships
+  > docs, create a technical deep-dive for the join engine, and update the
+  > architecture overview and index with join-related entries.
+  > Add cross-table join queries with nested-loop join engine, qualified
+  > column resolution, NULL padding for outer joins, and filter support
+  > on joined rows. Joins are available through the untyped select_raw
+  > path and the generated select canister endpoint.
+
+### Performance
+
+- batch fetch foreign keys in eager relation loading (#41)
+  > Replace per-record N+1 foreign key fetching with a batched approach
+  > using Filter::In queries. Adds ForeignFetcher::fetch_batch trait method,
+  > HashSet-based FK deduplication, benchmarks, and uses the existing
+  > TableColumns type alias throughout.
+
 ## 0.4.0
 
 Released on 2026-02-06
