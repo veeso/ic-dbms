@@ -500,6 +500,14 @@ fn get_fields(
         // Step 2: detect custom_type attribute
         let custom_type = is_custom_type(field);
 
+        // Validate: #[custom_type] and #[foreign_key] cannot be combined
+        if custom_type && is_fk {
+            return Err(syn::Error::new_spanned(
+                field,
+                "`#[custom_type]` and `#[foreign_key]` cannot be used on the same field",
+            ));
+        }
+
         // Step 3: build data_type_kind and value_type
         let field_type_ident = syn::Ident::new(&field_type_name_str, Span::call_site());
         let (data_type_kind, value_type, custom_type_ident): (
