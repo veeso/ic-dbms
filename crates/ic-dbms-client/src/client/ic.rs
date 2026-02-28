@@ -105,6 +105,7 @@ impl Client for IcDbmsCanisterClient {
     ) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<T::Record>>>
     where
         T: ic_dbms_api::prelude::TableSchema,
+        T::Record: CandidType + for<'de> candid::Deserialize<'de>,
     {
         self.call(
             &crate::utils::table_method(table, "select"),
@@ -130,7 +131,7 @@ impl Client for IcDbmsCanisterClient {
     ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>>
     where
         T: ic_dbms_api::prelude::TableSchema,
-        T::Insert: ic_dbms_api::prelude::InsertRecord<Schema = T>,
+        T::Insert: ic_dbms_api::prelude::InsertRecord<Schema = T> + CandidType,
     {
         self.call(
             &crate::utils::table_method(table, "insert"),
@@ -147,7 +148,7 @@ impl Client for IcDbmsCanisterClient {
     ) -> IcDbmsCanisterClientResult<IcDbmsResult<u64>>
     where
         T: ic_dbms_api::prelude::TableSchema,
-        T::Update: ic_dbms_api::prelude::UpdateRecord<Schema = T>,
+        T::Update: ic_dbms_api::prelude::UpdateRecord<Schema = T> + CandidType,
     {
         self.call(
             &crate::utils::table_method(table, "update"),

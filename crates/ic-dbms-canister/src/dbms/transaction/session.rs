@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use candid::{Nat, Principal};
+use candid::Principal;
 use ic_dbms_api::prelude::{IcDbmsError, IcDbmsResult, QueryError, TransactionId};
 
 use super::Transaction;
@@ -24,12 +24,12 @@ pub struct TransactionSession {
 impl TransactionSession {
     /// Begins a new transaction for the given owner ([`Principal`]) and returns its [`TransactionId`].
     pub fn begin_transaction(&mut self, owner: Principal) -> TransactionId {
-        let transaction_id = self.next_transaction_id.clone();
-        self.next_transaction_id += Nat::from(1u64);
+        let transaction_id = self.next_transaction_id;
+        self.next_transaction_id += 1;
 
         self.transactions
-            .insert(transaction_id.clone(), Transaction::default());
-        self.owners.insert(transaction_id.clone(), owner);
+            .insert(transaction_id, Transaction::default());
+        self.owners.insert(transaction_id, owner);
 
         transaction_id
     }

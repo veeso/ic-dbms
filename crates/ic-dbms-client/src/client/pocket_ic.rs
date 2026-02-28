@@ -161,6 +161,7 @@ impl Client for IcDbmsPocketIcClient<'_> {
     ) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<T::Record>>>
     where
         T: ic_dbms_api::prelude::TableSchema,
+        T::Record: CandidType + for<'de> candid::Deserialize<'de>,
     {
         self.query(
             self.principal,
@@ -194,7 +195,7 @@ impl Client for IcDbmsPocketIcClient<'_> {
     ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>>
     where
         T: ic_dbms_api::prelude::TableSchema,
-        T::Insert: ic_dbms_api::prelude::InsertRecord<Schema = T>,
+        T::Insert: ic_dbms_api::prelude::InsertRecord<Schema = T> + CandidType,
     {
         self.update(
             self.principal,
@@ -213,7 +214,7 @@ impl Client for IcDbmsPocketIcClient<'_> {
     ) -> IcDbmsCanisterClientResult<IcDbmsResult<u64>>
     where
         T: ic_dbms_api::prelude::TableSchema,
-        T::Update: ic_dbms_api::prelude::UpdateRecord<Schema = T>,
+        T::Update: ic_dbms_api::prelude::UpdateRecord<Schema = T> + CandidType,
     {
         self.update(
             self.principal,

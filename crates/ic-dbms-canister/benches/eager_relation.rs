@@ -5,8 +5,8 @@ use ic_dbms_api::prelude::{
     UpdateRecord, Value, flatten_table_columns,
 };
 use ic_dbms_canister::prelude::{
-    DatabaseSchema, IcDbmsDatabase, InsertIntegrityValidator, SCHEMA_REGISTRY, Table, Text, Uint32,
-    UpdateIntegrityValidator, get_referenced_tables,
+    DatabaseSchema, IcDbmsDatabase, InsertIntegrityValidator, MEMORY_MANAGER, SCHEMA_REGISTRY,
+    Table, Text, Uint32, UpdateIntegrityValidator, get_referenced_tables,
 };
 use serde::Deserialize;
 
@@ -157,12 +157,14 @@ impl DatabaseSchema for BenchDatabaseSchema {
 /// Load test fixtures: `user_count` users and `post_count` posts (round-robin across users).
 fn load_fixtures(database: &mut IcDbmsDatabase, user_count: u32, post_count: u32) {
     SCHEMA_REGISTRY.with_borrow_mut(|registry| {
-        registry
-            .register_table::<User>()
-            .expect("failed to register User table");
-        registry
-            .register_table::<Post>()
-            .expect("failed to register Post table");
+        MEMORY_MANAGER.with_borrow_mut(|mm| {
+            registry
+                .register_table::<User>(mm)
+                .expect("failed to register User table");
+            registry
+                .register_table::<Post>(mm)
+                .expect("failed to register Post table");
+        });
     });
 
     for id in 0..user_count {

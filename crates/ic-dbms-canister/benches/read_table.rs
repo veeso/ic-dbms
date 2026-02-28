@@ -7,8 +7,8 @@ use ic_dbms_api::prelude::{
     UpdateRecord, Value, flatten_table_columns,
 };
 use ic_dbms_canister::prelude::{
-    DatabaseSchema, IcDbmsDatabase, InsertIntegrityValidator, SCHEMA_REGISTRY, Table, Text, Uint64,
-    UpdateIntegrityValidator, get_referenced_tables,
+    DatabaseSchema, IcDbmsDatabase, InsertIntegrityValidator, MEMORY_MANAGER, SCHEMA_REGISTRY,
+    Table, Text, Uint64, UpdateIntegrityValidator, get_referenced_tables,
 };
 use serde::Deserialize;
 
@@ -130,9 +130,11 @@ impl DatabaseSchema for TestDatabaseSchema {
 fn load_fixtures(database: &mut IcDbmsDatabase, count: u64) {
     // register table User first
     SCHEMA_REGISTRY.with_borrow_mut(|registry| {
-        registry
-            .register_table::<User>()
-            .expect("failed to register table");
+        MEMORY_MANAGER.with_borrow_mut(|mm| {
+            registry
+                .register_table::<User>(mm)
+                .expect("failed to register table");
+        });
     });
     for id in 0..count {
         let user = UserInsertRequest {

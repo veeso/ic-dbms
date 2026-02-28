@@ -34,14 +34,16 @@ fn impl_init(tables: &[TableMetadata]) -> TokenStream2 {
         let table_name = &table.table;
         let table_str = table_name.to_string();
         init_tables.push(quote::quote! {
-                ::ic_dbms_canister::prelude::SCHEMA_REGISTRY.with_borrow_mut(|registry| {
-                if let Err(err) = registry.register_table::<#table_name>() {
-                    ::ic_cdk::trap(&format!(
-                        "Failed to register table {} during init: {}",
-                        #table_str,
-                        err
-                    ));
-                }
+            ::ic_dbms_canister::prelude::SCHEMA_REGISTRY.with_borrow_mut(|registry| {
+                ::ic_dbms_canister::prelude::MEMORY_MANAGER.with_borrow_mut(|mm| {
+                    if let Err(err) = registry.register_table::<#table_name>(mm) {
+                        ::ic_cdk::trap(&format!(
+                            "Failed to register table {} during init: {}",
+                            #table_str,
+                            err
+                        ));
+                    }
+                });
             });
         });
     }
@@ -51,14 +53,17 @@ fn impl_init(tables: &[TableMetadata]) -> TokenStream2 {
         fn init(args: ::ic_dbms_api::prelude::IcDbmsCanisterArgs) {
             let args = args.unwrap_init();
             ::ic_dbms_canister::prelude::ACL.with_borrow_mut(|acl| {
-                for principal in args.allowed_principals {
-                    if let Err(err) = acl.add_principal(principal) {
-                        ::ic_cdk::trap(&format!(
-                            "Failed to add principal to ACL during init: {}",
-                            err
-                        ));
+                ::ic_dbms_canister::prelude::MEMORY_MANAGER.with_borrow_mut(|mm| {
+                    for principal in args.allowed_principals {
+                        let identity = principal.as_slice().to_vec();
+                        if let Err(err) = acl.add_principal(identity, mm) {
+                            ::ic_cdk::trap(&format!(
+                                "Failed to add principal to ACL during init: {}",
+                                err
+                            ));
+                        }
                     }
-                }
+                });
             });
 
             // init tables

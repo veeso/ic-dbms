@@ -10,28 +10,39 @@ use ic_dbms_api::prelude::{
 
 pub use self::inspect::inspect;
 use crate::dbms::IcDbmsDatabase;
-use crate::memory::ACL;
+use crate::memory::{ACL, MEMORY_MANAGER};
 use crate::prelude::{DatabaseSchema, TRANSACTION_SESSION};
 use crate::trap;
 
 /// Adds the given principal to the ACL of the canister.
 pub fn acl_add_principal(principal: Principal) -> IcDbmsResult<()> {
     assert_caller_is_allowed();
-    ACL.with_borrow_mut(|acl| acl.add_principal(principal))
-        .map_err(IcDbmsError::from)
+    let identity = principal.as_slice().to_vec();
+    ACL.with_borrow_mut(|acl| {
+        MEMORY_MANAGER.with_borrow_mut(|mm| acl.add_principal(identity, mm))
+    })
+    .map_err(IcDbmsError::from)
 }
 
 /// Removes the given principal from the ACL of the canister.
 pub fn acl_remove_principal(principal: Principal) -> IcDbmsResult<()> {
     assert_caller_is_allowed();
-    ACL.with_borrow_mut(|acl| acl.remove_principal(&principal))
-        .map_err(IcDbmsError::from)
+    let identity = principal.as_slice();
+    ACL.with_borrow_mut(|acl| {
+        MEMORY_MANAGER.with_borrow_mut(|mm| acl.remove_principal(identity, mm))
+    })
+    .map_err(IcDbmsError::from)
 }
 
 /// Lists all principals in the ACL of the canister.
 pub fn acl_allowed_principals() -> Vec<Principal> {
     assert_caller_is_allowed();
-    ACL.with_borrow(|acl| acl.allowed_principals().to_vec())
+    ACL.with_borrow(|acl| {
+        acl.allowed_principals()
+            .iter()
+            .filter_map(|bytes| candid::Principal::try_from_slice(bytes).ok())
+            .collect()
+    })
 }
 
 /// Begins a new transaction and returns its ID.
@@ -179,7 +190,8 @@ fn database(
 /// If not it traps.
 fn assert_caller_is_allowed() {
     let caller = crate::utils::caller();
-    if !ACL.with_borrow(|acl| acl.is_allowed(&caller)) {
+    let identity = caller.as_slice();
+    if !ACL.with_borrow(|acl| acl.is_allowed(identity)) {
         trap!("Caller {caller} is not allowed to perform this operation");
     }
 }
@@ -383,7 +395,9 @@ mod tests {
 
     fn init_acl() {
         ACL.with_borrow_mut(|acl| {
-            acl.add_principal(alice()).unwrap();
+            MEMORY_MANAGER.with_borrow_mut(|mm| {
+                acl.add_principal(alice().as_slice().to_vec(), mm).unwrap();
+            });
         });
     }
 }

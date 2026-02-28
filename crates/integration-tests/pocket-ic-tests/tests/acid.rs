@@ -1,4 +1,3 @@
-use candid::Nat;
 use ic_dbms_api::prelude::{Filter, Query, TableSchema, Text, Uint32, Value};
 use ic_dbms_client::prelude::{Client as _, IcDbmsPocketIcClient};
 use pocket_ic_tests::TestEnv;
@@ -160,7 +159,7 @@ async fn test_should_rollback_transaction(env: PocketIcTestEnv) {
 async fn test_should_not_perform_transaction_not_owned(env: PocketIcTestEnv) {
     let client = IcDbmsPocketIcClient::new(env.dbms_canister(), env.admin(), &env.pic);
 
-    let transaction_id = Some(Nat::from(1111u64));
+    let transaction_id = Some(1111u64);
 
     // insert user
     let insert_request = UserInsertRequest {

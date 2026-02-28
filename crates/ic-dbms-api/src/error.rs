@@ -1,35 +1,14 @@
-use candid::CandidType;
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
+/// IC DBMS error type (backward-compatible alias for [`wasm_dbms_api::error::DbmsError`]).
+pub type IcDbmsError = wasm_dbms_api::error::DbmsError;
 
-/// IcDbms Error type
-#[derive(Debug, Error, CandidType, Serialize, Deserialize)]
-pub enum IcDbmsError {
-    #[error("Memory error: {0}")]
-    Memory(#[from] crate::memory::MemoryError),
-    #[error("Query error: {0}")]
-    Query(#[from] crate::dbms::query::QueryError),
-    #[error("Sanitize error: {0}")]
-    Sanitize(String),
-    #[error("Table error: {0}")]
-    Table(#[from] crate::dbms::table::TableError),
-    #[error("Transaction error: {0}")]
-    Transaction(#[from] crate::dbms::transaction::TransactionError),
-    #[error("Validation error: {0}")]
-    Validation(String),
-}
-
-/// IcDbms Result type
-pub type IcDbmsResult<T> = Result<T, IcDbmsError>;
+/// IC DBMS result type (backward-compatible alias for [`wasm_dbms_api::error::DbmsResult`]).
+pub type IcDbmsResult<T> = wasm_dbms_api::error::DbmsResult<T>;
 
 #[cfg(test)]
 mod test {
 
     use super::*;
-    use crate::dbms::query::QueryError;
-    use crate::dbms::table::TableError;
-    use crate::dbms::transaction::TransactionError;
-    use crate::memory::MemoryError;
+    use wasm_dbms_api::prelude::{MemoryError, QueryError, TableError, TransactionError};
 
     #[test]
     fn test_should_display_memory_error() {

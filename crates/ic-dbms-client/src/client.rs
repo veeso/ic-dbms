@@ -7,7 +7,7 @@ mod ic;
 mod pocket_ic;
 mod types;
 
-use candid::Principal;
+use candid::{CandidType, Principal};
 use ic_dbms_api::prelude::{
     CandidColumnDef, DeleteBehavior, Filter, IcDbmsResult, InsertRecord, Query, TableSchema,
     TransactionId, UpdateRecord, Value,
@@ -73,7 +73,8 @@ pub trait Client {
         transaction_id: Option<TransactionId>,
     ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<Vec<T::Record>>>>
     where
-        T: TableSchema;
+        T: TableSchema,
+        T::Record: CandidType + for<'de> candid::Deserialize<'de>;
 
     /// Executes a `SELECT` query on the IC DBMS Canister and returns raw records (without deserialization).
     fn select_raw(
@@ -92,7 +93,7 @@ pub trait Client {
     ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>
     where
         T: TableSchema,
-        T::Insert: InsertRecord<Schema = T>;
+        T::Insert: InsertRecord<Schema = T> + CandidType;
 
     /// Executes an `UPDATE` query on the IC DBMS Canister.
     fn update<T>(
@@ -103,7 +104,7 @@ pub trait Client {
     ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<u64>>>
     where
         T: TableSchema,
-        T::Update: UpdateRecord<Schema = T>;
+        T::Update: UpdateRecord<Schema = T> + CandidType;
 
     /// Executes a `DELETE` query on the IC DBMS Canister.
     fn delete<T>(

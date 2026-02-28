@@ -2,7 +2,7 @@ use candid::CandidType;
 use ic_dbms_api::prelude::{DateTime, Nullable, Text, Uint32};
 use ic_dbms_macros::Table;
 
-use crate::memory::{SCHEMA_REGISTRY, TableRegistry};
+use crate::memory::{MEMORY_MANAGER, SCHEMA_REGISTRY, TableRegistry};
 use crate::tests::{User, UserRecord};
 
 /// A simple message struct for testing purposes.
@@ -28,21 +28,28 @@ pub const MESSAGES_FIXTURES: &[(&str, u32, u32)] = &[
 pub fn load_fixtures() {
     // register tables
     let messages_pages = SCHEMA_REGISTRY
-        .with_borrow_mut(|sr| sr.register_table::<Message>())
+        .with_borrow_mut(|sr| {
+            MEMORY_MANAGER.with_borrow_mut(|mm| sr.register_table::<Message>(mm))
+        })
         .expect("failed to register `Message` table");
 
-    let mut messages_table: TableRegistry =
-        TableRegistry::load(messages_pages).expect("failed to load `Message` table registry");
+    MEMORY_MANAGER.with_borrow_mut(|mm| {
+        let mut messages_table: TableRegistry =
+            TableRegistry::load(messages_pages, mm)
+                .expect("failed to load `Message` table registry");
 
-    // insert users
-    for (id, (text, sender_id, recipient_id)) in MESSAGES_FIXTURES.iter().enumerate() {
-        let post = Message {
-            id: Uint32(id as u32),
-            text: Text(text.to_string()),
-            sender: Uint32(*sender_id),
-            recipient: Uint32(*recipient_id),
-            read_at: Nullable::Null,
-        };
-        messages_table.insert(post).expect("failed to insert post");
-    }
+        // insert messages
+        for (id, (text, sender_id, recipient_id)) in MESSAGES_FIXTURES.iter().enumerate() {
+            let post = Message {
+                id: Uint32(id as u32),
+                text: Text(text.to_string()),
+                sender: Uint32(*sender_id),
+                recipient: Uint32(*recipient_id),
+                read_at: Nullable::Null,
+            };
+            messages_table
+                .insert(post, mm)
+                .expect("failed to insert message");
+        }
+    });
 }

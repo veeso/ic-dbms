@@ -13,21 +13,15 @@ description = "Public API types for ic-dbms-canister. This crate provides shared
 include = [
   "examples/**/*",
   "src/**/*",
-  "../../LICENSE",
+  "../../../LICENSE",
   "README.md",
-  "../../CHANGELOG.md",
+  "../../../CHANGELOG.md",
 ]
 readme = "README.md"
 
 [dependencies]
 candid = { workspace = true }
 ic-cdk = { workspace = true }
-ic-dbms-macros = { version = "0.5", path = "../ic-dbms-macros" }
-lazy-regex = { workspace = true }
-percent-encoding = { workspace = true }
-rust_decimal = { workspace = true }
+ic-dbms-macros = { version = "0.6", path = "../ic-dbms-macros" }
 serde = { workspace = true }
-serde_json = { workspace = true }
-thiserror = { workspace = true }
-uuid = { workspace = true }
-url = { workspace = true }
+wasm-dbms-api = { version = "0.6", path = "../../wasm-dbms/wasm-dbms-api", features = ["candid"] }

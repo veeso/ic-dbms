@@ -7,7 +7,7 @@ use ic_dbms_api::prelude::{ColumnDef, IcDbmsError, IcDbmsResult, QueryError, Tab
 
 pub use self::reader::DatabaseOverlayReader;
 use self::table::TableOverlay;
-use crate::memory::TableReader;
+use crate::memory::{MemoryProvider, TableReader};
 
 /// The database overlay is used to manage uncommitted changes during a transaction.
 ///
@@ -19,12 +19,13 @@ pub struct DatabaseOverlay {
 
 impl DatabaseOverlay {
     /// Get a [`DatabaseOverlayReader`] for the specified table.
-    pub fn reader<'a, T>(
+    pub fn reader<'a, T, P>(
         &'a mut self,
-        table_reader: TableReader<'a, T>,
-    ) -> DatabaseOverlayReader<'a, T>
+        table_reader: TableReader<'a, T, P>,
+    ) -> DatabaseOverlayReader<'a, T, P>
     where
         T: TableSchema,
+        P: MemoryProvider,
     {
         let table_name = T::table_name();
         let table_overlay = self.tables.entry(table_name.to_string()).or_default();

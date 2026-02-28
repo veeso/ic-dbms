@@ -125,6 +125,7 @@ impl Client for IcDbmsAgentClient<'_> {
     ) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<T::Record>>>
     where
         T: TableSchema,
+        T::Record: CandidType + for<'de> candid::Deserialize<'de>,
     {
         self.query(
             &crate::utils::table_method(table, "select"),
@@ -150,7 +151,7 @@ impl Client for IcDbmsAgentClient<'_> {
     ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>>
     where
         T: TableSchema,
-        T::Insert: InsertRecord<Schema = T>,
+        T::Insert: InsertRecord<Schema = T> + CandidType,
     {
         self.update(
             &crate::utils::table_method(table, "insert"),
@@ -167,7 +168,7 @@ impl Client for IcDbmsAgentClient<'_> {
     ) -> IcDbmsCanisterClientResult<IcDbmsResult<u64>>
     where
         T: TableSchema,
-        T::Update: UpdateRecord<Schema = T>,
+        T::Update: UpdateRecord<Schema = T> + CandidType,
     {
         self.update(
             &crate::utils::table_method(table, "update"),

@@ -19,7 +19,7 @@ use ic_dbms_api::prelude::{
 };
 
 use crate::dbms::transaction::{DatabaseOverlay, Transaction, TransactionOp};
-use crate::memory::{NextRecord, SCHEMA_REGISTRY, TableRegistry};
+use crate::memory::{MEMORY_MANAGER, NextRecord, SCHEMA_REGISTRY, TableRegistry};
 use crate::prelude::{DatabaseSchema, TRANSACTION_SESSION};
 use crate::utils::trap;
 
@@ -356,7 +356,9 @@ impl IcDbmsDatabase {
             .with_borrow(|schema| schema.table_registry_page::<T>())
             .ok_or(IcDbmsError::Table(TableError::TableNotFound))?;
 
-        TableRegistry::load(registry_pages).map_err(IcDbmsError::from)
+        MEMORY_MANAGER
+            .with_borrow(|mm| TableRegistry::load(registry_pages, mm))
+            .map_err(IcDbmsError::from)
     }
 
     /// Sorts the query results based on the specified column and order direction.
@@ -421,42 +423,46 @@ impl IcDbmsDatabase {
     {
         // load table registry
         let table_registry = self.load_table_registry::<T>()?;
-        // read table
-        let table_reader = table_registry.read::<T>();
         // get database overlay
         let mut table_overlay = if self.transaction.is_some() {
             self.overlay()?
         } else {
             DatabaseOverlay::default()
         };
-        // overlay table reader
-        let mut table_reader = table_overlay.reader(table_reader);
 
         // prepare results vector
         let mut results = Vec::with_capacity(query.limit.unwrap_or(DEFAULT_SELECT_CAPACITY));
         // iter and select
         let mut count = 0;
 
-        while let Some(values) = table_reader.try_next()? {
-            // check whether it matches the filter
-            if let Some(filter) = &query.filter {
-                if !self.record_matches_filter(&values, filter)? {
+        // TableReader borrows MemoryManager, so the read loop must happen within with_borrow
+        MEMORY_MANAGER.with_borrow(|mm| {
+            let table_reader = table_registry.read::<T, _>(mm);
+            let mut table_reader = table_overlay.reader(table_reader);
+
+            while let Some(values) = table_reader.try_next()? {
+                // check whether it matches the filter
+                if let Some(filter) = &query.filter {
+                    if !self.record_matches_filter(&values, filter)? {
+                        continue;
+                    }
+                }
+                // filter matched, check limit and offset
+                count += 1;
+                // check whether is before offset
+                if query.offset.is_some_and(|offset| count <= offset) {
                     continue;
                 }
+                // wrap raw column values as This source (all columns preserved for FK lookup)
+                results.push(vec![(ValuesSource::This, values)]);
+                // check whether reached limit
+                if query.limit.is_some_and(|limit| results.len() >= limit) {
+                    break;
+                }
             }
-            // filter matched, check limit and offset
-            count += 1;
-            // check whether is before offset
-            if query.offset.is_some_and(|offset| count <= offset) {
-                continue;
-            }
-            // wrap raw column values as This source (all columns preserved for FK lookup)
-            results.push(vec![(ValuesSource::This, values)]);
-            // check whether reached limit
-            if query.limit.is_some_and(|limit| results.len() >= limit) {
-                break;
-            }
-        }
+
+            Ok::<(), IcDbmsError>(())
+        })?;
 
         // batch-load eager relations for all collected records
         self.batch_load_eager_relations::<T>(&mut results, &query)?;
@@ -574,18 +580,20 @@ impl IcDbmsDatabase {
     where
         T: TableSchema,
     {
-        let mut table_reader = table_registry.read::<T>();
-        let mut records = vec![];
-        while let Some(values) = table_reader.try_next()? {
-            let record_values = values.record.clone().to_values();
-            if let Some(filter) = filter {
-                if !self.record_matches_filter(&record_values, filter)? {
-                    continue;
+        MEMORY_MANAGER.with_borrow(|mm| {
+            let mut table_reader = table_registry.read::<T, _>(mm);
+            let mut records = vec![];
+            while let Some(values) = table_reader.try_next()? {
+                let record_values = values.record.clone().to_values();
+                if let Some(filter) = filter {
+                    if !self.record_matches_filter(&record_values, filter)? {
+                        continue;
+                    }
                 }
+                records.push((values, record_values));
             }
-            records.push((values, record_values));
-        }
-        Ok(records)
+            Ok(records)
+        })
     }
 }
 
@@ -640,7 +648,9 @@ impl Database for IcDbmsDatabase {
             self.atomic(|db| {
                 let mut table_registry = db.load_table_registry::<T>()?;
                 let record = T::Insert::from_values(&sanitized_values)?;
-                table_registry.insert(record.into_record())?;
+                MEMORY_MANAGER
+                    .with_borrow_mut(|mm| table_registry.insert(record.into_record(), mm))
+                    .map_err(IcDbmsError::from)?;
                 Ok(())
             });
         }
@@ -721,12 +731,17 @@ impl Database for IcDbmsDatabase {
                 // build T from values
                 let updated_record = values_to_schema_entity::<T>(record_values)?;
                 // perform the update in the table registry
-                table_registry.update(
-                    updated_record,
-                    previous_record,
-                    record.page,
-                    record.offset,
-                )?;
+                MEMORY_MANAGER
+                    .with_borrow_mut(|mm| {
+                        table_registry.update(
+                            updated_record,
+                            previous_record,
+                            record.page,
+                            record.offset,
+                            mm,
+                        )
+                    })
+                    .map_err(IcDbmsError::from)?;
                 count += 1;
 
                 // update records in tables referencing this table if PK is updated
@@ -794,7 +809,11 @@ impl Database for IcDbmsDatabase {
                     }
                 }
                 // eventually delete the record
-                table_registry.delete(record.record, record.page, record.offset)?;
+                MEMORY_MANAGER
+                    .with_borrow_mut(|mm| {
+                        table_registry.delete(record.record, record.page, record.offset, mm)
+                    })
+                    .map_err(IcDbmsError::from)?;
             }
 
             Ok(count)

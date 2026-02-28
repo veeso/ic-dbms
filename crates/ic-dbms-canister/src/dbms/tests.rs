@@ -1,4 +1,4 @@
-use candid::{Nat, Principal};
+use candid::Principal;
 use ic_dbms_api::prelude::{Text, Uint32};
 
 use super::*;
@@ -12,7 +12,7 @@ fn test_should_init_dbms() {
     let dbms = IcDbmsDatabase::oneshot(TestDatabaseSchema);
     assert!(dbms.transaction.is_none());
 
-    let tx_dbms = IcDbmsDatabase::from_transaction(TestDatabaseSchema, Nat::from(1u64));
+    let tx_dbms = IcDbmsDatabase::from_transaction(TestDatabaseSchema, 1u64);
     assert!(tx_dbms.transaction.is_some());
 }
 
@@ -1752,6 +1752,8 @@ fn test_should_select_specific_columns_from_join() {
 
 fn init_user_table() {
     SCHEMA_REGISTRY
-        .with_borrow_mut(|sr| sr.register_table::<User>())
+        .with_borrow_mut(|sr| {
+            MEMORY_MANAGER.with_borrow_mut(|mm| sr.register_table::<User>(mm))
+        })
         .expect("failed to register `User` table");
 }

@@ -56,7 +56,7 @@ pub struct UserInsertRequest {
     pub name: Text,
 }
 
-#[derive(CandidType, Serialize)]
+#[derive(Clone, CandidType, Serialize)]
 pub struct UserUpdateRequest {
     pub id: Option<Uint32>,
     pub name: Option<Text>,
@@ -97,7 +97,7 @@ impl InsertRecord for UserInsertRequest {
         })
     }
 
-    fn into_values(self) -> Vec<(ColumnDef, crate::dbms::value::Value)> {
+    fn into_values(self) -> Vec<(ColumnDef, Value)> {
         vec![
             (Self::Schema::columns()[0], Value::Uint32(self.id)),
             (Self::Schema::columns()[1], Value::Text(self.name)),
@@ -143,7 +143,7 @@ impl UpdateRecord for UserUpdateRequest {
         }
     }
 
-    fn update_values(&self) -> Vec<(ColumnDef, crate::dbms::value::Value)> {
+    fn update_values(&self) -> Vec<(ColumnDef, Value)> {
         let mut values = vec![];
         if let Some(id) = self.id {
             values.push((
@@ -154,7 +154,7 @@ impl UpdateRecord for UserUpdateRequest {
                     primary_key: true,
                     foreign_key: None,
                 },
-                crate::dbms::value::Value::Uint32(id),
+                Value::Uint32(id),
             ));
         }
         if let Some(name) = &self.name {
@@ -166,7 +166,7 @@ impl UpdateRecord for UserUpdateRequest {
                     primary_key: false,
                     foreign_key: None,
                 },
-                crate::dbms::value::Value::Text(name.clone()),
+                Value::Text(name.clone()),
             ));
         }
         values
@@ -192,12 +192,12 @@ impl TableRecord for UserRecord {
         for (col_def, value) in user_values.unwrap_or(&vec![]) {
             match col_def.name {
                 "id" => {
-                    if let crate::dbms::value::Value::Uint32(v) = value {
+                    if let Value::Uint32(v) = value {
                         id = Some(*v);
                     }
                 }
                 "name" => {
-                    if let crate::dbms::value::Value::Text(v) = value {
+                    if let Value::Text(v) = value {
                         name = Some(v.clone());
                     }
                 }
@@ -208,7 +208,7 @@ impl TableRecord for UserRecord {
         UserRecord { id, name }
     }
 
-    fn to_values(&self) -> Vec<(ColumnDef, crate::dbms::value::Value)> {
+    fn to_values(&self) -> Vec<(ColumnDef, Value)> {
         Self::Schema::columns()
             .iter()
             .zip(vec![
@@ -420,15 +420,12 @@ mod custom_type_tests {
         let values = task.to_values();
         assert_eq!(values.len(), 2);
 
-        // First is Uint32
         assert!(matches!(values[0].1, Value::Uint32(_)));
 
-        // Second is Custom
         match &values[1].1 {
             Value::Custom(cv) => {
                 assert_eq!(cv.type_tag, "priority");
                 assert_eq!(cv.display, "high");
-                // Verify the encoded bytes decode correctly
                 let decoded =
                     Priority::decode(Cow::Borrowed(&cv.encoded)).expect("decode should succeed");
                 assert_eq!(decoded, Priority::High);
@@ -444,18 +441,12 @@ mod custom_type_tests {
             priority: Priority::Medium,
         };
 
-        // Convert to values
         let values = task.clone().to_values();
-
-        // Build TableColumns for Record::from_values
         let table_columns: TableColumns = vec![(ValuesSource::This, values.clone())];
-
-        // Create record from values
         let record = TaskRecord::from_values(table_columns);
         assert_eq!(record.id, Some(42u32.into()));
         assert_eq!(record.priority, Some(Priority::Medium));
 
-        // Round-trip record: to_values → from_values
         let record_values = record.to_values();
         let table_columns2: TableColumns = vec![(ValuesSource::This, record_values)];
         let record2 = TaskRecord::from_values(table_columns2);
@@ -481,7 +472,6 @@ mod custom_type_tests {
         assert_eq!(insert.id, 10u32.into());
         assert_eq!(insert.priority, Priority::Low);
 
-        // into_record
         let task = insert.into_record();
         assert_eq!(task.id, 10u32.into());
         assert_eq!(task.priority, Priority::Low);
@@ -517,25 +507,19 @@ mod custom_type_tests {
 
     #[test]
     fn test_nullable_custom_type_round_trip() {
-        // Test with a value
         let task = TaskWithNullable {
             id: Uint32(1),
             title: Text::from("Test"),
             priority: Nullable::Value(Priority::High),
         };
         let values = task.to_values();
-        // Verify priority column has Value::Custom
         let priority_val = &values[2].1;
         assert!(matches!(priority_val, Value::Custom(_)));
 
-        // Build TableColumns for Record::from_values
         let table_columns: TableColumns = vec![(ValuesSource::This, values)];
-
-        // Test round-trip
         let record = TaskWithNullableRecord::from_values(table_columns);
         assert_eq!(record.priority, Some(Nullable::Value(Priority::High)));
 
-        // Test with null
         let task_null = TaskWithNullable {
             id: Uint32(2),
             title: Text::from("Null test"),
