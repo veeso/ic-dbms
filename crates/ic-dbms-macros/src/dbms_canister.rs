@@ -184,10 +184,7 @@ fn impl_table_api(table: &TableMetadata, struct_ident: &syn::Ident) -> TokenStre
     }
 }
 
-fn impl_database_schema(
-    struct_ident: &syn::Ident,
-    tables: &[TableMetadata],
-) -> TokenStream2 {
+fn impl_database_schema(struct_ident: &syn::Ident, tables: &[TableMetadata]) -> TokenStream2 {
     let mut tables_for_ref = vec![];
     for table in tables {
         let entity = &table.table;

@@ -150,12 +150,8 @@ where
         filter: Option<Filter>,
     ) -> ic_dbms_api::prelude::IcDbmsResult<u64> {
         match table_name {
-            name if name == User::table_name() => {
-                dbms.delete::<User>(delete_behavior, filter)
-            }
-            name if name == Post::table_name() => {
-                dbms.delete::<Post>(delete_behavior, filter)
-            }
+            name if name == User::table_name() => dbms.delete::<User>(delete_behavior, filter),
+            name if name == Post::table_name() => dbms.delete::<Post>(delete_behavior, filter),
             name if name == Message::table_name() => {
                 dbms.delete::<Message>(delete_behavior, filter)
             }
