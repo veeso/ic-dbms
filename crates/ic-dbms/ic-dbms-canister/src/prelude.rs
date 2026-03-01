@@ -2,13 +2,12 @@
 
 pub use ic_dbms_api::prelude::*;
 pub use ic_dbms_macros::DbmsCanister;
-
 // Re-export from wasm-dbms instead of deleted IC modules
 pub use wasm_dbms::prelude::{
     DatabaseSchema, DbmsContext, InsertIntegrityValidator, UpdateIntegrityValidator,
     WasmDbmsDatabase, get_referenced_tables,
 };
-pub use wasm_dbms_memory::prelude::MemoryProvider;
 pub use wasm_dbms::transaction::session::TransactionSession;
+pub use wasm_dbms_memory::prelude::MemoryProvider;
 
 pub use crate::memory::{DBMS_CONTEXT, IcMemoryProvider};

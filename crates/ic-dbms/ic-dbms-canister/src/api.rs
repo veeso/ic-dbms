@@ -131,9 +131,7 @@ where
 {
     assert_caller_is_allowed();
     assert_caller_owns_transaction(transaction_id.as_ref());
-    with_database(transaction_id, database_schema, |db| {
-        db.insert::<T>(record)
-    })
+    with_database(transaction_id, database_schema, |db| db.insert::<T>(record))
 }
 
 /// Executes an update query against the database schema, optionally within a transaction.
@@ -148,9 +146,7 @@ where
 {
     assert_caller_is_allowed();
     assert_caller_owns_transaction(transaction_id.as_ref());
-    with_database(transaction_id, database_schema, |db| {
-        db.update::<T>(patch)
-    })
+    with_database(transaction_id, database_schema, |db| db.update::<T>(patch))
 }
 
 /// Executes a delete query against the database schema, optionally within a transaction.
@@ -360,8 +356,7 @@ mod tests {
         load_fixtures();
 
         let bob = Principal::from_text("ryjl3-tyaaa-aaaaa-aaaba-cai").unwrap();
-        let tx_id =
-            DBMS_CONTEXT.with(|ctx| ctx.begin_transaction(bob.as_slice().to_vec()));
+        let tx_id = DBMS_CONTEXT.with(|ctx| ctx.begin_transaction(bob.as_slice().to_vec()));
 
         // try to commit the transaction started by bob (we are alice)
         let _ = commit(tx_id, crate::tests::TestDatabaseSchema);
