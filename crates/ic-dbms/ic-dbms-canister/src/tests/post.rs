@@ -4,7 +4,6 @@ use candid::CandidType;
 use ic_dbms_api::prelude::{Text, Uint32};
 use ic_dbms_macros::Table;
 
-use crate::memory::{MEMORY_MANAGER, SCHEMA_REGISTRY, TableRegistry};
 use crate::tests::{User, UserRecord};
 
 /// A simple post struct for testing purposes.
@@ -88,26 +87,3 @@ pub const POSTS_FIXTURES: &[(&str, &str, u32)] = &[
         9,
     ),
 ];
-
-pub fn load_fixtures() {
-    // register tables
-    let posts_pages = SCHEMA_REGISTRY
-        .with_borrow_mut(|sr| MEMORY_MANAGER.with_borrow_mut(|mm| sr.register_table::<Post>(mm)))
-        .expect("failed to register `Post` table");
-
-    MEMORY_MANAGER.with_borrow_mut(|mm| {
-        let mut posts_table: TableRegistry =
-            TableRegistry::load(posts_pages, mm).expect("failed to load `Post` table registry");
-
-        // insert posts
-        for (id, (title, content, user_id)) in POSTS_FIXTURES.iter().enumerate() {
-            let post = Post {
-                id: Uint32(id as u32),
-                title: Text(title.to_string()),
-                content: Text(content.to_string()),
-                user: Uint32(*user_id),
-            };
-            posts_table.insert(post, mm).expect("failed to insert post");
-        }
-    });
-}
