@@ -7,8 +7,8 @@ use ic_dbms_api::prelude::{
     UpdateRecord, Value, flatten_table_columns,
 };
 use ic_dbms_canister::prelude::{
-    DatabaseSchema, IcDbmsDatabase, InsertIntegrityValidator, MEMORY_MANAGER, SCHEMA_REGISTRY,
-    Table, Text, Uint64, UpdateIntegrityValidator, get_referenced_tables,
+    DBMS_CONTEXT, DatabaseSchema, InsertIntegrityValidator, MemoryProvider, Table, Text, Uint64,
+    UpdateIntegrityValidator, WasmDbmsDatabase, get_referenced_tables,
 };
 use serde::Deserialize;
 
@@ -23,10 +23,13 @@ pub struct User {
 
 pub struct TestDatabaseSchema;
 
-impl DatabaseSchema for TestDatabaseSchema {
+impl<M> DatabaseSchema<M> for TestDatabaseSchema
+where
+    M: MemoryProvider,
+{
     fn select(
         &self,
-        dbms: &IcDbmsDatabase,
+        dbms: &WasmDbmsDatabase<'_, M>,
         table_name: &str,
         query: Query,
     ) -> ic_dbms_api::prelude::IcDbmsResult<Vec<Vec<(ColumnDef, Value)>>> {
@@ -47,7 +50,7 @@ impl DatabaseSchema for TestDatabaseSchema {
 
     fn insert(
         &self,
-        dbms: &IcDbmsDatabase,
+        dbms: &WasmDbmsDatabase<'_, M>,
         table_name: &'static str,
         record_values: &[(ColumnDef, Value)],
     ) -> ic_dbms_api::prelude::IcDbmsResult<()> {
@@ -63,7 +66,7 @@ impl DatabaseSchema for TestDatabaseSchema {
 
     fn delete(
         &self,
-        dbms: &IcDbmsDatabase,
+        dbms: &WasmDbmsDatabase<'_, M>,
         table_name: &'static str,
         delete_behavior: DeleteBehavior,
         filter: Option<Filter>,
@@ -79,7 +82,7 @@ impl DatabaseSchema for TestDatabaseSchema {
 
     fn update(
         &self,
-        dbms: &IcDbmsDatabase,
+        dbms: &WasmDbmsDatabase<'_, M>,
         table_name: &'static str,
         patch_values: &[(ColumnDef, Value)],
         filter: Option<Filter>,
@@ -96,12 +99,12 @@ impl DatabaseSchema for TestDatabaseSchema {
 
     fn validate_insert(
         &self,
-        dbms: &IcDbmsDatabase,
+        dbms: &WasmDbmsDatabase<'_, M>,
         table_name: &'static str,
         record_values: &[(ColumnDef, Value)],
     ) -> ic_dbms_api::prelude::IcDbmsResult<()> {
         if table_name == User::table_name() {
-            InsertIntegrityValidator::<User>::new(dbms).validate(record_values)
+            InsertIntegrityValidator::<User, M>::new(dbms).validate(record_values)
         } else {
             Err(ic_dbms_api::prelude::IcDbmsError::Query(
                 QueryError::TableNotFound(table_name.to_string()),
@@ -111,13 +114,13 @@ impl DatabaseSchema for TestDatabaseSchema {
 
     fn validate_update(
         &self,
-        dbms: &IcDbmsDatabase,
+        dbms: &WasmDbmsDatabase<'_, M>,
         table_name: &'static str,
         record_values: &[(ColumnDef, Value)],
         old_pk: Value,
     ) -> ic_dbms_api::prelude::IcDbmsResult<()> {
         if table_name == User::table_name() {
-            UpdateIntegrityValidator::<User>::new(dbms, old_pk).validate(record_values)
+            UpdateIntegrityValidator::<User, M>::new(dbms, old_pk).validate(record_values)
         } else {
             Err(ic_dbms_api::prelude::IcDbmsError::Query(
                 QueryError::TableNotFound(table_name.to_string()),
@@ -127,32 +130,24 @@ impl DatabaseSchema for TestDatabaseSchema {
 }
 
 /// Load test fixtures into the database.
-fn load_fixtures(database: &mut IcDbmsDatabase, count: u64) {
-    // register table User first
-    SCHEMA_REGISTRY.with_borrow_mut(|registry| {
-        MEMORY_MANAGER.with_borrow_mut(|mm| {
-            registry
-                .register_table::<User>(mm)
-                .expect("failed to register table");
-        });
+fn load_fixtures(count: u64) {
+    DBMS_CONTEXT.with(|ctx| {
+        ctx.register_table::<User>()
+            .expect("failed to register table");
+        let db = WasmDbmsDatabase::oneshot(ctx, TestDatabaseSchema);
+        for id in 0..count {
+            let user = UserInsertRequest {
+                id: Uint64(id),
+                name: Text(format!("User_{id}")),
+                email: Text(format!("user_{id}@example.com")),
+            };
+            db.insert::<User>(user).expect("failed to insert user");
+        }
     });
-    for id in 0..count {
-        let user = UserInsertRequest {
-            id: Uint64(id),
-            name: Text(format!("User_{id}")),
-            email: Text(format!("user_{id}@example.com")),
-        };
-        database
-            .insert::<User>(user)
-            .expect("failed to insert user");
-    }
 }
 
 /// Delete users with id multiple of provided numbers.
-///
-/// E.g. if divisors = [2, 3], users with id 0, 2, 3, 4, 6, ... will be deleted.
-fn fragment_user_table(database: &mut IcDbmsDatabase, count: u64, divisors: &[u64]) {
-    // calculate ids to delete
+fn fragment_user_table(count: u64, divisors: &[u64]) {
     let mut ids_to_delete = HashSet::new();
     for id in 0..count {
         if divisors.iter().any(|d| id % d == 0) {
@@ -162,26 +157,30 @@ fn fragment_user_table(database: &mut IcDbmsDatabase, count: u64, divisors: &[u6
 
     let expected_deleted_records = ids_to_delete.len() as u64;
 
-    let mut deleted_records = 0;
-    for id in ids_to_delete {
-        let filter = Filter::eq("id", Value::Uint64(id.into()));
-        let deleted = database
-            .delete::<User>(DeleteBehavior::Cascade, Some(filter))
-            .expect("failed to delete users");
-        assert_eq!(deleted, 1, "expected to delete one record");
-        deleted_records += deleted;
-    }
-
-    assert_eq!(
-        deleted_records, expected_deleted_records,
-        "deleted records count mismatch"
-    );
+    DBMS_CONTEXT.with(|ctx| {
+        let db = WasmDbmsDatabase::oneshot(ctx, TestDatabaseSchema);
+        let mut deleted_records = 0;
+        for id in ids_to_delete {
+            let filter = Filter::eq("id", Value::Uint64(id.into()));
+            let deleted = db
+                .delete::<User>(DeleteBehavior::Cascade, Some(filter))
+                .expect("failed to delete users");
+            assert_eq!(deleted, 1, "expected to delete one record");
+            deleted_records += deleted;
+        }
+        assert_eq!(
+            deleted_records, expected_deleted_records,
+            "deleted records count mismatch"
+        );
+    });
 }
 
-fn free_user_table(database: &mut IcDbmsDatabase) {
-    database
-        .delete::<User>(DeleteBehavior::Restrict, None)
-        .expect("failed to delete users");
+fn free_user_table() {
+    DBMS_CONTEXT.with(|ctx| {
+        let db = WasmDbmsDatabase::oneshot(ctx, TestDatabaseSchema);
+        db.delete::<User>(DeleteBehavior::Restrict, None)
+            .expect("failed to delete users");
+    });
 }
 
 fn bench_read_table(c: &mut Criterion) {
@@ -195,7 +194,6 @@ fn bench_read_table(c: &mut Criterion) {
         vec![5, 7, 11],
         vec![7, 11, 13, 17],
     ] {
-        // setup
         let label = format!(
             "divisors[{divisors}]",
             divisors = divisors
@@ -204,34 +202,28 @@ fn bench_read_table(c: &mut Criterion) {
                 .collect::<Vec<_>>()
                 .join(", ")
         );
-        let mut database = IcDbmsDatabase::oneshot(TestDatabaseSchema);
-        load_fixtures(&mut database, COUNT);
-        fragment_user_table(&mut database, COUNT, divisors);
+        load_fixtures(COUNT);
+        fragment_user_table(COUNT, divisors);
 
-        // run batch
-        group.bench_with_input(label, &database, |b, database| {
+        group.bench_function(&label, |b| {
             b.iter(|| {
-                let query = Query::builder().all().build();
-                database
-                    .select::<User>(query)
-                    .expect("failed to select user");
+                DBMS_CONTEXT.with(|ctx| {
+                    let db = WasmDbmsDatabase::oneshot(ctx, TestDatabaseSchema);
+                    let query = Query::builder().all().build();
+                    db.select::<User>(query).expect("failed to select user");
+                });
             });
         });
 
-        // drop table otherwise we  get duplicate table registration error
-        free_user_table(&mut database);
+        free_user_table();
     }
 }
 
 fn configure_criterion() -> Criterion {
     Criterion::default()
-        // avoid run too long benchmarks
         .measurement_time(std::time::Duration::from_secs(10))
-        // less warmup time (heavy functions benefit little from warmup)
         .warm_up_time(std::time::Duration::from_secs(1))
-        // reduces noise when each iteration is slow
         .sample_size(20)
-        // for more readable reports
         .noise_threshold(0.05)
 }
 
