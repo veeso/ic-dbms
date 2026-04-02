@@ -1,5 +1,8 @@
 //! Prelude exposes all public types for the `wasm-dbms-api` crate.
 
+// Re-export derive macros from wasm-dbms-macros.
+pub use wasm_dbms_macros::{CustomDataType, DatabaseSchema, Encode, Table};
+
 pub use crate::dbms::autoincrement::Autoincrement;
 pub use crate::dbms::custom_value::CustomValue;
 pub use crate::dbms::database::Database;
