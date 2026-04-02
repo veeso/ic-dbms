@@ -7,8 +7,7 @@
 //! [`ExampleDatabaseSchema`] that dispatches generic DBMS
 //! operations to the correct table type.
 
-use wasm_dbms_api::prelude::{MaxStrlenValidator, Text, TrimSanitizer, Uint32};
-use wasm_dbms_macros::{DatabaseSchema, Table};
+use wasm_dbms_api::prelude::*;
 
 // ---------- Table definitions ----------
 
