@@ -11,15 +11,10 @@ rust-version = { workspace = true }
 documentation = "https://docs.rs/wasm-dbms-memory"
 categories = ["database", "wasm"]
 keywords = ["database", "wasm", "memory"]
-include = [
-  "src/**/*",
-  "../../../LICENSE",
-  "README.md",
-  "../../../CHANGELOG.md",
-]
+include = ["src/**/*", "../../../LICENSE", "README.md", "../../../CHANGELOG.md"]
 
 [dependencies]
-wasm-dbms-api = { path = "../wasm-dbms-api", version = "0.7" }
+wasm-dbms-api = { path = "../wasm-dbms-api", version = "0.8" }
 
 [dev-dependencies]
 candid = { workspace = true }

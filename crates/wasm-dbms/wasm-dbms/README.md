@@ -29,8 +29,8 @@ Add the dependencies to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-wasm-dbms = "0.6"
-wasm-dbms-api = "0.6"
+wasm-dbms = "0.8"
+wasm-dbms-api = "0.8"
 ```
 
 ### Define Your Tables

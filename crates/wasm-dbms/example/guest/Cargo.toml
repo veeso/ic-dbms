@@ -13,9 +13,9 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-wasm-dbms-api = { version = "0.7", path = "../../wasm-dbms-api" }
-wasm-dbms-memory = { version = "0.7", path = "../../wasm-dbms-memory" }
-wasm-dbms = { version = "0.7", path = "../../wasm-dbms" }
+wasm-dbms-api = { version = "0.8", path = "../../wasm-dbms-api" }
+wasm-dbms-memory = { version = "0.8", path = "../../wasm-dbms-memory" }
+wasm-dbms = { version = "0.8", path = "../../wasm-dbms" }
 wit-bindgen = { version = "0.53", default-features = false, features = [
   "macros",
   "realloc",

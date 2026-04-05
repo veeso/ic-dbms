@@ -344,7 +344,7 @@ For integration tests using PocketIC, add `ic-dbms-client` with the `pocket-ic` 
 
 ```toml
 [dev-dependencies]
-ic-dbms-client = { version = "0.7", features = ["pocket-ic"] }
+ic-dbms-client = { version = "0.8", features = ["pocket-ic"] }
 pocket-ic = "9"
 ```
 

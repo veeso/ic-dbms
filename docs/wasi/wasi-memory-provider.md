@@ -31,7 +31,7 @@ Add `wasi-dbms-memory` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-wasi-dbms-memory = "0.7"
+wasi-dbms-memory = "0.8"
 ```
 
 The crate depends on `wasm-dbms-api` and `wasm-dbms-memory` (pulled in transitively).

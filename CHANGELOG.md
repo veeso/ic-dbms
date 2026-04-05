@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.8.0
+
+Released on 2026-04-05
+
+### Added
+
+- add select_join to Database trait and rename CandidColumnDef to JoinColumnDef
+  > Move select_join from a #[doc(hidden)] method on WasmDbmsDatabase to a
+  > proper public method on the Database trait, making it the official API
+  > for join queries. Rename CandidColumnDef to JoinColumnDef to better
+  > reflect its purpose as the column definition type that carries table
+  > provenance for join results. Update all docs to reference select_join
+  > instead of select_raw for join queries.
+
+### Fixed
+
+- apply LIMIT and OFFSET after ORDER BY to match SQL semantics
+  > LIMIT and OFFSET were applied during the table scan (before sorting),
+  > so ORDER BY + LIMIT didn't produce correct "top N sorted" results.
+  > Now, when ORDER BY is present, LIMIT and OFFSET are deferred to after
+  > sorting, matching standard SQL evaluation order. The early-exit
+  > optimization is preserved when no ORDER BY is specified.
+
 ## 0.7.2
 
 Released on 2026-04-02
