@@ -6,7 +6,6 @@ use wasm_dbms_api::prelude::{Encode, MemoryResult, Page, PageOffset};
 
 pub use self::page_table::PageRecord;
 use self::page_table::PageTable;
-use super::raw_record::RawRecord;
 use crate::{MemoryAccess, align_up};
 
 /// Takes care of storing the pages for each table
@@ -94,8 +93,8 @@ impl PageLedger {
                     requested: record_size,
                 });
             }
-            // add padding to record size
-            let padding = align_up::<RawRecord<R>>(record_size as usize);
+            // add padding to record size (R is already RawRecord<E>, no need to re-wrap)
+            let padding = align_up::<R>(record_size as usize);
             // add record size + required padding
             let record_size = record_size + ((padding as u64).saturating_sub(record.size() as u64));
             page_record.free = page_record.free.saturating_sub(record_size);
@@ -121,7 +120,7 @@ impl PageLedger {
 mod tests {
     use wasm_dbms_api::prelude::{DataSize, MSize, MemoryResult};
 
-    use super::super::raw_record::RAW_RECORD_HEADER_SIZE;
+    use super::super::raw_record::{RAW_RECORD_HEADER_SIZE, RawRecord};
     use super::page_table::PageRecord;
     use super::*;
     use crate::{HeapMemoryProvider, MemoryManager, MemoryProvider};
@@ -165,11 +164,11 @@ mod tests {
             PageLedger::load(ledger_page, &mut mm).expect("failed to load page ledger");
         assert!(page_ledger.pages.pages.is_empty());
 
-        // create test record
-        let record = TestRecord { data: [1; 100] };
+        // create test record wrapped in RawRecord (matches production path)
+        let raw_record = RawRecord::new(TestRecord { data: [1; 100] });
         // get page for record
         let (page, offset) = page_ledger
-            .get_page_and_offset_for_record(&record, &mut mm)
+            .get_page_and_offset_for_record(&raw_record, &mut mm)
             .expect("failed to get page for record");
         assert_eq!(page_ledger.pages.pages.len(), 1);
         assert_eq!((page_ledger.pages.pages[0].page, 0), (page, offset));
@@ -180,7 +179,7 @@ mod tests {
 
         // commit record allocation
         page_ledger
-            .commit(page, &record, &mut mm)
+            .commit(page, &raw_record, &mut mm)
             .expect("failed to commit record allocation");
         assert_eq!(
             page_ledger.pages.pages[0].free,
@@ -202,11 +201,11 @@ mod tests {
             PageLedger::load(ledger_page, &mut mm).expect("failed to load page ledger");
         assert!(page_ledger.pages.pages.is_empty());
 
-        // create test record
-        let record = TestRecord { data: [1; 100] };
+        // create test record wrapped in RawRecord (matches production path)
+        let raw_record = RawRecord::new(TestRecord { data: [1; 100] });
         // get page for record
         let (page, offset) = page_ledger
-            .get_page_and_offset_for_record(&record, &mut mm)
+            .get_page_and_offset_for_record(&raw_record, &mut mm)
             .expect("failed to get page for record");
         assert_eq!(page_ledger.pages.pages.len(), 1);
         assert_eq!((page_ledger.pages.pages[0].page, 0), (page, offset));
@@ -217,7 +216,7 @@ mod tests {
 
         // commit record allocation
         page_ledger
-            .commit(page, &record, &mut mm)
+            .commit(page, &raw_record, &mut mm)
             .expect("failed to commit record allocation");
         assert_eq!(
             page_ledger.pages.pages[0].free,
@@ -226,7 +225,7 @@ mod tests {
 
         // get page for another record
         let (page, offset) = page_ledger
-            .get_page_and_offset_for_record(&record, &mut mm)
+            .get_page_and_offset_for_record(&raw_record, &mut mm)
             .expect("failed to get page for record");
         assert_eq!(page_ledger.pages.pages.len(), 1);
         assert_eq!(

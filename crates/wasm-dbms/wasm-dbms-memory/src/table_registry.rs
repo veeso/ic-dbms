@@ -68,8 +68,8 @@ impl TableRegistry {
         let raw_record = RawRecord::new(record);
         let write_at = self.get_write_position(&raw_record, mm)?;
 
-        // align insert
-        let aligned_offset = align_up::<E>(write_at.offset() as usize) as PageOffset;
+        // align insert to RawRecord<E> alignment (includes the 2-byte header)
+        let aligned_offset = align_up::<RawRecord<E>>(write_at.offset() as usize) as PageOffset;
 
         // write record
         mm.write_at(write_at.page(), aligned_offset, &raw_record)?;
@@ -1293,5 +1293,73 @@ mod tests {
         ) -> Option<Box<dyn wasm_dbms_api::prelude::Validate>> {
             None
         }
+    }
+
+    use wasm_dbms_api::prelude::{DataSize, DecodeError, MSize, MemoryError};
+
+    /// A fixed-size record for regression testing (issue #80).
+    ///
+    /// Layout: u64 (8) + u64 (8) + u8 (1) = 17 bytes, all fixed-size.
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct FixedSizeRecord {
+        id: u64,
+        timestamp: u64,
+        tag: u8,
+    }
+
+    impl Encode for FixedSizeRecord {
+        const SIZE: DataSize = DataSize::Fixed(17);
+        const ALIGNMENT: PageOffset = 17;
+
+        fn encode(&'_ self) -> std::borrow::Cow<'_, [u8]> {
+            let mut buf = Vec::with_capacity(17);
+            buf.extend_from_slice(&self.id.to_le_bytes());
+            buf.extend_from_slice(&self.timestamp.to_le_bytes());
+            buf.push(self.tag);
+            std::borrow::Cow::Owned(buf)
+        }
+
+        fn decode(data: std::borrow::Cow<[u8]>) -> MemoryResult<Self>
+        where
+            Self: Sized,
+        {
+            if data.len() < 17 {
+                return Err(MemoryError::DecodeError(DecodeError::TooShort));
+            }
+            let id = u64::from_le_bytes(data[0..8].try_into().unwrap());
+            let timestamp = u64::from_le_bytes(data[8..16].try_into().unwrap());
+            let tag = data[16];
+            Ok(Self { id, timestamp, tag })
+        }
+
+        fn size(&self) -> MSize {
+            17
+        }
+    }
+
+    #[test]
+    fn test_should_insert_multiple_fixed_size_records() {
+        let mut mm = MemoryManager::init(HeapMemoryProvider::default());
+        let mut registry = registry(&mut mm);
+
+        for i in 0..10 {
+            let record = FixedSizeRecord {
+                id: i,
+                timestamp: 1000 + i,
+                tag: (i % 2) as u8,
+            };
+            registry
+                .insert(record, &mut mm)
+                .unwrap_or_else(|e| panic!("failed to insert record {i}: {e}"));
+        }
+
+        // verify all records can be read back
+        let mut reader = registry.read::<FixedSizeRecord, _>(&mut mm);
+        let mut count = 0;
+        while let Some(next) = reader.try_next().expect("failed to read") {
+            assert_eq!(next.record.id, count);
+            count += 1;
+        }
+        assert_eq!(count, 10);
     }
 }
