@@ -3,25 +3,26 @@
 > **Note:** This is the IC-specific client API guide. For general wasm-dbms documentation, see
 > the [generic docs](../../guides/).
 
-- [Overview](#overview)
-- [Client Types](#client-types)
-  - [IcDbmsCanisterClient](#icdbmscanisterclient)
-  - [IcDbmsAgentClient](#icdbmsagentclient)
-  - [IcDbmsPocketIcClient](#icdbmspocketicclient)
-- [Installation](#installation)
-- [The Client Trait](#the-client-trait)
-- [Operations](#operations)
-  - [Insert](#insert)
-  - [Select](#select)
-  - [Update](#update)
-  - [Delete](#delete)
-  - [Transactions](#transactions)
-  - [ACL Management](#acl-management)
-- [Error Handling](#error-handling)
-- [Examples](#examples)
-  - [Inter-Canister Communication](#inter-canister-communication)
-  - [External Application](#external-application)
-  - [Integration Testing](#integration-testing)
+- [Client API (IC)](#client-api-ic)
+  - [Overview](#overview)
+  - [Client Types](#client-types)
+    - [IcDbmsCanisterClient](#icdbmscanisterclient)
+    - [IcDbmsAgentClient](#icdbmsagentclient)
+    - [IcDbmsPocketIcClient](#icdbmspocketicclient)
+  - [Installation](#installation)
+  - [The Client Trait](#the-client-trait)
+  - [Operations](#operations)
+    - [Insert](#insert)
+    - [Select](#select)
+    - [Update](#update)
+    - [Delete](#delete)
+    - [Transactions](#transactions)
+    - [ACL Management](#acl-management)
+  - [Error Handling](#error-handling)
+  - [Examples](#examples)
+    - [Inter-Canister Communication](#inter-canister-communication)
+    - [External Application](#external-application)
+    - [Integration Testing](#integration-testing)
 
 ---
 
@@ -128,14 +129,14 @@ ic-dbms-client = "0.6"
 
 ```toml
 [dependencies]
-ic-dbms-client = { version = "0.7", features = ["ic-agent"] }
+ic-dbms-client = { version = "0.8", features = ["ic-agent"] }
 ```
 
 **For integration tests:**
 
 ```toml
 [dev-dependencies]
-ic-dbms-client = { version = "0.7", features = ["pocket-ic"] }
+ic-dbms-client = { version = "0.8", features = ["pocket-ic"] }
 ```
 
 ---
