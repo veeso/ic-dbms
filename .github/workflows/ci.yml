@@ -140,6 +140,7 @@ jobs:
           name: wasm-artifacts
           path: .artifact/
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 1
 
       - name: Upload host binary
