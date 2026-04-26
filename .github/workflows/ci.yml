@@ -90,15 +90,32 @@ jobs:
             --exclude-from-report "dbms-canister-client-integration" \
             --exclude-from-report "example"
 
-      - name: Run doc tests
-        run: cargo test --doc --workspace --exclude wasm-dbms-example-guest
-
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
           name: lcov-info
           path: lcov.info
           retention-days: 1
+
+  doc-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-doctest-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Run doc tests
+        run: cargo test --doc --workspace --exclude wasm-dbms-example-guest
 
   build:
     runs-on: ubuntu-latest
