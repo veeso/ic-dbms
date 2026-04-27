@@ -61,7 +61,7 @@ The workspace is split into two crate families. Detailed architecture lives in
 
 ### Required Tooling
 
-- **Rust toolchain** pinned by [`rust-toolchain.toml`](./rust-toolchain.toml) (currently `1.94.1`) with the
+- **Rust toolchain** pinned by [`rust-toolchain.toml`](./rust-toolchain.toml) (currently `1.95.0`) with the
   `wasm32-unknown-unknown` and `wasm32-wasip2` targets. `rustup` will install both automatically the first time
   you run a `cargo` command in the repository.
 - **Nightly Rust** with `rustfmt` (used for formatting only):
