@@ -752,6 +752,8 @@ where
                         foreign_column: pk_name,
                         local_column: ref_col,
                     }),
+                    default: None,
+                    renamed_from: &[],
                 },
                 new_pk.clone(),
             );

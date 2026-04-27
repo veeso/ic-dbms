@@ -1,9 +1,17 @@
 use serde::{Deserialize, Serialize};
 
 use crate::dbms::types::DataTypeKind;
+use crate::dbms::value::Value;
+
+/// Constructor for a column's default value.
+///
+/// Stored as a function pointer rather than a `Value` so [`ColumnDef`] can stay
+/// `Copy`. The migration planner calls the constructor whenever it needs to
+/// materialise the default for an `AddColumn` op or to fill a fresh row.
+pub type DefaultValueFn = fn() -> Value;
 
 /// Defines a column in a database table.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug)]
 pub struct ColumnDef {
     /// The name of the column.
     pub name: &'static str,
@@ -20,7 +28,37 @@ pub struct ColumnDef {
     pub unique: bool,
     /// Foreign key definition, if any.
     pub foreign_key: Option<ForeignKeyDef>,
+    /// Default value constructor, if any.
+    ///
+    /// Populated by the `#[default = ...]` attribute on a `#[derive(Table)]`
+    /// field. Consumed by the migration planner when adding a non-nullable
+    /// column to satisfy the
+    /// [`MissingDefault`](crate::dbms::migration::MigrationError::MissingDefault)
+    /// check.
+    pub default: Option<DefaultValueFn>,
+    /// Previous names this column was known by, in chronological order.
+    ///
+    /// Populated by the `#[renamed_from("old1", "old2", ...)]` attribute. The
+    /// migration planner walks this list to detect a `RenameColumn` op when a
+    /// stored column with one of these names matches the compiled column.
+    pub renamed_from: &'static [&'static str],
 }
+
+impl PartialEq for ColumnDef {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+            && self.data_type == other.data_type
+            && self.auto_increment == other.auto_increment
+            && self.nullable == other.nullable
+            && self.primary_key == other.primary_key
+            && self.unique == other.unique
+            && self.foreign_key == other.foreign_key
+            && self.default.map(|f| f as usize) == other.default.map(|f| f as usize)
+            && self.renamed_from == other.renamed_from
+    }
+}
+
+impl Eq for ColumnDef {}
 
 /// Defines a foreign key relationship for a column.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -171,6 +209,8 @@ mod test {
             primary_key: true,
             unique: false,
             foreign_key: None,
+            default: None,
+            renamed_from: &[],
         };
 
         assert_eq!(column.name, "id");
@@ -198,6 +238,8 @@ mod test {
             primary_key: false,
             unique: false,
             foreign_key: Some(fk),
+            default: None,
+            renamed_from: &[],
         };
 
         assert_eq!(column.name, "user_id");
@@ -219,6 +261,8 @@ mod test {
             primary_key: false,
             unique: true,
             foreign_key: None,
+            default: None,
+            renamed_from: &[],
         };
 
         let cloned = column.clone();
@@ -235,6 +279,8 @@ mod test {
             primary_key: true,
             unique: false,
             foreign_key: None,
+            default: None,
+            renamed_from: &[],
         };
 
         let column2 = ColumnDef {
@@ -245,6 +291,8 @@ mod test {
             primary_key: true,
             unique: false,
             foreign_key: None,
+            default: None,
+            renamed_from: &[],
         };
 
         let column3 = ColumnDef {
@@ -255,6 +303,8 @@ mod test {
             primary_key: false,
             unique: true,
             foreign_key: None,
+            default: None,
+            renamed_from: &[],
         };
 
         assert_eq!(column1, column2);
@@ -334,6 +384,8 @@ mod test {
             primary_key: true,
             unique: false,
             foreign_key: None,
+            default: None,
+            renamed_from: &[],
         };
         let candid_col = JoinColumnDef::from(col);
         assert_eq!(candid_col.table, None);
@@ -364,6 +416,8 @@ mod test {
             primary_key: false,
             unique: false,
             foreign_key: None,
+            default: None,
+            renamed_from: &[],
         };
         let candid_col = JoinColumnDef::from(col);
         assert_eq!(

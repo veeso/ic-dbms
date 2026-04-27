@@ -37,6 +37,9 @@ fn impl_database_schema(struct_ident: &syn::Ident, tables: &[TableEntry]) -> Tok
     let update_fn = impl_update(tables);
     let validate_insert_fn = impl_validate_insert(tables);
     let validate_update_fn = impl_validate_update(tables);
+    let migrate_default_fn = impl_migrate_default(tables);
+    let migrate_transform_fn = impl_migrate_transform(tables);
+    let compiled_snapshots_fn = impl_compiled_snapshots(tables);
 
     quote::quote! {
         impl<M, A> ::wasm_dbms::prelude::DatabaseSchema<M, A> for #struct_ident
@@ -52,6 +55,9 @@ fn impl_database_schema(struct_ident: &syn::Ident, tables: &[TableEntry]) -> Tok
             #update_fn
             #validate_insert_fn
             #validate_update_fn
+            #migrate_default_fn
+            #migrate_transform_fn
+            #compiled_snapshots_fn
         }
     }
 }
@@ -307,6 +313,84 @@ fn impl_validate_insert(tables: &[TableEntry]) -> TokenStream2 {
                     ::wasm_dbms_api::prelude::QueryError::TableNotFound(table_name.to_string()),
                 )),
             }
+        }
+    }
+}
+
+fn impl_migrate_default(tables: &[TableEntry]) -> TokenStream2 {
+    let match_arms: Vec<_> = tables
+        .iter()
+        .map(|t| {
+            let entity = &t.table;
+            quote::quote! {
+                name if name == <#entity as ::wasm_dbms_api::prelude::TableSchema>::table_name() => {
+                    if let Some(value) =
+                        <#entity as ::wasm_dbms_api::prelude::Migrate>::default_value(column)
+                    {
+                        return Some(value);
+                    }
+                    <#entity as ::wasm_dbms_api::prelude::TableSchema>::columns()
+                        .iter()
+                        .find(|c| c.name == column)
+                        .and_then(|c| c.default.map(|f| f()))
+                }
+            }
+        })
+        .collect();
+
+    quote::quote! {
+        fn migrate_default(table: &str, column: &str) -> Option<::wasm_dbms_api::prelude::Value> {
+            match table {
+                #(#match_arms)*
+                _ => None,
+            }
+        }
+    }
+}
+
+fn impl_migrate_transform(tables: &[TableEntry]) -> TokenStream2 {
+    let match_arms: Vec<_> = tables
+        .iter()
+        .map(|t| {
+            let entity = &t.table;
+            quote::quote! {
+                name if name == <#entity as ::wasm_dbms_api::prelude::TableSchema>::table_name() => {
+                    <#entity as ::wasm_dbms_api::prelude::Migrate>::transform_column(column, old)
+                }
+            }
+        })
+        .collect();
+
+    quote::quote! {
+        fn migrate_transform(
+            table: &str,
+            column: &str,
+            old: ::wasm_dbms_api::prelude::Value,
+        ) -> ::wasm_dbms_api::prelude::DbmsResult<Option<::wasm_dbms_api::prelude::Value>> {
+            match table {
+                #(#match_arms)*
+                _ => Err(::wasm_dbms_api::prelude::DbmsError::Query(
+                    ::wasm_dbms_api::prelude::QueryError::TableNotFound(table.to_string()),
+                )),
+            }
+        }
+    }
+}
+
+fn impl_compiled_snapshots(tables: &[TableEntry]) -> TokenStream2 {
+    let entries: Vec<_> = tables
+        .iter()
+        .map(|t| {
+            let entity = &t.table;
+            quote::quote! {
+                <#entity as ::wasm_dbms_api::prelude::TableSchema>::schema_snapshot()
+            }
+        })
+        .collect();
+
+    quote::quote! {
+        fn compiled_snapshots() -> Vec<::wasm_dbms_api::prelude::TableSchemaSnapshot> {
+            vec![#(#entries),*]
         }
     }
 }

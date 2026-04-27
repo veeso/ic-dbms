@@ -192,6 +192,8 @@ mod tests {
                 primary_key: true,
                 unique: true,
                 foreign_key: None,
+                default: None,
+                renamed_from: &[],
             }]
         }
 
@@ -323,6 +325,8 @@ mod tests {
                     primary_key: true,
                     unique: true,
                     foreign_key: None,
+                    default: None,
+                    renamed_from: &[],
                 },
                 ColumnDef {
                     name: "seq",
@@ -332,6 +336,8 @@ mod tests {
                     primary_key: false,
                     unique: false,
                     foreign_key: None,
+                    default: None,
+                    renamed_from: &[],
                 },
             ]
         }
@@ -463,6 +469,8 @@ mod tests {
                 primary_key: true,
                 unique: true,
                 foreign_key: None,
+                default: None,
+                renamed_from: &[],
             }]
         }
 
@@ -741,6 +749,8 @@ mod tests {
                 primary_key: true,
                 unique: true,
                 foreign_key: None,
+                default: None,
+                renamed_from: &[],
             }]
         }
 
