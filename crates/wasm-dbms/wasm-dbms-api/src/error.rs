@@ -7,6 +7,8 @@ use thiserror::Error;
 pub enum DbmsError {
     #[error("Memory error: {0}")]
     Memory(#[from] crate::memory::MemoryError),
+    #[error("Migration error: {0}")]
+    Migration(#[from] crate::dbms::migration::MigrationError),
     #[error("Query error: {0}")]
     Query(#[from] crate::dbms::query::QueryError),
     #[error("Sanitize error: {0}")]

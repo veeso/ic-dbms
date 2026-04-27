@@ -140,6 +140,8 @@ interface types {
         validation-error(string),
         /// Underlying memory error.
         memory-error(string),
+        /// Schema migration error (drift, incompatible type, missing default, ...).
+        migration-error(string),
         /// Generic catch-all (internal / unexpected condition).
         internal-error(string),
     }

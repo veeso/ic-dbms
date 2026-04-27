@@ -7,6 +7,9 @@ pub use crate::dbms::autoincrement::Autoincrement;
 pub use crate::dbms::custom_value::CustomValue;
 pub use crate::dbms::database::Database;
 pub use crate::dbms::foreign_fetcher::{ForeignFetcher, NoForeignFetcher};
+pub use crate::dbms::migration::{
+    ColumnChanges, Migrate, MigrationError, MigrationOp, MigrationPolicy,
+};
 pub use crate::dbms::query::{
     AggregateFunction, AggregatedRow, AggregatedValue, DeleteBehavior, Filter, Join, JoinType,
     JsonCmp, JsonFilter, OrderDirection, Query, QueryBuilder, QueryError, QueryResult, Select,

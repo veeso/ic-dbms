@@ -15,6 +15,9 @@ const ATTRIBUTE_FOREIGN_KEY: &str = "foreign_key";
 const ATTRIBUTE_FOREIGN_KEY_ENTITY: &str = "entity";
 const ATTRIBUTE_FOREIGN_KEY_TABLE: &str = "table";
 const ATTRIBUTE_FOREIGN_KEY_COLUMN: &str = "column";
+const ATTRIBUTE_DEFAULT: &str = "default";
+const ATTRIBUTE_RENAMED_FROM: &str = "renamed_from";
+const ATTRIBUTE_MIGRATE: &str = "migrate";
 
 /// Representation of a foreign key in a table
 pub struct ForeignKey {
@@ -61,6 +64,14 @@ pub struct Field {
     pub validate: Option<Validator>,
     /// Value type of the field; e.g. `Value::Int32`. `None` for custom types.
     pub value_type: Option<syn::Path>,
+    /// Default value literal, if `#[default = ...]` is set on the field.
+    ///
+    /// The expression is taken verbatim and wrapped in a closure at codegen
+    /// time so the resulting [`ColumnDef::default`] is a `fn() -> Value`.
+    pub default: Option<syn::Expr>,
+    /// Previous names this field was known by, declared via
+    /// `#[renamed_from("old1", "old2", ...)]`.
+    pub renamed_from: Vec<String>,
 }
 
 /// Validator metadata
@@ -136,6 +147,9 @@ pub struct TableMetadata {
     /// Whether to add `candid::CandidType` and `serde::{Serialize, Deserialize}` derives
     /// to generated Record, Insert, and Update types
     pub candid: bool,
+    /// Set when the struct carries `#[migrate]`, suppressing the default
+    /// `impl Migrate for T {}` emission so the user can provide their own.
+    pub user_migrate_impl: bool,
 }
 
 impl TableMetadata {
@@ -180,6 +194,7 @@ pub fn collect_table_metadata(
     };
     let fields = get_fields(data, &primary_key, &foreign_keys, &sanitizes, &validates)?;
     let candid = attrs.iter().any(|a| a.path().is_ident("candid"));
+    let user_migrate_impl = attrs.iter().any(|a| a.path().is_ident(ATTRIBUTE_MIGRATE));
 
     Ok(TableMetadata {
         name: table_name,
@@ -193,6 +208,7 @@ pub fn collect_table_metadata(
         fields,
         alignment,
         candid,
+        user_migrate_impl,
     })
 }
 
@@ -700,6 +716,9 @@ fn get_fields(
             )
         };
 
+        let default = parse_default(field)?;
+        let renamed_from = parse_renamed_from(field)?;
+
         fields.push(Field {
             name,
             is_fk,
@@ -714,10 +733,92 @@ fn get_fields(
             sanitize,
             validate,
             value_type,
+            default,
+            renamed_from,
         });
     }
 
     Ok(fields)
+}
+
+/// Parses the optional `#[default = <expr>]` attribute on a field.
+///
+/// The expression is taken verbatim and used at codegen time to build a
+/// `fn() -> Value` constructor; type compatibility against the column data
+/// type is enforced by `rustc` when the generated code is compiled, since
+/// `Value::from(<expr>)` is type-checked against the column's `Value`
+/// variant.
+fn parse_default(field: &syn::Field) -> syn::Result<Option<syn::Expr>> {
+    let mut found: Option<syn::Expr> = None;
+
+    for attr in &field.attrs {
+        if !attr.path().is_ident(ATTRIBUTE_DEFAULT) {
+            continue;
+        }
+        let name_value = attr.meta.require_name_value().map_err(|_| {
+            syn::Error::new_spanned(
+                attr,
+                "expected `#[default = <expr>]` (e.g. `#[default = 0]`)",
+            )
+        })?;
+        if found.is_some() {
+            return Err(syn::Error::new_spanned(
+                attr,
+                "duplicate `#[default]` attribute",
+            ));
+        }
+        found = Some(name_value.value.clone());
+    }
+
+    Ok(found)
+}
+
+/// Parses the optional `#[renamed_from("a", "b", ...)]` attribute on a field.
+///
+/// Each entry must be a string literal; non-string entries produce a compile
+/// error so the migration planner does not pick up garbage column names.
+fn parse_renamed_from(field: &syn::Field) -> syn::Result<Vec<String>> {
+    let mut names: Vec<String> = Vec::new();
+    let mut seen = false;
+
+    for attr in &field.attrs {
+        if !attr.path().is_ident(ATTRIBUTE_RENAMED_FROM) {
+            continue;
+        }
+        if seen {
+            return Err(syn::Error::new_spanned(
+                attr,
+                "duplicate `#[renamed_from]` attribute",
+            ));
+        }
+        seen = true;
+
+        let list = attr.meta.require_list().map_err(|_| {
+            syn::Error::new_spanned(attr, "expected `#[renamed_from(\"old1\", \"old2\", ...)]`")
+        })?;
+        let punctuated = list
+            .parse_args_with(
+                syn::punctuated::Punctuated::<syn::LitStr, syn::Token![,]>::parse_terminated,
+            )
+            .map_err(|_| {
+                syn::Error::new_spanned(
+                    attr,
+                    "`#[renamed_from(...)]` entries must be string literals",
+                )
+            })?;
+        for lit in punctuated {
+            names.push(lit.value());
+        }
+
+        if names.is_empty() {
+            return Err(syn::Error::new_spanned(
+                attr,
+                "`#[renamed_from(...)]` requires at least one previous name",
+            ));
+        }
+    }
+
+    Ok(names)
 }
 
 /// If the type of field is `Nullable<T>`, returns `true`, else `false`.

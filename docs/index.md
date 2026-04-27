@@ -40,6 +40,7 @@ Step-by-step guides for building databases with wasm-dbms:
 - [Transactions](./guides/transactions.md) - ACID transactions with commit/rollback
 - [Relationships](./guides/relationships.md) - Foreign keys, delete behaviors, and eager loading
 - [Custom Data Types](./guides/custom-data-types.md) - Define your own data types (enums, structs)
+- [Schema Migrations](./guides/migrations.md) - Evolve your schema across releases without losing data
 - [Wasmtime Example](./guides/wasmtime-example.md) - Using wasm-dbms with the WIT Component Model and Wasmtime
 
 ### Reference
@@ -48,6 +49,7 @@ API and type reference documentation:
 
 - [Data Types](./reference/data-types.md) - All supported column types
 - [Schema Definition](./reference/schema.md) - Table attributes and generated types
+- [Migrations](./reference/migrations.md) - Schema migration lifecycle, ops, and policy
 - [Validation](./reference/validation.md) - Built-in and custom validators
 - [Sanitization](./reference/sanitization.md) - Built-in and custom sanitizers
 - [JSON](./reference/json.md) - JSON data type and filtering

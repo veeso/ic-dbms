@@ -16,6 +16,10 @@
     - [Validate](#validate)
     - [Candid](#candid)
     - [Alignment](#alignment)
+  - [Migration Attributes](#migration-attributes)
+    - [Default Value](#default-value)
+    - [Renamed From](#renamed-from)
+    - [Migrate Override](#migrate-override)
   - [Generated Types](#generated-types)
     - [Record Type](#record-type)
     - [InsertRequest Type](#insertrequest-type)
@@ -35,6 +39,19 @@ wasm-dbms schemas are defined entirely in Rust using derive macros and attribute
 - Structs with `#[derive(Table)]` become database tables
 - Fields become columns with their types
 - Attributes configure primary keys, foreign keys, validation, and more
+
+> [!WARNING]
+> The schema snapshot format used for migration detection imposes hard limits on identifier lengths and table shape. Exceeding any of these will cause the snapshot encoder to truncate or panic at runtime:
+>
+> - **Table name**: at most **255 bytes** (UTF-8).
+> - **Column name**: at most **255 bytes** (UTF-8). Applies to every column, including the primary key and any column referenced by an index or foreign key.
+> - **Custom data type name**: at most **255 bytes** (UTF-8).
+> - **Foreign key target** (table name and column name): each at most **255 bytes**.
+> - **Columns per index**: at most **255**.
+> - **Columns per table**: at most **65,535**.
+> - **Indexes per table**: at most **65,535**.
+>
+> Pick short, `snake_case` identifiers. The 255-byte cap is well above any sensible name length, but binary identifiers or non-ASCII text can blow past it faster than expected because the limit is in **bytes**, not characters.
 
 ---
 
@@ -453,6 +470,141 @@ pub struct LargeRecord {
 - Fixed-size tables ignore this attribute (alignment equals record size)
 
 > **Caution:** Only change alignment if you understand the performance implications.
+
+---
+
+## Migration Attributes
+
+These attributes feed the schema migration subsystem. They produce no runtime behaviour for normal CRUD; the planner only consults them when the compiled schema diverges from the snapshot stored in stable memory.
+
+See the [Schema Migrations Guide](./migrations.md) for the end-to-end flow (drift detection, `plan_migration`, `migrate(policy)`).
+
+### Default Value
+
+Attach a per-column default that the migration planner uses when adding a non-nullable column to an existing table:
+
+```rust
+#[derive(Table, ...)]
+#[table = "users"]
+pub struct User {
+    #[primary_key]
+    pub id: Uint32,
+
+    pub name: Text,
+
+    #[default = 0]
+    pub login_count: Uint32,
+}
+```
+
+**How it is used:**
+
+- When `migrate()` plans an `AddColumn` op for a non-nullable column, it pulls the value from `#[default = ...]` (after first checking `Migrate::default_value`).
+- Without a resolvable default, planning aborts with `MigrationError::MissingDefault`.
+
+**Rules:**
+
+- The expression must convert into the column's `Value` variant via `From`/`Into`. Examples: `#[default = 0]` on `Uint32`, `#[default = ""]` on `Text`, `#[default = false]` on `Boolean`.
+- The expression is evaluated **at migration time**, not at insert time, so it has no effect on regular `INSERT` calls — those still need an explicit value (or omit the field if nullable).
+- Custom data types must implement `From<MyType> for Value`; the `#[derive(CustomDataType)]` macro emits this automatically.
+- Defaults are persisted into the table's snapshot (`ColumnSnapshot::default`), so the planner can compare them across releases.
+
+**Combining with nullable:**
+
+```rust
+// Redundant — nullable columns default to NULL implicitly. Don't write
+// #[default] on a Nullable<T> field.
+pub bio: Nullable<Text>,
+```
+
+### Renamed From
+
+Tell the migration planner that a column used to be known by one or more previous names:
+
+```rust
+#[derive(Table, ...)]
+#[table = "users"]
+pub struct User {
+    #[primary_key]
+    pub id: Uint32,
+
+    #[renamed_from("username", "user_name")]
+    pub name: Text,
+}
+```
+
+**How it is used:**
+
+When planning a migration, the planner first matches stored columns against compiled columns by name. For each compiled column with no direct match, it walks `renamed_from` in order and looks for a stored column with one of those names. The first hit is emitted as a `RenameColumn` op, preserving the column's data.
+
+**Rules:**
+
+- Entries are string literals.
+- Order matters: list newer renames first, older renames last (mirroring the chronological order of releases).
+- A stored column matched by `renamed_from` is **not** matched by another compiled column. If two compiled columns claim the same previous name, the earlier-declared field wins.
+- Without `#[renamed_from]`, a column rename is indistinguishable from a `DropColumn` + `AddColumn` pair, which loses data.
+
+### Migrate Override
+
+By default, `#[derive(Table)]` emits an empty `impl Migrate for T {}` for every table, giving you trait defaults for `default_value` and `transform_column`. Add `#[migrate]` at the struct level to suppress that emission and provide a hand-written impl:
+
+```rust
+#[derive(Table, ...)]
+#[table = "events"]
+#[migrate]
+pub struct Event {
+    #[primary_key]
+    pub id: Uint32,
+    pub kind: Text,
+    pub severity: Uint8,
+}
+
+impl Migrate for Event {
+    fn default_value(column: &str) -> Option<Value> {
+        match column {
+            "severity" => Some(Value::Uint8(Uint8(1))),
+            _ => None,
+        }
+    }
+
+    fn transform_column(column: &str, old: Value) -> DbmsResult<Option<Value>> {
+        match column {
+            // Example: convert legacy text severities into the new Uint8 column.
+            "severity" => match old {
+                Value::Text(Text(s)) => match s.as_str() {
+                    "low" => Ok(Some(Value::Uint8(Uint8(1)))),
+                    "medium" => Ok(Some(Value::Uint8(Uint8(5)))),
+                    "high" => Ok(Some(Value::Uint8(Uint8(9)))),
+                    other => Err(DbmsError::Migration(MigrationError::TransformAborted {
+                        table: "events".into(),
+                        column: column.into(),
+                        reason: format!("unknown severity `{other}`"),
+                    })),
+                },
+                _ => Ok(None),
+            },
+            _ => Ok(None),
+        }
+    }
+}
+```
+
+**When to use `#[migrate]`:**
+
+- The new column is non-nullable and the default cannot be a constant literal (e.g. requires hashing the row, or pulls from another column).
+- A column changed to an incompatible type that is not in the [widening whitelist](./migrations.md#compatible-widening-whitelist), and you can derive the new value from the old one.
+
+**Trait contract:**
+
+| Method | Returns | Effect |
+| ------ | ------- | ------ |
+| `default_value(column)` | `Some(v)` | Use `v` for `AddColumn` on `column`. |
+| `default_value(column)` | `None` | Fall back to `#[default = ...]`, else `MigrationError::MissingDefault`. |
+| `transform_column(column, old)` | `Ok(Some(v))` | Replace stored value with `v`. |
+| `transform_column(column, old)` | `Ok(None)` | No transform; framework errors with `MigrationError::IncompatibleType` unless the type change is a whitelisted widening. |
+| `transform_column(column, old)` | `Err(_)` | Abort the migration; the journaled session rolls back. |
+
+> **Note:** Without `#[migrate]`, do **not** write `impl Migrate for T {}` yourself — the macro already emitted one and you would get a duplicate-impl error.
 
 ---
 

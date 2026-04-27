@@ -153,6 +153,8 @@ impl UpdateRecord for UserUpdateRequest {
                     primary_key: true,
                     unique: false,
                     foreign_key: None,
+                    default: None,
+                    renamed_from: &[],
                 },
                 crate::dbms::value::Value::Uint32(id),
             ));
@@ -167,6 +169,8 @@ impl UpdateRecord for UserUpdateRequest {
                     primary_key: false,
                     unique: false,
                     foreign_key: None,
+                    default: None,
+                    renamed_from: &[],
                 },
                 crate::dbms::value::Value::Text(name.clone()),
             ));
@@ -248,6 +252,8 @@ impl TableSchema for User {
                 primary_key: true,
                 unique: false,
                 foreign_key: None,
+                default: None,
+                renamed_from: &[],
             },
             ColumnDef {
                 name: "name",
@@ -257,6 +263,8 @@ impl TableSchema for User {
                 primary_key: false,
                 unique: false,
                 foreign_key: None,
+                default: None,
+                renamed_from: &[],
             },
         ]
     }

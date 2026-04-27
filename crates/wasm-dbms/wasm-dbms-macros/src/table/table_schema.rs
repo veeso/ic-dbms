@@ -20,8 +20,11 @@ pub fn generate_table_schema(
     let values = to_values(&metadata.fields);
     let sanitizers = sanitizers(&metadata.fields);
     let validators = validators(&metadata.fields);
+    let migrate_impl = migrate_impl(struct_name, metadata);
 
     Ok(quote::quote! {
+        #migrate_impl
+
         impl ::wasm_dbms_api::prelude::TableSchema for #struct_name {
             type Record = #record_ident;
             type Insert = #insert_ident;
@@ -90,6 +93,8 @@ fn column_def(metadata: &TableMetadata) -> syn::Result<TokenStream2> {
         // set unique to true if either the field is marked as unique or it's a primary key (since primary keys are implicitly unique)
         let unique = quote_bool(field.unique || field.primary_key);
         let auto_increment = quote_bool(field.auto_increment);
+        let default = default_expr(field);
+        let renamed_from = renamed_from_expr(field);
 
         columns.push(quote::quote! {
             ::wasm_dbms_api::prelude::ColumnDef {
@@ -100,6 +105,8 @@ fn column_def(metadata: &TableMetadata) -> syn::Result<TokenStream2> {
                 nullable: #nullable,
                 unique: #unique,
                 primary_key: #primary_key,
+                default: #default,
+                renamed_from: #renamed_from,
             }
         })
     }
@@ -107,6 +114,74 @@ fn column_def(metadata: &TableMetadata) -> syn::Result<TokenStream2> {
     Ok(quote::quote! {
         &[#(#columns),*]
     })
+}
+
+/// Build the `default` field expression for a generated `ColumnDef` literal.
+///
+/// Returns either `None` (no `#[default]` attribute) or
+/// `Some((|| ::wasm_dbms_api::prelude::Value::from(<inner>::from(<expr>))) as fn() -> Value)`
+/// for built-in types (so an unsuffixed integer literal coerces into the
+/// column's specific `Value` variant rather than defaulting to `i32`), and
+/// `Some((|| Value::from(<expr>)) as fn() -> Value)` for custom types where
+/// `From<CustomType> for Value` is provided by the `#[derive(CustomDataType)]`
+/// macro.
+///
+/// The fn-pointer cast keeps [`ColumnDef`](::wasm_dbms_api::prelude::ColumnDef)
+/// `Copy`.
+fn default_expr(field: &Field) -> TokenStream2 {
+    let Some(expr) = field.default.as_ref() else {
+        return quote::quote! { ::core::option::Option::None };
+    };
+
+    let body = if field.custom_type {
+        quote::quote! {
+            ::wasm_dbms_api::prelude::Value::from(#expr)
+        }
+    } else {
+        // value_type is set for non-custom fields (e.g. `Value::Uint32`); the
+        // last segment names the inner type (e.g. `Uint32`).
+        let value_type = field
+            .value_type
+            .as_ref()
+            .expect("non-custom field must carry a value_type");
+        let inner_ident = &value_type
+            .segments
+            .last()
+            .expect("value_type path must have at least one segment")
+            .ident;
+        quote::quote! {
+            ::wasm_dbms_api::prelude::Value::from(
+                <::wasm_dbms_api::prelude::#inner_ident as ::core::convert::From<_>>::from(#expr)
+            )
+        }
+    };
+
+    quote::quote! {
+        ::core::option::Option::Some(
+            (|| #body) as fn() -> ::wasm_dbms_api::prelude::Value
+        )
+    }
+}
+
+/// Build the `renamed_from` field expression for a generated `ColumnDef` literal.
+fn renamed_from_expr(field: &Field) -> TokenStream2 {
+    let entries = field.renamed_from.iter().map(|s| quote::quote! { #s });
+    quote::quote! {
+        &[#(#entries),*]
+    }
+}
+
+/// Emit `impl Migrate for #struct_name {}` unless the struct carries
+/// `#[migrate]`, in which case the user is expected to provide their own
+/// implementation.
+fn migrate_impl(struct_name: &Ident, metadata: &TableMetadata) -> TokenStream2 {
+    if metadata.user_migrate_impl {
+        quote::quote! {}
+    } else {
+        quote::quote! {
+            impl ::wasm_dbms_api::prelude::Migrate for #struct_name {}
+        }
+    }
 }
 
 /// Build up the `ForeignKeyDef` definition for the given field, if it is a foreign key.
