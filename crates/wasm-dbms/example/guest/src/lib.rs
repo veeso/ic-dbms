@@ -138,6 +138,7 @@ fn dbms_value_to_wit(v: Value) -> wit::Value {
 fn dbms_error_to_wit(e: DbmsError) -> wit::DbmsError {
     match e {
         DbmsError::Memory(m) => wit::DbmsError::MemoryError(m.to_string()),
+        DbmsError::Migration(m) => wit::DbmsError::MigrationError(m.to_string()),
         DbmsError::Query(q) => query_error_to_wit(q),
         DbmsError::Table(t) => wit::DbmsError::TableNotFound(t.to_string()),
         DbmsError::Transaction(_) => wit::DbmsError::TransactionNotFound,

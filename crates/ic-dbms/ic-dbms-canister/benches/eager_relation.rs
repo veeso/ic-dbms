@@ -2,7 +2,8 @@ use candid::CandidType;
 use criterion::{Criterion, criterion_group, criterion_main};
 use ic_dbms_api::prelude::{
     AggregateFunction, AggregatedRow, ColumnDef, Database, DeleteBehavior, Filter, InsertRecord,
-    Query, QueryError, TableSchema, UpdateRecord, Value, flatten_table_columns,
+    Migrate, Query, QueryError, TableSchema, TableSchemaSnapshot, UpdateRecord, Value,
+    flatten_table_columns,
 };
 use ic_dbms_canister::prelude::{
     AccessControl, DBMS_CONTEXT, DatabaseSchema, InsertIntegrityValidator, MemoryProvider, Table,
@@ -181,6 +182,42 @@ where
                 QueryError::TableNotFound(table_name.to_string()),
             )),
         }
+    }
+
+    fn migrate_default(table: &str, column: &str) -> Option<Value> {
+        match table {
+            name if name == User::table_name() => User::default_value(column).or_else(|| {
+                User::columns()
+                    .iter()
+                    .find(|c| c.name == column)
+                    .and_then(|c| c.default.map(|f| f()))
+            }),
+            name if name == Post::table_name() => Post::default_value(column).or_else(|| {
+                Post::columns()
+                    .iter()
+                    .find(|c| c.name == column)
+                    .and_then(|c| c.default.map(|f| f()))
+            }),
+            _ => None,
+        }
+    }
+
+    fn migrate_transform(
+        table: &str,
+        column: &str,
+        old: Value,
+    ) -> ic_dbms_api::prelude::IcDbmsResult<Option<Value>> {
+        match table {
+            name if name == User::table_name() => User::transform_column(column, old),
+            name if name == Post::table_name() => Post::transform_column(column, old),
+            _ => Err(ic_dbms_api::prelude::IcDbmsError::Query(
+                QueryError::TableNotFound(table.to_string()),
+            )),
+        }
+    }
+
+    fn compiled_snapshots() -> Vec<TableSchemaSnapshot> {
+        vec![User::schema_snapshot(), Post::schema_snapshot()]
     }
 }
 

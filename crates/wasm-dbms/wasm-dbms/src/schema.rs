@@ -3,7 +3,7 @@
 
 use wasm_dbms_api::prelude::{
     AggregateFunction, AggregatedRow, ColumnDef, DbmsResult, DeleteBehavior, Filter, JoinColumnDef,
-    Query, Value,
+    Query, TableSchemaSnapshot, Value,
 };
 use wasm_dbms_memory::prelude::{AccessControl, AccessControlList, MemoryProvider};
 
@@ -97,12 +97,41 @@ where
         record_values: &[(ColumnDef, Value)],
         old_pk: Value,
     ) -> DbmsResult<()>;
+
+    /// Returns the default value of a column for a given table, if any.
+    ///
+    /// Looks up the table's per-row [`Migrate::default_value`](
+    /// wasm_dbms_api::prelude::Migrate::default_value) hook, then falls back
+    /// to the `#[default]` attribute compiled into [`ColumnDef::default`].
+    /// Used by the migration planner to satisfy `AddColumn` ops on
+    /// non-nullable columns.
+    fn migrate_default(table: &str, column: &str) -> Option<Value>
+    where
+        Self: Sized;
+
+    /// Transforms a stored value when migrating a column to an incompatible
+    /// type by dispatching to the table's
+    /// [`Migrate::transform_column`](wasm_dbms_api::prelude::Migrate::transform_column)
+    /// hook.
+    fn migrate_transform(table: &str, column: &str, old: Value) -> DbmsResult<Option<Value>>
+    where
+        Self: Sized;
+
+    /// Returns the compile-time [`TableSchemaSnapshot`] for every table in the
+    /// schema.
+    ///
+    /// Used by drift detection (boot path) and by the migration planner to
+    /// diff against the snapshots stored on disk.
+    fn compiled_snapshots() -> Vec<TableSchemaSnapshot>
+    where
+        Self: Sized;
 }
 
 #[cfg(test)]
 mod tests {
     use wasm_dbms_api::prelude::{
-        Database as _, InsertRecord as _, Query, TableSchema as _, Text, Uint32, Value,
+        Database as _, DbmsResult, InsertRecord as _, Migrate, Query, TableSchema as _, Text,
+        Uint32, Value,
     };
     use wasm_dbms_macros::{DatabaseSchema, Table};
     use wasm_dbms_memory::prelude::HeapMemoryProvider;
@@ -131,9 +160,75 @@ mod tests {
         pub brand: Text,
     }
 
+    /// Table exercising the `#[default = ...]` field attribute. The literal
+    /// `42_u32` flows through the macro, gets wrapped in
+    /// `Value::from(...)`, and surfaces on `ColumnDef::default`.
+    #[derive(Debug, Table, Clone, PartialEq, Eq)]
+    #[table = "score_defaulted"]
+    pub struct ScoreDefaulted {
+        #[primary_key]
+        pub id: Uint32,
+        #[default = 42]
+        pub score: Uint32,
+    }
+
+    /// Table exercising the `#[renamed_from(...)]` field attribute. The
+    /// previous-name slice flows through to `ColumnDef::renamed_from` for
+    /// the migration planner to consume on rename detection.
+    #[derive(Debug, Table, Clone, PartialEq, Eq)]
+    #[table = "renamed_table"]
+    pub struct RenamedTable {
+        #[primary_key]
+        pub id: Uint32,
+        #[renamed_from("old_name", "older_name")]
+        pub name: Text,
+    }
+
+    /// Table opting into a manual `impl Migrate` via the `#[migrate]` struct
+    /// attribute. The macro must NOT emit its own empty impl, otherwise the
+    /// user impl below would be a duplicate.
+    #[derive(Debug, Table, Clone, PartialEq, Eq)]
+    #[table = "custom_migrate"]
+    #[migrate]
+    pub struct CustomMigrate {
+        #[primary_key]
+        pub id: Uint32,
+        pub label: Text,
+    }
+
+    impl Migrate for CustomMigrate {
+        fn default_value(column: &str) -> Option<Value> {
+            if column == "label" {
+                Some(Value::Text(Text("user-default".to_string())))
+            } else {
+                None
+            }
+        }
+
+        fn transform_column(column: &str, _old: Value) -> DbmsResult<Option<Value>> {
+            if column == "label" {
+                Ok(Some(Value::Text(Text("transformed".to_string()))))
+            } else {
+                Ok(None)
+            }
+        }
+    }
+
     #[derive(DatabaseSchema)]
     #[tables(Item = "items")]
     pub struct TestSchema;
+
+    /// Multi-table schema covering every macro variant introduced for
+    /// migrations, exercised through the new `DatabaseSchema` dispatch
+    /// methods (`migrate_default`, `migrate_transform`, `compiled_snapshots`).
+    #[derive(DatabaseSchema)]
+    #[tables(
+        Item = "items",
+        ScoreDefaulted = "score_defaulted",
+        RenamedTable = "renamed_table",
+        CustomMigrate = "custom_migrate"
+    )]
+    pub struct MigrationSchema;
 
     fn setup() -> DbmsContext<HeapMemoryProvider> {
         let ctx = DbmsContext::new(HeapMemoryProvider::default());
@@ -272,5 +367,184 @@ mod tests {
         assert_eq!(indexes[0].columns(), &["id"]);
         assert_eq!(indexes[1].columns(), &["sku"]);
         assert_eq!(indexes[2].columns(), &["category", "brand"]);
+    }
+
+    // ---------- Macro tests for migration metadata --------------------------
+
+    /// `#[default = LIT]` on a field must surface as a `fn() -> Value` on the
+    /// column's `default` slot, returning a `Value` of the same variant as
+    /// the column's data type.
+    #[test]
+    fn test_default_attribute_emits_constructor_on_column_def() {
+        let columns = ScoreDefaulted::columns();
+        let id = columns.iter().find(|c| c.name == "id").unwrap();
+        let score = columns.iter().find(|c| c.name == "score").unwrap();
+
+        assert!(id.default.is_none(), "id has no #[default]");
+        let ctor = score.default.expect("score must have a default");
+        assert_eq!(ctor(), Value::Uint32(Uint32(42)));
+    }
+
+    /// `#[renamed_from(...)]` populates the `renamed_from` slice in
+    /// declaration order; absent on fields that did not use the attribute.
+    #[test]
+    fn test_renamed_from_attribute_populates_slice() {
+        let columns = RenamedTable::columns();
+        let id = columns.iter().find(|c| c.name == "id").unwrap();
+        let name = columns.iter().find(|c| c.name == "name").unwrap();
+
+        assert!(id.renamed_from.is_empty());
+        assert_eq!(name.renamed_from, &["old_name", "older_name"]);
+    }
+
+    /// Default-impl path: the macro emits `impl Migrate for T {}`, so both
+    /// `default_value` and `transform_column` produce trait defaults.
+    #[test]
+    fn test_table_macro_emits_default_migrate_impl() {
+        assert_eq!(
+            <Item as Migrate>::default_value("id"),
+            None,
+            "default Migrate returns None for default_value"
+        );
+        assert!(matches!(
+            <Item as Migrate>::transform_column("id", Value::Uint32(Uint32(7))),
+            Ok(None)
+        ));
+    }
+
+    /// `#[migrate]` opts out of macro-emitted impl; the user-supplied impl is
+    /// the only one in scope and its overrides take effect.
+    #[test]
+    fn test_migrate_struct_attribute_uses_user_impl() {
+        assert_eq!(
+            <CustomMigrate as Migrate>::default_value("label"),
+            Some(Value::Text(Text("user-default".to_string())))
+        );
+        assert_eq!(<CustomMigrate as Migrate>::default_value("id"), None);
+
+        let transformed =
+            <CustomMigrate as Migrate>::transform_column("label", Value::Text(Text("x".into())))
+                .expect("transform_column must succeed");
+        assert_eq!(transformed, Some(Value::Text(Text("transformed".into()))));
+    }
+
+    /// `migrate_default` dispatch: the schema falls back to the column's
+    /// static `#[default]` constructor when `Migrate::default_value` returns
+    /// `None`.
+    #[test]
+    fn test_migrate_default_dispatch_falls_back_to_column_default() {
+        let value = <MigrationSchema as super::DatabaseSchema<HeapMemoryProvider>>::migrate_default(
+            "score_defaulted",
+            "score",
+        );
+        assert_eq!(value, Some(Value::Uint32(Uint32(42))));
+    }
+
+    /// `migrate_default` dispatch: the user-provided `Migrate::default_value`
+    /// wins over any static column default (and there is none here anyway).
+    #[test]
+    fn test_migrate_default_dispatch_uses_user_override() {
+        let value = <MigrationSchema as super::DatabaseSchema<HeapMemoryProvider>>::migrate_default(
+            "custom_migrate",
+            "label",
+        );
+        assert_eq!(value, Some(Value::Text(Text("user-default".to_string()))));
+    }
+
+    /// `migrate_default` dispatch: unknown table → `None`, mirroring the
+    /// `referenced_tables` no-match contract.
+    #[test]
+    fn test_migrate_default_dispatch_unknown_table_returns_none() {
+        let value = <MigrationSchema as super::DatabaseSchema<HeapMemoryProvider>>::migrate_default(
+            "nonexistent",
+            "anything",
+        );
+        assert!(value.is_none());
+    }
+
+    /// `migrate_default` dispatch: known table but column without a default →
+    /// `None`.
+    #[test]
+    fn test_migrate_default_dispatch_known_table_unknown_column_returns_none() {
+        let value = <MigrationSchema as super::DatabaseSchema<HeapMemoryProvider>>::migrate_default(
+            "items", "name",
+        );
+        assert!(value.is_none());
+    }
+
+    /// `migrate_transform` dispatch routes to the user-supplied impl on
+    /// `CustomMigrate` and produces the override value.
+    #[test]
+    fn test_migrate_transform_dispatch_uses_user_override() {
+        let value =
+            <MigrationSchema as super::DatabaseSchema<HeapMemoryProvider>>::migrate_transform(
+                "custom_migrate",
+                "label",
+                Value::Text(Text("x".into())),
+            )
+            .expect("transform must succeed");
+        assert_eq!(value, Some(Value::Text(Text("transformed".into()))));
+    }
+
+    /// `migrate_transform` dispatch: tables with the macro-emitted default
+    /// `Migrate` produce `Ok(None)` (no transform).
+    #[test]
+    fn test_migrate_transform_dispatch_default_impl_returns_none() {
+        let value =
+            <MigrationSchema as super::DatabaseSchema<HeapMemoryProvider>>::migrate_transform(
+                "items",
+                "id",
+                Value::Uint32(Uint32(1)),
+            )
+            .expect("transform must succeed");
+        assert!(value.is_none());
+    }
+
+    /// `migrate_transform` dispatch: unknown table → table-not-found error,
+    /// matching the existing behaviour of CRUD dispatch methods.
+    #[test]
+    fn test_migrate_transform_dispatch_unknown_table_errors() {
+        let result =
+            <MigrationSchema as super::DatabaseSchema<HeapMemoryProvider>>::migrate_transform(
+                "nonexistent",
+                "anything",
+                Value::Null,
+            );
+        assert!(result.is_err());
+    }
+
+    /// `compiled_snapshots` returns one snapshot per registered table, in
+    /// declaration order, and each snapshot reflects the table's compile-time
+    /// columns, primary key, and metadata such as `#[default]`/
+    /// `#[renamed_from]`.
+    #[test]
+    fn test_compiled_snapshots_one_per_table_in_order() {
+        let snapshots =
+            <MigrationSchema as super::DatabaseSchema<HeapMemoryProvider>>::compiled_snapshots();
+        assert_eq!(snapshots.len(), 4);
+        assert_eq!(
+            snapshots
+                .iter()
+                .map(|s| s.name.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "items",
+                "score_defaulted",
+                "renamed_table",
+                "custom_migrate"
+            ],
+        );
+
+        let score_snapshot = snapshots
+            .iter()
+            .find(|s| s.name == "score_defaulted")
+            .unwrap();
+        let score_col = score_snapshot
+            .columns
+            .iter()
+            .find(|c| c.name == "score")
+            .unwrap();
+        assert_eq!(score_col.default, Some(Value::Uint32(Uint32(42))));
+        assert_eq!(score_snapshot.primary_key, "id");
     }
 }

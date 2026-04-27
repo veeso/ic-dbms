@@ -30,8 +30,8 @@ use crate::{MemoryAccess, TableRegistryPage, align_up};
 /// but just allow to read/write records from/to memory.
 /// So CRUD checks must be performed by a higher layer, prior to calling these methods.
 pub struct TableRegistry {
-    free_segments_ledger: FreeSegmentsLedger,
     pub(crate) page_ledger: PageLedger,
+    free_segments_ledger: FreeSegmentsLedger,
     index_ledger: IndexLedger,
     auto_increment_ledger: Option<AutoincrementLedger>,
 }
@@ -40,8 +40,8 @@ impl TableRegistry {
     /// Loads the table registry from memory.
     pub fn load(table_pages: TableRegistryPage, mm: &mut impl MemoryAccess) -> MemoryResult<Self> {
         Ok(Self {
-            free_segments_ledger: FreeSegmentsLedger::load(table_pages.free_segments_page, mm)?,
             page_ledger: PageLedger::load(table_pages.pages_list_page, mm)?,
+            free_segments_ledger: FreeSegmentsLedger::load(table_pages.free_segments_page, mm)?,
             index_ledger: IndexLedger::load(table_pages.index_registry_page, mm)?,
             auto_increment_ledger: if let Some(page) = table_pages.autoincrement_registry_page {
                 Some(AutoincrementLedger::load(page, mm)?)
@@ -1030,6 +1030,8 @@ mod tests {
                 primary_key: true,
                 unique: true,
                 foreign_key: None,
+                default: None,
+                renamed_from: &[],
             }]
         }
 
@@ -1267,6 +1269,8 @@ mod tests {
                 primary_key: true,
                 unique: true,
                 foreign_key: None,
+                default: None,
+                renamed_from: &[],
             }]
         }
 

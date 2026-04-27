@@ -777,6 +777,8 @@ mod tests {
                 primary_key: true,
                 unique: true,
                 foreign_key: None,
+                default: None,
+                renamed_from: &[],
             }]
         }
 

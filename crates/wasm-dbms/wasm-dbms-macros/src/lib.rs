@@ -242,10 +242,13 @@ pub fn derive_encode(input: TokenStream) -> TokenStream {
 /// - `#[alignment = N]`: (optional) Specifies the alignment for the table records. Use only if you know what you are doing.
 /// - `#[autoincrement]`: Marks a field as auto-incrementing. The macro will generate code to automatically fill in values for this field during inserts. Auto-increment fields must be non-nullable and cannot be marked as `#[unique]`.
 /// - `#[candid]`: Marks the table as compatible with Candid serialization.
-/// - `#[custom_type = "TypeName"]`: Specifies a custom data type for the
+/// - `#[custom_type = "TypeName"]`: Specifies a custom data type for the field.
+/// - `#[default = <expr>]`: Field-level default value used by the migration planner when adding a non-nullable column. The expression must convert into the column's `Value` variant via `From`/`Into` (e.g. `#[default = 0]` on a `Uint32` column).
 /// - `#[foreign_key(entity = "EntityName", table = "table_name", column = "column_name")]`: Defines a foreign key relationship.
 /// - `#[index]`: Marks a field to be indexed for faster queries.
+/// - `#[migrate]`: Struct-level attribute that suppresses the macro's default `impl Migrate for T {}` so the user can provide a hand-written impl with custom `default_value` / `transform_column` overrides.
 /// - `#[primary_key]`: Marks a field as the primary key of the table.
+/// - `#[renamed_from("old1", "old2", ...)]`: Field-level list of previous column names. The migration planner uses these to detect rename ops when matching a stored column against the compiled column.
 /// - `#[sanitizer(SanitizerType)]`: Specifies a sanitize for the field.
 /// - `#[table = "table_name"]`: Specifies the name of the table in the database.
 /// - `#[unique]`: Marks a field to have a unique constraint.
@@ -258,9 +261,12 @@ pub fn derive_encode(input: TokenStream) -> TokenStream {
         autoincrement,
         candid,
         custom_type,
+        default,
         foreign_key,
         index,
+        migrate,
         primary_key,
+        renamed_from,
         sanitizer,
         table,
         unique,

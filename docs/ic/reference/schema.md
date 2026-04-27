@@ -18,7 +18,9 @@
 
 ## Overview
 
-When deploying wasm-dbms on the Internet Computer, your schema definitions need additional IC-specific derives, the `#[candid]` attribute, and a canister generation macro. The core `Table` macro, column attributes (`#[primary_key]`, `#[unique]`, `#[index]`, `#[foreign_key(...)]`, `#[sanitizer(...)]`, `#[validate(...)]`, `#[custom_type]`, `#[alignment]`), and generated types (`Record`, `InsertRequest`, `UpdateRequest`, `ForeignFetcher`) work exactly as described in the [generic schema reference](../../reference/schema.md). This document covers only the IC-specific additions.
+When deploying wasm-dbms on the Internet Computer, your schema definitions need additional IC-specific derives, the `#[candid]` attribute, and a canister generation macro. The core `Table` macro, column attributes (`#[primary_key]`, `#[unique]`, `#[index]`, `#[foreign_key(...)]`, `#[sanitizer(...)]`, `#[validate(...)]`, `#[custom_type]`, `#[alignment]`, plus the migration attributes `#[default]`, `#[renamed_from]`, `#[migrate]`), and generated types (`Record`, `InsertRequest`, `UpdateRequest`, `ForeignFetcher`) work exactly as described in the [generic schema reference](../../reference/schema.md). This document covers only the IC-specific additions.
+
+> **Migrations on the IC:** schema migrations work the same as on the generic backend, but the `DbmsCanister` macro additionally emits the `has_schema_drift`, `plan_migration`, and `migrate` Candid endpoints. See the [Schema Migrations Reference](../../reference/migrations.md) and the [Schema Migrations Guide](../../guides/migrations.md).
 
 ---
 

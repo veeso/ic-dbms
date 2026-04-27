@@ -4,6 +4,13 @@
   - [Overview](#overview)
   - [Error Hierarchy](#error-hierarchy)
   - [DbmsError](#dbmserror)
+  - [Migration Errors](#migration-errors)
+    - [SchemaDrift](#schemadrift)
+    - [IncompatibleType](#incompatibletype)
+    - [MissingDefault](#missingdefault)
+    - [ConstraintViolation](#constraintviolation)
+    - [DestructiveOpDenied](#destructiveopdenied)
+    - [TransformAborted](#transformaborted)
   - [Query Errors](#query-errors)
     - [PrimaryKeyConflict](#primarykeyconflict)
     - [UniqueConstraintViolation](#uniqueconstraintviolation)
@@ -33,6 +40,7 @@ wasm-dbms uses a structured error system to provide clear information about what
 | Validation | Data validation failures |
 | Sanitization | Data sanitization failures |
 | Memory | Low-level memory errors |
+| Migration | Schema migration / drift detection errors |
 | Table | Schema/table definition errors |
 
 ---
@@ -55,6 +63,13 @@ DbmsError
 ├── Validation(String)
 ├── Sanitize(String)
 ├── Memory(MemoryError)
+├── Migration(MigrationError)
+│   ├── SchemaDrift
+│   ├── IncompatibleType { table, column, old, new }
+│   ├── MissingDefault { table, column }
+│   ├── ConstraintViolation { table, column, reason }
+│   ├── DestructiveOpDenied { op }
+│   └── TransformAborted { table, column, reason }
 └── Table(TableError)
 ```
 
@@ -69,6 +84,7 @@ use wasm_dbms_api::prelude::DbmsError;
 
 pub enum DbmsError {
     Memory(MemoryError),
+    Migration(MigrationError),
     Query(QueryError),
     Table(TableError),
     Transaction(TransactionError),
@@ -98,11 +114,102 @@ match error {
     DbmsError::Memory(mem_err) => {
         // Handle memory errors (rare)
     }
+    DbmsError::Migration(mig_err) => {
+        // Handle schema migration errors
+    }
     DbmsError::Table(table_err) => {
         // Handle table errors (rare)
     }
 }
 ```
+
+---
+
+## Migration Errors
+
+`MigrationError` covers the schema migration pipeline: drift detection on boot, plan validation, and journaled apply. See the [Migrations Reference](./migrations.md) for the full lifecycle.
+
+```rust
+use wasm_dbms_api::prelude::{DataTypeSnapshot, MigrationError};
+
+pub enum MigrationError {
+    SchemaDrift,
+    IncompatibleType {
+        table: String,
+        column: String,
+        old: DataTypeSnapshot,
+        new: DataTypeSnapshot,
+    },
+    MissingDefault { table: String, column: String },
+    ConstraintViolation { table: String, column: String, reason: String },
+    DestructiveOpDenied { op: String },
+    TransformAborted { table: String, column: String, reason: String },
+}
+```
+
+### SchemaDrift
+
+**Cause:** A CRUD operation was attempted while the DBMS is in drift state — the compiled schema's hash differs from the hash stored in the schema registry.
+
+```rust
+match database.insert::<User>(req) {
+    Err(DbmsError::Migration(MigrationError::SchemaDrift)) => {
+        // Stop accepting writes; call dbms.migrate(policy) first.
+    }
+    _ => {}
+}
+```
+
+**Solutions:**
+
+- Call `dbms.migrate(MigrationPolicy::default())` from `post_upgrade` (IC) or your boot path to clear the drift flag.
+- Inspect the diff first via `dbms.plan_migration()` to confirm the ops are safe.
+
+### IncompatibleType
+
+**Cause:** A column changed to a type that is neither in the [widening whitelist](./migrations.md#compatible-widening-whitelist) (e.g. `Int32` → `Int64`) nor handled by `Migrate::transform_column`.
+
+**Solutions:**
+
+- If the change is conceptually a widen, double-check the from/to types match the whitelist.
+- Otherwise mark the table with `#[migrate]` and provide a `transform_column` impl that maps the old `Value` to the new type.
+
+### MissingDefault
+
+**Cause:** Planning an `AddColumn` op for a non-nullable column that has neither a `#[default = ...]` attribute nor a `Migrate::default_value` override.
+
+**Solutions:**
+
+- Add `#[default = <expr>]` to the field, or
+- Implement `Migrate::default_value` for the table (after marking it `#[migrate]`), or
+- Make the column `Nullable<T>` so `NULL` is the implicit default.
+
+### ConstraintViolation
+
+**Cause:** Tightening an existing column (`nullable: false`, `unique: true`, add foreign key) on data that violates the new constraint.
+
+**Solutions:**
+
+- Clean the data before bumping the schema (e.g. backfill `NULL`s, deduplicate).
+- Stage the change across two releases: relaxation + cleanup, then tightening.
+
+### DestructiveOpDenied
+
+**Cause:** The planner emitted a `DropTable` or `DropColumn` op while `MigrationPolicy::allow_destructive` is `false`.
+
+**Solutions:**
+
+- Confirm the destruction is intentional and pass `MigrationPolicy { allow_destructive: true }`.
+- Otherwise re-introduce the missing struct/field in the compiled schema.
+
+### TransformAborted
+
+**Cause:** A user-supplied `Migrate::transform_column` impl returned `Err`. The journaled migration session rolls back; stored data and `schema_hash` are unchanged.
+
+**Solutions:**
+
+- Inspect the embedded `reason` string to see which row failed.
+- Fix the offending data manually (or via a helper canister method) before retrying `migrate`.
 
 ---
 

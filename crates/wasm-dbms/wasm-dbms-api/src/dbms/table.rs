@@ -13,7 +13,10 @@ pub use self::column_def::{
 pub use self::record::{
     InsertRecord, TableColumns, TableRecord, UpdateRecord, ValuesSource, flatten_table_columns,
 };
-pub use self::schema::{TableFingerprint, TableSchema};
+pub use self::schema::{
+    ColumnSnapshot, DataTypeSnapshot, ForeignKeySnapshot, IndexSnapshot, OnDeleteSnapshot,
+    TableFingerprint, TableSchema, TableSchemaSnapshot,
+};
 
 /// Table related errors
 #[derive(Debug, Error, Deserialize, Serialize)]
