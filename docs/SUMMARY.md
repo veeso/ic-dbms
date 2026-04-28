@@ -10,15 +10,18 @@
 - [Relationships](guides/relationships.md)
 - [Transactions](guides/transactions.md)
 - [Custom Data Types](guides/custom-data-types.md)
+- [Migrations](guides/migrations.md)
 - [Wasmtime Example](guides/wasmtime-example.md)
 
 # Reference
 
 - [Schema Definition](reference/schema.md)
 - [Data Types](reference/data-types.md)
+- [Query](reference/query.md)
 - [Validation](reference/validation.md)
 - [Sanitization](reference/sanitization.md)
 - [JSON](reference/json.md)
+- [Migrations](reference/migrations.md)
 - [Errors](reference/errors.md)
 
 # Technical
@@ -40,6 +43,7 @@
     - [CRUD Operations](ic/guides/crud-operations.md)
     - [Access Control](ic/guides/access-control.md)
     - [Client API](ic/guides/client-api.md)
+    - [Migrations](ic/guides/migrations.md)
 - [Reference]()
     - [Schema](ic/reference/schema.md)
     - [Data Types](ic/reference/data-types.md)

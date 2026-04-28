@@ -205,6 +205,7 @@ docs/
 - Output artifacts go to `.artifact/` (`.wasm`, `.did`, `.wasm.gz`)
 - Always update the CHANGELOG.md with significant changes
 - Design docs and plans go in `.claude/plans/`, never in `docs/plans/`
+- When creating new doc files under `docs/`, also register them in `docs/SUMMARY.md` under the matching section
 
 ## Database API Surface (keep in sync)
 
