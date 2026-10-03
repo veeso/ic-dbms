@@ -8,9 +8,9 @@ edition = { workspace = true }
 include = [
   "examples/**/*",
   "src/**/*",
-  "../../../LICENSE",
+  "../../LICENSE",
   "README.md",
-  "../../../CHANGELOG.md",
+  "../../CHANGELOG.md",
 ]
 keywords = { workspace = true }
 license = { workspace = true }

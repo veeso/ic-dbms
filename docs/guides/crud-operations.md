@@ -1,6 +1,6 @@
 # CRUD Operations (IC)
 
-> **Note:** This is the IC-specific CRUD operations guide, covering usage via the `ic-dbms-client`. For core CRUD concepts (filtering, delete behaviors, error types), see the [generic CRUD operations guide](../../guides/crud-operations.md).
+> **Note:** This is the IC-specific CRUD operations guide, covering usage via the `ic-dbms-client`. For core CRUD concepts (filtering, delete behaviors, error types), see the [generic CRUD operations guide](https://wasm-dbms.cc/guides/crud-operations.html).
 
 - [Overview](#overview)
 - [Insert](#insert)
@@ -161,7 +161,7 @@ let query = Query::builder()
 let users = client.select::<User>(User::table_name(), query, None).await??;
 ```
 
-See the [Querying Guide](../../guides/querying.md) for comprehensive filter documentation.
+See the [Querying Guide](https://wasm-dbms.cc/guides/querying.html) for comprehensive filter documentation.
 
 ### Select Specific Columns
 
@@ -190,7 +190,7 @@ let query = Query::builder()
 let posts = client.select::<Post>(Post::table_name(), query, None).await??;
 ```
 
-See the [Relationships Guide](../../guides/relationships.md) for more on eager loading.
+See the [Relationships Guide](https://wasm-dbms.cc/guides/relationships.html) for more on eager loading.
 
 ---
 
@@ -367,7 +367,7 @@ client.update::<User>(User::table_name(), update, Some(tx_id)).await??;
 client.commit(tx_id).await??;
 ```
 
-See the [Transactions Guide](../../guides/transactions.md) for comprehensive transaction documentation.
+See the [Transactions Guide](https://wasm-dbms.cc/guides/transactions.html) for comprehensive transaction documentation.
 
 ---
 
@@ -421,4 +421,4 @@ Common error types:
 | `TransactionNotFound`           | Invalid transaction ID                                | All                    |
 | `InvalidQuery`                  | Malformed query (e.g., invalid JSON path)             | Select                 |
 
-See the [Errors Reference (IC)](../reference/errors.md) for complete IC-specific error documentation, or the [generic Errors Reference](../../reference/errors.md) for the full error hierarchy.
+See the [Errors Reference (IC)](../reference/errors.md) for complete IC-specific error documentation, or the [generic Errors Reference](https://wasm-dbms.cc/reference/errors.html) for the full error hierarchy.

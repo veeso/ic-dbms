@@ -8,9 +8,9 @@ edition = { workspace = true }
 include = [
   "examples/**/*",
   "src/**/*",
-  "../../../LICENSE",
+  "../../LICENSE",
   "README.md",
-  "../../../CHANGELOG.md",
+  "../../CHANGELOG.md",
 ]
 keywords = { workspace = true }
 license = { workspace = true }
@@ -24,7 +24,7 @@ candid = { workspace = true }
 ic-cdk = { workspace = true }
 ic-dbms-api = { workspace = true }
 ic-dbms-macros = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 wasm-dbms = { workspace = true }
 wasm-dbms-api = { workspace = true }
 wasm-dbms-macros = { workspace = true }

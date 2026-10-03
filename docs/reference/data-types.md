@@ -1,6 +1,6 @@
 # Data Types Reference (IC)
 
-> **Note:** This is the IC-specific data types reference. For the complete list of all data types, usage examples, and general documentation, see the [generic data types reference](../../reference/data-types.md).
+> **Note:** This is the IC-specific data types reference. For the complete list of all data types, usage examples, and general documentation, see the [generic data types reference](https://wasm-dbms.cc/reference/data-types.html).
 
 - [Overview](#overview)
 - [Principal Type](#principal-type)
@@ -202,7 +202,7 @@ table identifier in `per_table` / `Table` is a `TableFingerprint` (`nat64`)
 
 **Re-exports:** `ic_dbms_api::prelude::*` re-exports all types from `wasm_dbms_api::prelude::*` plus IC-specific additions. You do not need to import `wasm_dbms_api` directly.
 
-**CandidType requirement:** All data types used in your table schemas must implement `CandidType`. The built-in types already do. If you define [custom data types](../../guides/custom-data-types.md), they must also derive `CandidType`.
+**CandidType requirement:** All data types used in your table schemas must implement `CandidType`. The built-in types already do. If you define [custom data types](https://wasm-dbms.cc/guides/custom-data-types.html), they must also derive `CandidType`.
 
 **Principal storage:** The `Principal` type is stored in binary format in stable memory (29 bytes max). It is serialized to/from its Candid `principal` representation when crossing canister boundaries.
 

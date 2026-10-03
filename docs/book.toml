@@ -1,0 +1,12 @@
+[book]
+title = "ic-dbms"
+description = "A framework to build relational database canisters on the Internet Computer, powered by wasm-dbms."
+authors = ["Christian Visintin"]
+language = "en"
+src = "."
+
+[output.html]
+default-theme = "light"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/veeso/ic-dbms"
+additional-css = []

@@ -21,11 +21,11 @@ impl Canister for TestCanister {
         match self {
             TestCanister::DbmsCanister => std::path::Path::new(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/../../../../.artifact/example.wasm.gz"
+                "/../../../.artifact/example.wasm.gz"
             )),
             TestCanister::DbmsCanisterClientIntegration => std::path::Path::new(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/../../../../.artifact/dbms_canister_client_integration.wasm.gz"
+                "/../../../.artifact/dbms_canister_client_integration.wasm.gz"
             )),
         }
     }

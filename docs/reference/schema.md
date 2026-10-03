@@ -1,6 +1,6 @@
 # Schema Reference (IC)
 
-> **Note:** This is the IC-specific schema reference. For complete Table macro details, column attributes, generated types, and best practices, see the [generic schema reference](../../reference/schema.md).
+> **Note:** This is the IC-specific schema reference. For complete Table macro details, column attributes, generated types, and best practices, see the [generic schema reference](https://wasm-dbms.cc/reference/schema.html).
 
 - [Schema Reference (IC)](#schema-reference-ic)
   - [Overview](#overview)
@@ -19,9 +19,9 @@
 
 ## Overview
 
-When deploying wasm-dbms on the Internet Computer, your schema definitions need additional IC-specific derives, the `#[candid]` attribute, and a canister generation macro. The core `Table` macro, column attributes (`#[primary_key]`, `#[unique]`, `#[index]`, `#[foreign_key(...)]`, `#[sanitizer(...)]`, `#[validate(...)]`, `#[custom_type]`, `#[alignment]`, plus the migration attributes `#[default]`, `#[renamed_from]`, `#[migrate]`), and generated types (`Record`, `InsertRequest`, `UpdateRequest`, `ForeignFetcher`) work exactly as described in the [generic schema reference](../../reference/schema.md). This document covers only the IC-specific additions.
+When deploying wasm-dbms on the Internet Computer, your schema definitions need additional IC-specific derives, the `#[candid]` attribute, and a canister generation macro. The core `Table` macro, column attributes (`#[primary_key]`, `#[unique]`, `#[index]`, `#[foreign_key(...)]`, `#[sanitizer(...)]`, `#[validate(...)]`, `#[custom_type]`, `#[alignment]`, plus the migration attributes `#[default]`, `#[renamed_from]`, `#[migrate]`), and generated types (`Record`, `InsertRequest`, `UpdateRequest`, `ForeignFetcher`) work exactly as described in the [generic schema reference](https://wasm-dbms.cc/reference/schema.html). This document covers only the IC-specific additions.
 
-> **Migrations on the IC:** schema migrations work the same as on the generic backend, but the `DbmsCanister` macro additionally emits the `has_drift`, `pending_migrations`, and `migrate` Candid endpoints (see [Migration Endpoints](#migration-endpoints) below). See the [Schema Migrations Reference](../../reference/migrations.md), the [generic Schema Migrations Guide](../../guides/migrations.md), and the [IC Schema Migrations Guide](../guides/migrations.md).
+> **Migrations on the IC:** schema migrations work the same as on the generic backend, but the `DbmsCanister` macro additionally emits the `has_drift`, `pending_migrations`, and `migrate` Candid endpoints (see [Migration Endpoints](#migration-endpoints) below). See the [Schema Migrations Reference](https://wasm-dbms.cc/reference/migrations.html), the [generic Schema Migrations Guide](https://wasm-dbms.cc/guides/migrations.html), and the [IC Schema Migrations Guide](../guides/migrations.md).
 
 ---
 
@@ -160,8 +160,8 @@ service : (IcDbmsCanisterArgs) -> {
 table. The `vec AggregateFunction` parameter lists `COUNT(*)` / `COUNT(col)` /
 `SUM` / `AVG` / `MIN` / `MAX` to compute per group; the `Query` carries
 `group_by`, `having`, `order_by`, `limit`, and `offset`. See the
-[generic Query API reference](../../reference/query.md#aggregate-types) for
-type definitions and the [aggregate pipeline](../../reference/query.md#execution-order).
+[generic Query API reference](https://wasm-dbms.cc/reference/query.html#aggregate-types) for
+type definitions and the [aggregate pipeline](https://wasm-dbms.cc/reference/query.html#execution-order).
 
 ### Migration Endpoints
 

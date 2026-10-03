@@ -1,15 +1,15 @@
 # ic-dbms-client
 
-![logo](https://wasm-dbms.cc/logo-128.png)
+![logo](https://ic.wasm-dbms.cc/logo-128.png)
 
 [![license-mit](https://img.shields.io/crates/l/ic-dbms-client.svg?logo=rust)](https://opensource.org/licenses/MIT)
-[![repo-stars](https://img.shields.io/github/stars/veeso/wasm-dbms?style=flat)](https://github.com/veeso/wasm-dbms/stargazers)
+[![repo-stars](https://img.shields.io/github/stars/veeso/ic-dbms?style=flat)](https://github.com/veeso/ic-dbms/stargazers)
 [![downloads](https://img.shields.io/crates/d/ic-dbms-client.svg?logo=rust)](https://crates.io/crates/ic-dbms-client)
 [![latest-version](https://img.shields.io/crates/v/ic-dbms-client.svg?logo=rust)](https://crates.io/crates/ic-dbms-client)
 [![conventional-commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-%23FE5196?logo=conventionalcommits&logoColor=white)](https://conventionalcommits.org)
 
-[![ci](https://github.com/veeso/wasm-dbms/actions/workflows/ci.yml/badge.svg)](https://github.com/veeso/wasm-dbms/actions)
-[![coveralls](https://coveralls.io/repos/github/veeso/wasm-dbms/badge.svg)](https://coveralls.io/github/veeso/wasm-dbms)
+[![ci](https://github.com/veeso/ic-dbms/actions/workflows/ci.yml/badge.svg)](https://github.com/veeso/ic-dbms/actions)
+[![coveralls](https://coveralls.io/repos/github/veeso/ic-dbms/badge.svg)](https://coveralls.io/github/veeso/ic-dbms)
 [![docs](https://docs.rs/ic-dbms-client/badge.svg?logo=rust)](https://docs.rs/ic-dbms-client)
 
 This crate exposes all the types which may be used by an external canister to interact with an IC DBMS Canister
@@ -200,4 +200,4 @@ use ic_dbms_client::prelude::*;
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](../LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](../../LICENSE) file for details.

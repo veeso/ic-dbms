@@ -8,9 +8,9 @@ edition = { workspace = true }
 include = [
   "examples/**/*",
   "src/**/*",
-  "../../../LICENSE",
+  "../../LICENSE",
   "README.md",
-  "../../../CHANGELOG.md",
+  "../../CHANGELOG.md",
 ]
 keywords = { workspace = true }
 license = { workspace = true }
@@ -22,6 +22,6 @@ description = "Public API types for ic-dbms-canister. This crate provides shared
 [dependencies]
 candid = { workspace = true }
 ic-cdk = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 wasm-dbms-api = { workspace = true, features = ["candid"] }
 wasm-dbms-macros = { workspace = true }
