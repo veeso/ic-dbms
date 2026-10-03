@@ -1,4 +1,6 @@
-# IC-DBMS: Internet Computer Integration
+# ic-dbms
+
+![logo](https://ic.wasm-dbms.cc/logo-128.png)
 
 - [Overview](#overview)
 - [Architecture](#architecture)
@@ -19,7 +21,7 @@ IC-DBMS is an adapter layer that brings the [wasm-dbms](https://github.com/veeso
 - **Procedural macros** to generate complete canister APIs from schema definitions
 - **Client libraries** for inter-canister calls, external agent access, and integration testing
 
-If you are using wasm-dbms outside the Internet Computer (e.g., in a standalone WASM runtime), you do not need ic-dbms. See the [generic wasm-dbms documentation](../guides/) instead.
+If you are using wasm-dbms outside the Internet Computer (e.g., in a standalone WASM runtime), you do not need ic-dbms. See the [generic wasm-dbms documentation](https://wasm-dbms.cc/) instead.
 
 ---
 
@@ -130,7 +132,7 @@ For the full walkthrough, see the [Get Started guide](./guides/get-started.md).
 - [Access Control](./guides/access-control.md) - ACL management with IC principals
 - [Client API](./guides/client-api.md) - All client types and usage patterns
 
-For core wasm-dbms guides (querying, transactions, relationships, validators, sanitizers, custom data types), see the [generic guides](../guides/).
+For core wasm-dbms guides (querying, transactions, relationships, validators, sanitizers, custom data types), see the [generic guides](https://wasm-dbms.cc/).
 
 ---
 
@@ -140,4 +142,4 @@ For core wasm-dbms guides (querying, transactions, relationships, validators, sa
 - [Data Types (IC)](./reference/data-types.md) - Principal type, Candid type mappings
 - [Errors (IC)](./reference/errors.md) - IcDbmsError alias, double-Result pattern, client error handling
 
-For the complete reference (all data types, error variants, sanitizers, validators, JSON operations), see the [generic reference](../reference/).
+For the complete reference (all data types, error variants, sanitizers, validators, JSON operations), see the [generic reference](https://wasm-dbms.cc/).

@@ -24,3 +24,9 @@ Thumbs.db
 /docs/superpowers/
 /.superpowers/
 /.claude/plans/
+
+# Canister build artifacts
+/.artifact/
+
+# mdBook output
+/docs/book/

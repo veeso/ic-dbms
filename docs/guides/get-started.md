@@ -2,7 +2,7 @@
 
 > **Note:** This is the IC-specific getting started guide for deploying wasm-dbms as an Internet Computer canister. For
 > the generic wasm-dbms getting started guide (schema definition, core concepts), see
-> the [generic get-started guide](../../guides/get-started.md).
+> the [generic get-started guide](https://wasm-dbms.cc/guides/get-started.html).
 
 - [Get Started with IC-DBMS (IC)](#get-started-with-ic-dbms-ic)
   - [Prerequisites](#prerequisites)
@@ -410,4 +410,4 @@ Now that you have a working canister, explore these topics:
 - [Errors (IC)](../reference/errors.md) - IC-specific error handling (double-Result pattern)
 
 For core wasm-dbms concepts (querying, transactions, relationships, validators, sanitizers), see
-the [generic guides](../../guides/).
+the [generic guides](https://wasm-dbms.cc/).

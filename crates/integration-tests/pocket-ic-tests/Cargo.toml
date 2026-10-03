@@ -18,7 +18,7 @@ ic-dbms-client = { workspace = true, features = ["ic-agent", "pocket-ic"] }
 pocket-ic = { workspace = true }
 pocket-ic-harness = { workspace = true }
 reqwest = { workspace = true }
-serde = { workspace = true }
-tokio = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true, features = ["full"] }
 url = { workspace = true }
 wasm-dbms-api = { workspace = true }

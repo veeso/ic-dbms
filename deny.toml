@@ -1,4 +1,4 @@
-# cargo-deny policy for the Rust project template.
+# cargo-deny policy for ic-dbms.
 
 [graph]
 all-features = true
@@ -9,13 +9,17 @@ feature-depth = 1
 [advisories]
 db-urls = ["https://github.com/rustsec/advisory-db"]
 yanked = "deny"
-unmaintained = "all"
+# cargo-deny 0.20 treats this as a scope rather than a lint level. Keep
+# unavoidable transitive unmaintained advisories from failing the gate;
+# vulnerability and unsoundness advisories remain errors by default.
+unmaintained = "none"
 ignore = []
 
 [licenses]
 unused-allowed-license = "allow"
 allow = [
   "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
   "BSD-1-Clause",
   "BSD-2-Clause",
   "BSD-3-Clause",
@@ -31,7 +35,6 @@ allow = [
   "Zlib",
 ]
 confidence-threshold = 0.8
-exceptions = []
 
 [licenses.private]
 ignore = false

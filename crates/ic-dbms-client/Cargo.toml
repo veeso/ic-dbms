@@ -8,9 +8,9 @@ edition = { workspace = true }
 include = [
   "examples/**/*",
   "src/**/*",
-  "../../../LICENSE",
+  "../../LICENSE",
   "README.md",
-  "../../../CHANGELOG.md",
+  "../../CHANGELOG.md",
 ]
 keywords = { workspace = true }
 license = { workspace = true }
@@ -28,8 +28,8 @@ pocket-ic = { workspace = true, optional = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-serde = { workspace = true }
-tokio = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true, features = ["full"] }
 wasm-dbms-api = { workspace = true }
 
 [features]

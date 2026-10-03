@@ -16,5 +16,5 @@ candid = { workspace = true }
 ic-cdk = { workspace = true }
 ic-dbms-api = { workspace = true }
 ic-dbms-client = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 wasm-dbms-api = { workspace = true }

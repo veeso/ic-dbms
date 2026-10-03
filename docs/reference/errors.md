@@ -1,6 +1,6 @@
 # Errors Reference (IC)
 
-> **Note:** This is the IC-specific error handling reference. For the complete error hierarchy, all error variants, and their causes, see the [generic errors reference](../../reference/errors.md).
+> **Note:** This is the IC-specific error handling reference. For the complete error hierarchy, all error variants, and their causes, see the [generic errors reference](https://wasm-dbms.cc/reference/errors.html).
 
 - [Overview](#overview)
 - [IcDbmsError Type Alias](#icdbmserror-type-alias)

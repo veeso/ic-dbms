@@ -3,8 +3,8 @@
 > **Note:** This is the IC-specific migrations guide. The schema-design rules
 > (`#[default]`, `#[renamed_from]`, `#[migrate]`, the `Migrate` trait,
 > `MigrationOp` semantics) are identical to the generic backend; see the
-> [generic Schema Migrations Guide](../../guides/migrations.md) and the
-> [Migrations Reference](../../reference/migrations.md) for the conceptual
+> [generic Schema Migrations Guide](https://wasm-dbms.cc/guides/migrations.html) and the
+> [Migrations Reference](https://wasm-dbms.cc/reference/migrations.html) for the conceptual
 > material. This page covers only what changes when the database lives inside
 > an IC canister.
 
@@ -90,7 +90,7 @@ migrate             : (MigrationPolicy)
 Snapshot types (`TableSchemaSnapshot`, `ColumnSnapshot`, `IndexSnapshot`,
 `ForeignKeySnapshot`, `DataTypeSnapshot`, `OnDeleteSnapshot`,
 `ColumnChanges`) are the same Candid records the snapshot reference describes
-in the [generic schema reference](../../reference/schema.md). They are
+in the [generic schema reference](https://wasm-dbms.cc/reference/schema.html). They are
 exported automatically by `ic_cdk::export_candid!()`.
 
 ---

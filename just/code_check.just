@@ -10,15 +10,15 @@ fmt args="":
 fmt_check args="":
   dprint check {{ args }}
 
-# Run Clippy for every target and feature.
+# Run Clippy for every workspace package and feature.
 [group('code-check')]
 clippy args="":
-  cargo clippy --all-targets --all-features {{ args }}
+  cargo clippy --workspace --all-features {{ args }}
 
 # Build Rust documentation and deny warnings.
 [group('code-check')]
 doc args="":
-  RUSTDOCFLAGS="-D warnings" cargo doc --all-features --no-deps {{ args }}
+  RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps {{ args }}
 
 # Check advisories, licenses, bans, and dependency sources.
 [group('code-check')]

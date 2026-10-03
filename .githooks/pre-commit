@@ -16,7 +16,7 @@ cd "$repository_root"
 
 if ! git diff --cached --quiet --diff-filter=ACMR; then
     command -v trufflehog >/dev/null 2>&1 || fail "trufflehog not found; install it or commit with --no-verify"
-    staged_directory="$(mktemp -d "${TMPDIR:-/tmp}/rust-template-pre-commit.XXXXXX")"
+    staged_directory="$(mktemp -d "${TMPDIR:-/tmp}/ic-dbms-pre-commit.XXXXXX")"
     trap 'rm -rf "$staged_directory"' EXIT
 
     git checkout-index --all --prefix="$staged_directory/"
