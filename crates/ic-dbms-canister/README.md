@@ -15,8 +15,8 @@
 A framework to build database canisters on the Internet Computer, powered by the [wasm-dbms](https://crates.io/crates/wasm-dbms) engine.
 
 Define your data tables using Rust structs, derive the `Table` and `DbmsCanister` traits,
-and get a fully functional database canister with CRUD operations, transactions, and ACL-based
-access control.
+and get a fully functional database canister with CRUD operations, transactions, and access
+control by principal.
 
 ## Usage
 
@@ -69,20 +69,21 @@ pub struct IcDbmsCanisterGenerator;
 
 ```candid
 service : (IcDbmsCanisterArgs) -> {
-  acl_add_principal : (principal) -> (Result);
-  acl_allowed_principals : () -> (vec principal) query;
-  acl_remove_principal : (principal) -> (Result);
-  begin_transaction : () -> (nat);
-  commit : (nat) -> (Result);
-  delete_posts : (DeleteBehavior, opt Filter_1, opt nat) -> (Result_1);
-  delete_users : (DeleteBehavior, opt Filter_1, opt nat) -> (Result_1);
-  insert_posts : (PostInsertRequest, opt nat) -> (Result);
-  insert_users : (UserInsertRequest, opt nat) -> (Result);
-  rollback : (nat) -> (Result);
-  select_posts : (Query, opt nat) -> (Result_2) query;
-  select_users : (Query_1, opt nat) -> (Result_3) query;
-  update_posts : (PostUpdateRequest, opt nat) -> (Result_1);
-  update_users : (UserUpdateRequest, opt nat) -> (Result_1);
+  acl_grant : (principal, Permission) -> (Result);
+  acl_list : () -> (Result_2) query;
+  acl_revoke : (principal, Permission) -> (Result);
+  my_permissions : () -> (Result_3) query;
+  begin_transaction : () -> (Result_4);
+  commit : (nat64) -> (Result);
+  delete_posts : (DeleteBehavior, opt Filter_1, opt nat64) -> (Result_1);
+  delete_users : (DeleteBehavior, opt Filter_1, opt nat64) -> (Result_1);
+  insert_posts : (PostInsertRequest, opt nat64) -> (Result);
+  insert_users : (UserInsertRequest, opt nat64) -> (Result);
+  rollback : (nat64) -> (Result);
+  select_posts : (Query, opt nat64) -> (Result_2) query;
+  select_users : (Query_1, opt nat64) -> (Result_3) query;
+  update_posts : (PostUpdateRequest, opt nat64) -> (Result_1);
+  update_users : (UserUpdateRequest, opt nat64) -> (Result_1);
 }
 ```
 

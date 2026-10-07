@@ -157,46 +157,27 @@ const owner = Principal.fromText("aaaaa-aa");
 
 ## ACL Types
 
-The granular ACL exposes four types via Candid:
+The access control list exposes three types via Candid:
 
 ```candid
-type TablePerms = nat8;          // Bitfield: READ=1, INSERT=2, UPDATE=4, DELETE=8
-
-type IdentityPerms = record {
-  admin       : bool;
-  manage_acl  : bool;
-  migrate     : bool;
-  all_tables  : TablePerms;
-  per_table   : vec record { nat64; TablePerms };
+type Permission = variant {
+  Admin;
 };
 
-type PermGrant = variant {
-  Admin;
-  ManageAcl;
-  Migrate;
-  AllTables : TablePerms;
-  Table     : record { nat64; TablePerms };
+type AclEntry = record {
+  principal   : principal;
+  permissions : vec Permission;
 };
 
-type PermRevoke = variant {
-  Admin;
-  ManageAcl;
-  Migrate;
-  AllTables : TablePerms;
-  Table     : record { nat64; TablePerms };
-};
-
-type RequiredPerm = variant {
-  Table     : TablePerms;
-  Admin;
-  ManageAcl;
-  Migrate;
+type AclError = variant {
+  AccessDenied       : record { required : Permission };
+  AnonymousPrincipal;
+  LastAdmin;
 };
 ```
 
-`TablePerms` is encoded as `nat8` so the wire form is a single byte. The
-table identifier in `per_table` / `Table` is a `TableFingerprint` (`nat64`)
-— derived from the table name via xxh3.
+`Permission` will grow new variants for per-table grants; clients that only
+use `Admin` keep working.
 
 ## IC-Specific Considerations
 

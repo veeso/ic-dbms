@@ -6,7 +6,7 @@ use crate::dbms::types::{DataTypeKind, Text, Uint32};
 use crate::dbms::value::Value;
 use crate::memory::{DEFAULT_ALIGNMENT, Encode, PageOffset};
 use crate::prelude::{
-    Filter, IcDbmsError, InsertRecord, NoForeignFetcher, QueryError, UpdateRecord, Validate,
+    DbmsError, Filter, InsertRecord, NoForeignFetcher, QueryError, UpdateRecord, Validate,
 };
 
 /// A simple user struct for testing purposes.
@@ -67,7 +67,7 @@ impl InsertRecord for UserInsertRequest {
     type Record = UserRecord;
     type Schema = User;
 
-    fn from_values(values: &[(ColumnDef, Value)]) -> crate::prelude::IcDbmsResult<Self> {
+    fn from_values(values: &[(ColumnDef, Value)]) -> crate::prelude::DbmsResult<Self> {
         let mut id = None;
         let mut name = None;
 
@@ -88,10 +88,10 @@ impl InsertRecord for UserInsertRequest {
         }
 
         Ok(UserInsertRequest {
-            id: id.ok_or(IcDbmsError::Query(QueryError::MissingNonNullableField(
+            id: id.ok_or(DbmsError::Query(QueryError::MissingNonNullableField(
                 "id".to_string(),
             )))?,
-            name: name.ok_or(IcDbmsError::Query(QueryError::MissingNonNullableField(
+            name: name.ok_or(DbmsError::Query(QueryError::MissingNonNullableField(
                 "name".to_string(),
             )))?,
         })
@@ -116,7 +116,10 @@ impl UpdateRecord for UserUpdateRequest {
     type Record = UserRecord;
     type Schema = User;
 
-    fn from_values(values: &[(ColumnDef, Value)], where_clause: Option<Filter>) -> Self {
+    fn from_values(
+        values: &[(ColumnDef, Value)],
+        where_clause: Option<Filter>,
+    ) -> crate::prelude::DbmsResult<Self> {
         let mut id = None;
         let mut name = None;
 
@@ -136,11 +139,11 @@ impl UpdateRecord for UserUpdateRequest {
             }
         }
 
-        UserUpdateRequest {
+        Ok(UserUpdateRequest {
             id,
             name,
             where_clause,
-        }
+        })
     }
 
     fn update_values(&self) -> Vec<(ColumnDef, Value)> {
@@ -512,7 +515,7 @@ mod custom_type_tests {
             }),
         )];
 
-        let update = TaskUpdateRequest::from_values(&values, None);
+        let update = TaskUpdateRequest::from_values(&values, None).expect("from_values");
         assert_eq!(update.priority, Some(Priority::High));
     }
 

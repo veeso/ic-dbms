@@ -28,9 +28,9 @@ impl IcDbmsCanisterArgs {
 
 #[derive(Debug, CandidType, Serialize, Deserialize)]
 pub struct IcDbmsCanisterInitArgs {
-    /// Initial admins to bootstrap the granular ACL with full perms
-    /// (`admin` + `manage_acl` + `migrate` + every table perm). When
-    /// `None` or empty, the deployer principal is used.
+    /// Principals granted [`Permission::Admin`](crate::prelude::Permission::Admin)
+    /// when the canister is installed. When `None` or empty, the deployer
+    /// principal is used.
     pub allowed_principals: Option<Vec<candid::Principal>>,
 }
 

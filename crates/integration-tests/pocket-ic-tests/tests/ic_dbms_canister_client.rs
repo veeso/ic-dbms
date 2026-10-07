@@ -1,4 +1,4 @@
-use candid::{Encode, Principal};
+use candid::Encode;
 use ic_dbms_api::prelude::{
     DeleteBehavior, Filter, IcDbmsResult, JoinColumnDef, Query, TransactionId, Value,
 };
@@ -6,39 +6,47 @@ use pocket_ic_harness::PocketIcTestEnv;
 use pocket_ic_tests::table::{UserInsertRequest, UserRecord, UserUpdateRequest};
 use pocket_ic_tests::{PocketIcClient, TestCanister, TestEnvExt as _, admin, bob};
 
+type TestResult<T> = Result<IcDbmsResult<T>, String>;
+
 #[pocket_ic_harness::test]
-async fn test_should_grant_and_revoke_admin(env: PocketIcTestEnv<TestCanister>) {
-    use ic_dbms_api::prelude::IdentityPerms;
+async fn test_should_grant_and_revoke_admin_through_wrapper(env: PocketIcTestEnv<TestCanister>) {
+    use ic_dbms_api::prelude::{AclEntry, Permission};
 
     let client = PocketIcClient::new(env.dbms_canister_client_integration(), admin(), &env.pic);
 
-    // Grant admin
     let res: Result<IcDbmsResult<()>, String> = client
-        .update("grant_admin", Encode!(&bob()).expect("Failed to encode"))
+        .update(
+            "acl_grant",
+            Encode!(&bob(), &Permission::Admin).expect("Failed to encode"),
+        )
         .await
         .expect("Can't update");
-
     res.expect("Client error").expect("Failed to grant admin");
 
-    // Verify via list_identities
-    let identities: Result<IcDbmsResult<Vec<(Principal, IdentityPerms)>>, String> = client
-        .update("list_identities", Encode!().expect("Failed to encode"))
+    let entries: Result<IcDbmsResult<Vec<AclEntry>>, String> = client
+        .update("acl_list", Encode!().expect("Failed to encode"))
         .await
         .expect("Can't query");
-    let identities = identities.expect("Client error").expect("list ok");
-    assert!(
-        identities
-            .iter()
-            .any(|(p, perms)| *p == bob() && perms.admin)
-    );
+    let entries = entries.expect("Client error").expect("list ok");
+    assert!(entries.iter().any(|e| e.principal == bob()));
 
-    // Revoke admin
     let res: Result<IcDbmsResult<()>, String> = client
-        .update("revoke_admin", Encode!(&bob()).expect("Failed to encode"))
+        .update(
+            "acl_revoke",
+            Encode!(&bob(), &Permission::Admin).expect("Failed to encode"),
+        )
         .await
         .expect("Can't update");
-
     res.expect("Client error").expect("Failed to revoke admin");
+
+    let perms: Result<IcDbmsResult<Vec<Permission>>, String> = client
+        .update("my_permissions", Encode!().expect("Failed to encode"))
+        .await
+        .expect("Can't query");
+    assert_eq!(
+        perms.expect("Client error").expect("my_permissions ok"),
+        vec![Permission::Admin]
+    );
 }
 
 #[pocket_ic_harness::test]
@@ -46,12 +54,14 @@ async fn test_should_begin_commit_transaction(env: PocketIcTestEnv<TestCanister>
     let client = PocketIcClient::new(env.dbms_canister_client_integration(), admin(), &env.pic);
 
     // Begin transaction
-    let res: Result<TransactionId, String> = client
+    let res: Result<IcDbmsResult<TransactionId>, String> = client
         .update("begin_transaction", Encode!().expect("Failed to encode"))
         .await
         .expect("Can't update");
 
-    let transaction_id = res.expect("Failed to begin transaction");
+    let transaction_id = res
+        .expect("Client error")
+        .expect("Failed to begin transaction");
 
     // Commit transaction
     let res: Result<IcDbmsResult<()>, String> = client
@@ -71,12 +81,14 @@ async fn test_should_begin_rollback_transaction(env: PocketIcTestEnv<TestCaniste
     let client = PocketIcClient::new(env.dbms_canister_client_integration(), admin(), &env.pic);
 
     // Begin transaction
-    let res: Result<TransactionId, String> = client
+    let res: Result<IcDbmsResult<TransactionId>, String> = client
         .update("begin_transaction", Encode!().expect("Failed to encode"))
         .await
         .expect("Can't update");
 
-    let transaction_id = res.expect("Failed to begin transaction");
+    let transaction_id = res
+        .expect("Client error")
+        .expect("Failed to begin transaction");
 
     // Rollback transaction
     let res: Result<IcDbmsResult<()>, String> = client
@@ -139,7 +151,7 @@ async fn test_should_insert_select_update_delete(env: PocketIcTestEnv<TestCanist
     );
 
     // select raw
-    let res: Result<IcDbmsResult<Vec<Vec<(JoinColumnDef, Value)>>>, String> = client
+    let res: TestResult<Vec<Vec<(JoinColumnDef, Value)>>> = client
         .update(
             "select_raw",
             Encode!(&query, &transaction_id).expect("Failed to encode"),

@@ -7,9 +7,8 @@ use candid::utils::ArgumentEncoder;
 use candid::{CandidType, Decode, Principal};
 use ic_agent::Agent;
 use ic_dbms_api::prelude::{
-    AggregateFunction, AggregatedRow, DeleteBehavior, Filter, IcDbmsResult, IdentityPerms,
-    InsertRecord, MigrationOp, MigrationPolicy, Query, TablePerms, TableSchema, TransactionId,
-    UpdateRecord,
+    AclEntry, AggregateFunction, AggregatedRow, DeleteBehavior, Filter, IcDbmsResult, InsertRecord,
+    MigrationOp, MigrationPolicy, Permission, Query, TableSchema, TransactionId, UpdateRecord,
 };
 
 use crate::client::{Client, RawRecords};
@@ -82,104 +81,31 @@ impl Client for IcDbmsAgentClient<'_> {
         self.canister_id
     }
 
-    async fn grant_admin(
+    async fn acl_grant(
         &self,
         principal: Principal,
+        permission: Permission,
     ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
-        self.update("grant_admin", (principal,)).await
+        self.update("acl_grant", (principal, permission)).await
     }
 
-    async fn revoke_admin(
+    async fn acl_revoke(
         &self,
         principal: Principal,
+        permission: Permission,
     ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
-        self.update("revoke_admin", (principal,)).await
+        self.update("acl_revoke", (principal, permission)).await
     }
 
-    async fn grant_manage_acl(
-        &self,
-        principal: Principal,
-    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
-        self.update("grant_manage_acl", (principal,)).await
+    async fn acl_list(&self) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<AclEntry>>> {
+        self.query("acl_list", ()).await
     }
 
-    async fn revoke_manage_acl(
-        &self,
-        principal: Principal,
-    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
-        self.update("revoke_manage_acl", (principal,)).await
+    async fn my_permissions(&self) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<Permission>>> {
+        self.query("my_permissions", ()).await
     }
 
-    async fn grant_migrate(
-        &self,
-        principal: Principal,
-    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
-        self.update("grant_migrate", (principal,)).await
-    }
-
-    async fn revoke_migrate(
-        &self,
-        principal: Principal,
-    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
-        self.update("revoke_migrate", (principal,)).await
-    }
-
-    async fn grant_all_tables_perms(
-        &self,
-        principal: Principal,
-        perms: TablePerms,
-    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
-        self.update("grant_all_tables_perms", (principal, perms))
-            .await
-    }
-
-    async fn revoke_all_tables_perms(
-        &self,
-        principal: Principal,
-        perms: TablePerms,
-    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
-        self.update("revoke_all_tables_perms", (principal, perms))
-            .await
-    }
-
-    async fn grant_table_perms(
-        &self,
-        principal: Principal,
-        table: &str,
-        perms: TablePerms,
-    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
-        self.update("grant_table_perms", (principal, table.to_string(), perms))
-            .await
-    }
-
-    async fn revoke_table_perms(
-        &self,
-        principal: Principal,
-        table: &str,
-        perms: TablePerms,
-    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
-        self.update("revoke_table_perms", (principal, table.to_string(), perms))
-            .await
-    }
-
-    async fn remove_identity(
-        &self,
-        principal: Principal,
-    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
-        self.update("remove_identity", (principal,)).await
-    }
-
-    async fn list_identities(
-        &self,
-    ) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<(Principal, IdentityPerms)>>> {
-        self.query("list_identities", ()).await
-    }
-
-    async fn my_perms(&self) -> IcDbmsCanisterClientResult<IdentityPerms> {
-        self.query("my_perms", ()).await
-    }
-
-    async fn begin_transaction(&self) -> IcDbmsCanisterClientResult<TransactionId> {
+    async fn begin_transaction(&self) -> IcDbmsCanisterClientResult<IcDbmsResult<TransactionId>> {
         self.update("begin_transaction", ()).await
     }
 

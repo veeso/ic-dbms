@@ -32,6 +32,7 @@ extern crate self as ic_dbms_api;
 // Re-export generic modules from wasm-dbms-api for path compatibility.
 pub use wasm_dbms_api::{dbms, memory, utils};
 
+mod acl;
 mod error;
 mod init;
 pub mod prelude;

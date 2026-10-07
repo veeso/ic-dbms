@@ -19,7 +19,7 @@
     - [Delete](#delete)
     - [Transactions](#transactions)
     - [Schema Migrations](#schema-migrations)
-    - [ACL Management](#acl-management)
+    - [Access Control](#access-control)
   - [Error Handling](#error-handling)
   - [Examples](#examples)
     - [Inter-Canister Communication](#inter-canister-communication)
@@ -184,14 +184,23 @@ pub trait Client {
     ) -> Result<Result<u64, IcDbmsError>>;
 
     // Transactions
-    async fn begin_transaction(&self) -> Result<u64>;
+    async fn begin_transaction(&self) -> Result<Result<u64, IcDbmsError>>;
     async fn commit(&self, tx: u64) -> Result<Result<(), IcDbmsError>>;
     async fn rollback(&self, tx: u64) -> Result<Result<(), IcDbmsError>>;
 
-    // ACL Management
-    async fn acl_add_principal(&self, principal: Principal) -> Result<Result<(), IcDbmsError>>;
-    async fn acl_remove_principal(&self, principal: Principal) -> Result<Result<(), IcDbmsError>>;
-    async fn acl_allowed_principals(&self) -> Result<Vec<Principal>>;
+    // Access control
+    async fn acl_grant(
+        &self,
+        principal: Principal,
+        permission: Permission,
+    ) -> Result<Result<(), IcDbmsError>>;
+    async fn acl_revoke(
+        &self,
+        principal: Principal,
+        permission: Permission,
+    ) -> Result<Result<(), IcDbmsError>>;
+    async fn acl_list(&self) -> Result<Result<Vec<AclEntry>, IcDbmsError>>;
+    async fn my_permissions(&self) -> Result<Result<Vec<Permission>, IcDbmsError>>;
 
     // Schema Migrations
     async fn has_drift(&self) -> Result<Result<bool, IcDbmsError>>;
@@ -334,7 +343,7 @@ let deleted: u64 = client
 
 ```rust
 // Begin transaction
-let tx_id = client.begin_transaction().await?;
+let tx_id = client.begin_transaction().await??;
 
 // Perform operations
 client.insert::<User>(User::table_name(), user1, Some(tx_id)).await??;
@@ -380,23 +389,26 @@ client
 
 `migrate` is idempotent — when there is no drift, the call is a cheap no-op.
 
-### ACL Management
+### Access Control
 
 ```rust
 use candid::Principal;
+use ic_dbms_api::prelude::Permission;
 
-// Add principal
-let new_principal = Principal::from_text("aaaaa-aa").unwrap();
-client.acl_add_principal(new_principal).await??;
-
-// Remove principal
-client.acl_remove_principal(new_principal).await??;
+// Grant admin
+let operator = Principal::from_text("aaaaa-aa").unwrap();
+client.acl_grant(operator, Permission::Admin).await??;
 
 // List principals
-let allowed = client.acl_allowed_principals().await?;
-for p in allowed {
-    println!("Allowed: {}", p);
+for entry in client.acl_list().await?? {
+    println!("{} -> {:?}", entry.principal, entry.permissions);
 }
+
+// Revoke admin (fails with AclError::LastAdmin for the last one)
+client.acl_revoke(operator, Permission::Admin).await??;
+
+// Own permissions, allowed for everyone
+let mine = client.my_permissions().await??;
 ```
 
 ---
@@ -406,6 +418,8 @@ for p in allowed {
 Client operations return nested Results:
 
 ```rust
+use ic_dbms_api::prelude::{DbmsError, IcDbmsError, QueryError};
+
 // Full error handling
 match client.insert::<User>(User::table_name(), user, None).await {
     Ok(Ok(())) => {
@@ -414,10 +428,10 @@ match client.insert::<User>(User::table_name(), user, None).await {
     Ok(Err(db_error)) => {
         // Database error (validation, constraint violation, etc.)
         match db_error {
-            IcDbmsError::Query(QueryError::PrimaryKeyConflict) => {
+            IcDbmsError::Dbms(DbmsError::Query(QueryError::PrimaryKeyConflict)) => {
                 println!("User with this ID already exists");
             }
-            IcDbmsError::Validation(msg) => {
+            IcDbmsError::Dbms(DbmsError::Validation(msg)) => {
                 println!("Validation failed: {}", msg);
             }
             _ => println!("Database error: {:?}", db_error),

@@ -110,23 +110,14 @@ service : (IcDbmsCanisterArgs) -> {
   // Untyped select, with join support
   select : (text, Query, opt nat64) -> (Result_6) query;
   // Transactions
-  begin_transaction : () -> (nat64);
+  begin_transaction : () -> (Result_3);
   commit : (nat64) -> (Result_1);
   rollback : (nat64) -> (Result_1);
   // Access control
-  grant_admin : (principal) -> (Result_1);
-  grant_all_tables_perms : (principal, nat8) -> (Result_1);
-  grant_manage_acl : (principal) -> (Result_1);
-  grant_migrate : (principal) -> (Result_1);
-  grant_table_perms : (principal, text, nat8) -> (Result_1);
-  list_identities : () -> (Result_4) query;
-  my_perms : () -> (IdentityPerms) query;
-  remove_identity : (principal) -> (Result_1);
-  revoke_admin : (principal) -> (Result_1);
-  revoke_all_tables_perms : (principal, nat8) -> (Result_1);
-  revoke_manage_acl : (principal) -> (Result_1);
-  revoke_migrate : (principal) -> (Result_1);
-  revoke_table_perms : (principal, text, nat8) -> (Result_1);
+  acl_grant : (principal, Permission) -> (Result_1);
+  acl_revoke : (principal, Permission) -> (Result_1);
+  acl_list : () -> (Result_4) query;
+  my_permissions : () -> (Result_5) query;
   // Migrations
   has_drift : () -> (Result_3) query;
   migrate : (MigrationPolicy) -> (Result_1);
@@ -161,7 +152,7 @@ data in a canister. It reflects each project's own documentation as of October
 | Subqueries, CTEs, views, triggers   | No                                                 | Yes                                              | Yes                                           | No                                                  | No                                 |
 | Schema migrations                   | Built in, with drift detection                     | Through the third-party `ic-sql-migrate`         | Built in, versioned SQL with checksums        | Built in, optional feature                          | Manual                             |
 | Validators and sanitizers           | Built in                                           | SQL `CHECK` constraints                          | SQL `CHECK` constraints                       | Schema constraints                                  | Manual                             |
-| Access control                      | Built in, per principal and per table              | No                                               | No                                            | No; generated endpoints are controller-gated        | No                                 |
+| Access control                      | Built in, admin principals stored in the database  | No                                               | No                                            | No; generated endpoints are controller-gated        | No                                 |
 | Storage                             | Stable memory, own page format                     | SQLite file on a WASI virtual filesystem         | SQLite image in one stable virtual memory     | Stable memory, journaled stores                     | Stable memory                      |
 | Client library                      | Inter-canister, `ic-agent`, PocketIC               | None                                             | None                                          | None                                                | Not applicable                     |
 | Toolchain                           | `wasm32-unknown-unknown`                           | `wasm32-wasip1` and `wasi2ic` post-processing    | `wasm32-unknown-unknown`, precompiled SQLite  | `wasm32-unknown-unknown` and `build.rs`             | `wasm32-unknown-unknown`           |
@@ -182,10 +173,10 @@ Which one to pick:
 - **ic-stable-structures** when the data is a handful of key-value maps and
   needs no relations.
 - **ic-dbms** when you want a database canister generated from Rust types: a
-  typed Candid API per table, access control per principal and per table,
+  typed Candid API per table, access control per principal,
   validators and sanitizers, typed clients for canisters and off-chain agents,
-  transactions that span several calls, and a plain Rust toolchain with no C
-  code or WASI step.
+  transactions that span several calls and are owned by the principal that
+  opened them, and a plain Rust toolchain with no C code or WASI step.
 
 Other projects exist but are no longer maintained or are not relational:
 [ZenDB](https://github.com/NatLabs/ZenDB) (Motoko document database, archived),
@@ -206,7 +197,7 @@ Other projects exist but are no longer maintained or are not relational:
 - [x] Indexes
 - [x] Validators, sanitizers, and custom data types
 - [x] Schema migrations
-- [x] Access control per principal and per table
+- [x] Access control per principal (admin list), ready for per-table permissions
 - [x] Clients for canisters, `ic-agent`, and PocketIC
 - [ ] SQL query support
 

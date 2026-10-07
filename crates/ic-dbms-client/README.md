@@ -129,9 +129,10 @@ async fn main() -> anyhow::Result<()> {
 
 All the client methods are defined in the `Client` trait.
 
-- `acl_add_principal`
-- `acl_remove_principal`
-- `acl_allowed_principals`
+- `acl_grant`
+- `acl_revoke`
+- `acl_list`
+- `my_permissions`
 - `begin_transaction`
 - `commit`
 - `rollback`

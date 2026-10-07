@@ -29,14 +29,20 @@
 A canister upgrade replaces the WASM but keeps stable memory. If the new
 binary's `#[derive(Table)]` schemas differ from the snapshots persisted on
 disk, the DBMS enters drift state and refuses CRUD until you call `migrate`.
-ACL endpoints stay available so you can rotate principals without first
-healing the schema.
+The ACL lives in the database too, so ACL endpoints fail with `SchemaDrift` as
+well; canister controllers may always call the migration endpoints.
+
+Open transactions do not survive an upgrade: the engine keeps them on the
+heap, and so does the canister's transaction ownership ledger. Both are
+discarded together; the generated `pre_upgrade` hook clears the ledger
+explicitly. Commit or roll back before upgrading. Because the macro defines
+`pre_upgrade`, define only `post_upgrade` yourself. Discard every transaction
+ID from before the upgrade because the engine may reuse those numeric IDs.
 
 The drift hash is recomputed lazily, on the first `has_drift` /
 `pending_migrations` / CRUD call after boot, and cached on the DBMS context.
-There is no post-upgrade hook: the canister simply boots, declares drift on
-first access, and waits for the operator (or a `post_upgrade` snippet you
-write yourself) to call `migrate`.
+The canister simply boots, declares drift on first access, and waits for the
+operator (or a `post_upgrade` snippet you write yourself) to call `migrate`.
 
 ---
 
@@ -51,9 +57,9 @@ per-table CRUD methods:
 | `pending_migrations` | query  | Returns the planned `Vec<MigrationOp>` without applying.  |
 | `migrate`            | update | Plans, validates, sorts, and applies the diff atomically. |
 
-All three are **admin-gated** through the same ACL check used by the rest of
-the CRUD surface — anonymous and unlisted principals are rejected before the
-DBMS is touched.
+All three are gated: the caller must hold `Permission::Admin` or be a
+controller of the canister. Anonymous and unlisted principals are rejected
+before the DBMS is touched.
 
 `migrate` is an `update` because it journals writes. `has_drift` and
 `pending_migrations` are `query` calls and consume no cycles for the caller
@@ -134,7 +140,7 @@ async fn migrate(&self, policy: MigrationPolicy) -> Result<IcDbmsResult<()>>;
 
 The outer `Result` wraps transport / canister-call failures; the inner
 `IcDbmsResult` wraps `IcDbmsError` (including
-`IcDbmsError::Migration(MigrationError::...)`).
+`IcDbmsError::Dbms(DbmsError::Migration(MigrationError::...))`).
 
 ### Inter-Canister
 
@@ -241,7 +247,9 @@ schema heals before the first CRUD call lands.
 
 ```rust
 use ic_dbms_api::prelude::MigrationPolicy;
-use ic_dbms_canister::prelude::{DBMS_CONTEXT, DatabaseSchema as _, WasmDbmsDatabase};
+use ic_dbms_canister::prelude::{
+    CanisterSchema, DBMS_CONTEXT, DatabaseSchema as _, WasmDbmsDatabase,
+};
 
 #[derive(DatabaseSchema, DbmsCanister)]
 #[tables(User = "users", Post = "posts")]
@@ -254,7 +262,7 @@ fn post_upgrade() {
         // before drift detection runs.
         MyCanister::register_tables(ctx).expect("failed to register tables");
 
-        let mut db = WasmDbmsDatabase::oneshot(ctx, MyCanister);
+        let mut db = WasmDbmsDatabase::oneshot(ctx, CanisterSchema::new(MyCanister));
         if db.has_drift().expect("drift check failed") {
             db.migrate(MigrationPolicy::default())
                 .expect("migration failed");
@@ -262,6 +270,10 @@ fn post_upgrade() {
     });
 }
 ```
+
+> **Note:** Always open the database through `CanisterSchema::new(...)`. The
+> reserved `ic_dbms_acl` table is part of the persisted schema; a bare
+> `MyCanister` schema would report drift and `migrate` would drop it.
 
 This pattern is convenient but **trades safety for convenience**:
 
@@ -305,7 +317,8 @@ upgrade and the operator action receives a clear, structured error.
 
 ## Error Handling
 
-Migration errors propagate through `IcDbmsError::Migration(MigrationError)`.
+Migration errors propagate through
+`IcDbmsError::Dbms(DbmsError::Migration(MigrationError))`.
 The variants worth handling explicitly on the client:
 
 | Variant                 | Meaning                                                                          | Caller action                                                                   |
@@ -333,10 +346,10 @@ CRUD endpoints fail fast when drift is set: the very first line of every
 checks the cached drift flag and returns `Err(MigrationError::SchemaDrift)`
 without touching the journal. Cost is a single boolean load.
 
-ACL endpoints (`acl_add_principal`, `acl_remove_principal`,
-`acl_allowed_principals`) bypass the drift check so the operator can rotate
-keys without first migrating. The migration endpoints themselves are also
-exempt — `pending_migrations` is safe to call regardless of state.
+ACL endpoints read the `ic_dbms_acl` table and therefore fail with
+`SchemaDrift` too. The migration endpoints themselves are exempt and may be
+called by any controller; `pending_migrations` is safe to call regardless of
+state.
 
 After a successful `migrate`, the in-memory drift flag is cleared inside the
 same journal session that wrote the new snapshots, so the next CRUD call

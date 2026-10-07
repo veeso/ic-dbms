@@ -40,7 +40,7 @@ ic-dbms provides four fundamental database operations, accessed through the `ic-
 
 All operations:
 
-- Respect access control (caller must be in ACL)
+- Respect access control (the caller must hold the `Admin` permission)
 - Support optional transaction IDs
 - Validate and sanitize data according to schema rules
 - Enforce foreign key constraints
@@ -84,7 +84,10 @@ client.insert::<User>(User::table_name(), user1, None).await??;
 
 // Second insert with same ID fails with PrimaryKeyConflict
 let result = client.insert::<User>(User::table_name(), user2_same_id, None).await?;
-assert!(matches!(result, Err(IcDbmsError::Query(QueryError::PrimaryKeyConflict))));
+assert!(matches!(
+    result,
+    Err(IcDbmsError::Dbms(DbmsError::Query(QueryError::PrimaryKeyConflict)))
+));
 ```
 
 ### Nullable Fields
@@ -118,7 +121,7 @@ To insert within a transaction, pass the transaction ID:
 
 ```rust
 // Begin transaction
-let tx_id = client.begin_transaction().await?;
+let tx_id = client.begin_transaction().await??;
 
 // Insert within transaction
 client.insert::<User>(User::table_name(), user, Some(tx_id)).await??;
@@ -305,7 +308,7 @@ let result = client.delete::<User>(
 
 match result {
     Ok(count) => println!("Deleted {} user(s)", count),
-    Err(IcDbmsError::Query(QueryError::ForeignKeyConstraintViolation)) => {
+    Err(IcDbmsError::Dbms(DbmsError::Query(QueryError::ForeignKeyConstraintViolation))) => {
         println!("Cannot delete: user has posts");
     }
     Err(e) => return Err(e.into()),
@@ -348,9 +351,16 @@ println!("Deleted all {} users and their related records", deleted);
 
 All CRUD operations accept an optional transaction ID. When provided, the operation is performed within that transaction and won't be visible to other callers until committed:
 
+A transaction belongs to the principal that called `begin_transaction`. Any
+call that names the transaction id from another principal, and any call that
+names an unknown or already closed id, traps. The canister keeps this
+ownership table on the heap only: it is not written to stable memory. Open
+transactions and their owners are discarded together on every upgrade, so
+commit or roll back before upgrading.
+
 ```rust
 // Begin transaction
-let tx_id = client.begin_transaction().await?;
+let tx_id = client.begin_transaction().await??;
 
 // Perform operations within transaction
 client.insert::<User>(User::table_name(), user1, Some(tx_id)).await??;
@@ -392,10 +402,10 @@ match client.insert::<User>(User::table_name(), user, None).await {
     Ok(Err(db_error)) => {
         // Handle database errors
         match db_error {
-            IcDbmsError::Query(QueryError::PrimaryKeyConflict) => {
+            IcDbmsError::Dbms(DbmsError::Query(QueryError::PrimaryKeyConflict)) => {
                 println!("User already exists");
             }
-            IcDbmsError::Validation(msg) => {
+            IcDbmsError::Dbms(DbmsError::Validation(msg)) => {
                 println!("Validation error: {}", msg);
             }
             _ => println!("Database error: {:?}", db_error),

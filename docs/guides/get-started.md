@@ -198,27 +198,28 @@ routing operations to the correct table by name). The `DbmsCanister` derive gene
 
 ```candid
 service : (IcDbmsCanisterArgs) -> {
-  // ACL Management
-  acl_add_principal : (principal) -> (Result);
-  acl_allowed_principals : () -> (vec principal) query;
-  acl_remove_principal : (principal) -> (Result);
+  // Access control
+  acl_grant : (principal, Permission) -> (Result);
+  acl_revoke : (principal, Permission) -> (Result);
+  acl_list : () -> (Result_2) query;
+  my_permissions : () -> (Result_3) query;
 
   // Transactions
-  begin_transaction : () -> (nat);
-  commit : (nat) -> (Result);
-  rollback : (nat) -> (Result);
+  begin_transaction : () -> (Result_4);
+  commit : (nat64) -> (Result);
+  rollback : (nat64) -> (Result);
 
   // Users CRUD
-  insert_users : (UserInsertRequest, opt nat) -> (Result);
-  select_users : (Query, opt nat) -> (Result_1) query;
-  update_users : (UserUpdateRequest, opt nat) -> (Result_2);
-  delete_users : (DeleteBehavior, opt Filter, opt nat) -> (Result_2);
+  insert_users : (UserInsertRequest, opt nat64) -> (Result);
+  select_users : (Query, opt nat64) -> (Result_1) query;
+  update_users : (UserUpdateRequest, opt nat64) -> (Result_2);
+  delete_users : (DeleteBehavior, opt Filter, opt nat64) -> (Result_2);
 
   // Posts CRUD
-  insert_posts : (PostInsertRequest, opt nat) -> (Result);
-  select_posts : (Query, opt nat) -> (Result_3) query;
-  update_posts : (PostUpdateRequest, opt nat) -> (Result_2);
-  delete_posts : (DeleteBehavior, opt Filter, opt nat) -> (Result_2);
+  insert_posts : (PostInsertRequest, opt nat64) -> (Result);
+  select_posts : (Query, opt nat64) -> (Result_3) query;
+  update_posts : (PostUpdateRequest, opt nat64) -> (Result_2);
+  delete_posts : (DeleteBehavior, opt Filter, opt nat64) -> (Result_2);
 }
 ```
 
@@ -256,12 +257,14 @@ type IcDbmsCanisterArgs = variant {
 };
 
 type IcDbmsCanisterInitArgs = record {
-  allowed_principals : vec principal;
+  allowed_principals : opt vec principal;
 };
 ```
 
-> **Warning:** Only principals in `allowed_principals` can perform database operations. Make sure to include all
-> necessary principals (your frontend canister, admin principal, etc.).
+> **Warning:** Only principals granted `Admin` can perform database
+> operations. Each principal in `allowed_principals` (or the deployer, when
+> the list is empty) is granted `Admin` at install time; add more later with
+> `acl_grant`.
 
 ### Deploy with dfx
 
