@@ -114,8 +114,8 @@ service : (IcDbmsCanisterArgs) -> {
   commit : (nat64) -> (Result_1);
   rollback : (nat64) -> (Result_1);
   // Access control
-  acl_grant : (principal, Permission) -> (Result_1);
-  acl_revoke : (principal, Permission) -> (Result_1);
+  acl_grant : (AclGrant) -> (Result_1);
+  acl_revoke : (AclGrant) -> (Result_1);
   acl_list : () -> (Result_4) query;
   my_permissions : () -> (Result_5) query;
   // Migrations
@@ -197,7 +197,7 @@ Other projects exist but are no longer maintained or are not relational:
 - [x] Indexes
 - [x] Validators, sanitizers, and custom data types
 - [x] Schema migrations
-- [x] Access control per principal (admin list), ready for per-table permissions
+- [x] Access control per principal and per table (read, insert, update, delete, admin)
 - [x] Clients for canisters, `ic-agent`, and PocketIC
 - [ ] SQL query support
 

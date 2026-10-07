@@ -61,7 +61,7 @@ pub type IcDbmsResult<T> = Result<T, IcDbmsError>;
 mod test {
 
     use super::*;
-    use crate::acl::{AclError, Permission};
+    use crate::acl::{AclError, AclPermission};
 
     #[test]
     fn test_should_display_dbms_error_transparently() {
@@ -81,7 +81,8 @@ mod test {
     #[test]
     fn test_should_display_acl_error() {
         let error = IcDbmsError::Acl(AclError::AccessDenied {
-            required: Permission::Admin,
+            required: AclPermission::Admin.into(),
+            table: None,
         });
         assert_eq!(
             error.to_string(),

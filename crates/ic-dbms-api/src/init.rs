@@ -28,7 +28,7 @@ impl IcDbmsCanisterArgs {
 
 #[derive(Debug, CandidType, Serialize, Deserialize)]
 pub struct IcDbmsCanisterInitArgs {
-    /// Principals granted [`Permission::Admin`](crate::prelude::Permission::Admin)
+    /// Principals granted [`AclPermission::Admin`](crate::prelude::AclPermission::Admin)
     /// when the canister is installed. When `None` or empty, the deployer
     /// principal is used.
     pub allowed_principals: Option<Vec<candid::Principal>>,

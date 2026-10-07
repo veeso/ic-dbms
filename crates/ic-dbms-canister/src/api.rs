@@ -9,9 +9,9 @@ mod inspect;
 
 use candid::Principal;
 use ic_dbms_api::prelude::{
-    AclEntry, AggregateFunction, AggregatedRow, ColumnDef, Database, DeleteBehavior, Filter,
-    IcDbmsError, IcDbmsResult, InsertRecord, JoinColumnDef, MigrationOp, MigrationPolicy,
-    Permission, Query, TableSchema, TransactionId, UpdateRecord, Value,
+    AclGrant, AclPermission, AggregateFunction, AggregatedRow, ColumnDef, Database, DeleteBehavior,
+    Filter, IcDbmsError, IcDbmsResult, InsertRecord, JoinColumnDef, MigrationOp, MigrationPolicy,
+    Query, TableSchema, TransactionId, UpdateRecord, Value,
 };
 use wasm_dbms::prelude::{DatabaseSchema, WasmDbmsDatabase};
 
@@ -20,7 +20,8 @@ use crate::memory::{DBMS_CONTEXT, IcMemoryProvider};
 use crate::schema::CanisterSchema;
 use crate::{acl, transaction, trap};
 
-/// Registers the reserved ACL table and grants [`Permission::Admin`] to every
+/// Registers the reserved ACL table and grants [`ic_dbms_api::prelude::AclPermission::Admin`] to
+/// every
 /// principal in `principals`. Called by the generated `init` after the user
 /// tables are registered.
 pub fn init_acl<S>(principals: Vec<Principal>, database_schema: S) -> IcDbmsResult<()>
@@ -30,48 +31,45 @@ where
     DBMS_CONTEXT.with(acl::register)?;
     with_database(None, database_schema, |db| {
         for principal in principals {
-            acl::grant(db, principal, Permission::Admin)?;
+            acl::grant(db, &AclGrant::admin(principal), |_| false)?;
         }
         Ok(())
     })
 }
 
-/// Grants `permission` to `target`. Caller must hold [`Permission::Admin`].
-pub fn acl_grant<S>(
-    target: Principal,
-    permission: Permission,
-    database_schema: S,
-) -> IcDbmsResult<()>
+/// Stores `grant`. Caller must hold [`ic_dbms_api::prelude::AclPermission::Admin`]. The table it
+/// names must be one of the user's tables.
+pub fn acl_grant<S>(grant: AclGrant, database_schema: S) -> IcDbmsResult<()>
+where
+    S: DatabaseSchema<IcMemoryProvider> + 'static,
+{
+    let caller = crate::utils::caller();
+    let user_tables: Vec<String> = database_schema
+        .compiled_snapshots_dyn()
+        .into_iter()
+        .map(|snapshot| snapshot.name)
+        .collect();
+    with_database(None, database_schema, |db| {
+        acl::require_admin(db, caller)?;
+        acl::grant(db, &grant, |table| user_tables.iter().any(|t| t == table))
+    })
+}
+
+/// Removes `grant`. Caller must hold [`ic_dbms_api::prelude::AclPermission::Admin`]. Refuses to
+/// remove the last admin grant.
+pub fn acl_revoke<S>(grant: AclGrant, database_schema: S) -> IcDbmsResult<()>
 where
     S: DatabaseSchema<IcMemoryProvider> + 'static,
 {
     let caller = crate::utils::caller();
     with_database(None, database_schema, |db| {
         acl::require_admin(db, caller)?;
-        acl::grant(db, target, permission)
+        acl::revoke(db, &grant)
     })
 }
 
-/// Revokes `permission` from `target`. Caller must hold
-/// [`Permission::Admin`]. Refuses to remove the last admin.
-pub fn acl_revoke<S>(
-    target: Principal,
-    permission: Permission,
-    database_schema: S,
-) -> IcDbmsResult<()>
-where
-    S: DatabaseSchema<IcMemoryProvider> + 'static,
-{
-    let caller = crate::utils::caller();
-    with_database(None, database_schema, |db| {
-        acl::require_admin(db, caller)?;
-        acl::revoke(db, target, permission)
-    })
-}
-
-/// Lists every principal with its permissions. Caller must hold
-/// [`Permission::Admin`].
-pub fn acl_list<S>(database_schema: S) -> IcDbmsResult<Vec<AclEntry>>
+/// Lists every grant. Caller must hold [`ic_dbms_api::prelude::AclPermission::Admin`].
+pub fn acl_list<S>(database_schema: S) -> IcDbmsResult<Vec<AclGrant>>
 where
     S: DatabaseSchema<IcMemoryProvider> + 'static,
 {
@@ -82,23 +80,25 @@ where
     })
 }
 
-/// Returns the caller's own permissions. Always permitted.
-pub fn my_permissions<S>(database_schema: S) -> IcDbmsResult<Vec<Permission>>
+/// Returns the caller's own grants. Always permitted.
+pub fn my_permissions<S>(database_schema: S) -> IcDbmsResult<Vec<AclGrant>>
 where
     S: DatabaseSchema<IcMemoryProvider> + 'static,
 {
     let caller = crate::utils::caller();
-    with_database(None, database_schema, |db| acl::permissions_of(db, caller))
+    with_database(None, database_schema, |db| acl::grants_of(db, caller))
 }
 
 /// Begins a new transaction owned by the caller and returns its ID. Caller
-/// must hold [`Permission::Admin`].
+/// must hold at least one grant.
 pub fn begin_transaction<S>(database_schema: S) -> IcDbmsResult<TransactionId>
 where
     S: DatabaseSchema<IcMemoryProvider> + 'static,
 {
     let caller = crate::utils::caller();
-    with_database(None, database_schema, |db| acl::require_admin(db, caller))?;
+    with_database(None, database_schema, |db| {
+        acl::require_any_grant(db, caller)
+    })?;
     let transaction_id = DBMS_CONTEXT.with(|ctx| ctx.begin_transaction());
     transaction::record(transaction_id, caller);
     Ok(transaction_id)
@@ -151,8 +151,9 @@ where
 }
 
 /// Selects typed records from table `T`, optionally inside a transaction.
-/// Caller must hold [`Permission::Admin`]. Traps when `transaction_id` names
-/// a transaction the caller did not open.
+/// Caller must hold [`AclPermission::Read`] on `T` and on every eagerly loaded
+/// relation. Traps when `transaction_id` names a transaction the caller did
+/// not open.
 pub fn select<T, S>(
     query: Query,
     transaction_id: Option<TransactionId>,
@@ -165,14 +166,21 @@ where
     let caller = crate::utils::caller();
     assert_caller_owns_transaction(transaction_id.as_ref());
     with_database(transaction_id, database_schema, |db| {
-        acl::require_admin(db, caller)?;
+        acl::require(
+            db,
+            caller,
+            AclPermission::Read,
+            &read_tables(T::table_name(), &query),
+        )?;
         db.select::<T>(query).map_err(IcDbmsError::from)
     })
 }
 
 /// Selects untyped rows from the table called `table`, optionally inside a
-/// transaction. Caller must hold [`Permission::Admin`]. Traps when
-/// `transaction_id` names a transaction the caller did not open.
+/// transaction. Caller must hold [`AclPermission::Read`] on `table` and on
+/// every eagerly loaded relation; reading a reserved table requires
+/// [`AclPermission::Admin`]. Traps when `transaction_id` names a transaction
+/// the caller did not open.
 pub fn select_raw<S>(
     table: &str,
     query: Query,
@@ -185,13 +193,14 @@ where
     let caller = crate::utils::caller();
     assert_caller_owns_transaction(transaction_id.as_ref());
     with_database(transaction_id, database_schema, |db| {
-        acl::require_admin(db, caller)?;
+        acl::require(db, caller, AclPermission::Read, &read_tables(table, &query))?;
         db.select_raw(table, query).map_err(IcDbmsError::from)
     })
 }
 
 /// Runs a query with joins rooted at `table`, optionally inside a
-/// transaction. Caller must hold [`Permission::Admin`]. Traps when
+/// transaction. Caller must hold [`AclPermission::Read`] on `table`, on every
+/// joined table and on every eagerly loaded relation. Traps when
 /// `transaction_id` names a transaction the caller did not open.
 pub fn select_join<S>(
     table: &str,
@@ -205,14 +214,14 @@ where
     let caller = crate::utils::caller();
     assert_caller_owns_transaction(transaction_id.as_ref());
     with_database(transaction_id, database_schema, |db| {
-        acl::require_admin(db, caller)?;
+        acl::require(db, caller, AclPermission::Read, &read_tables(table, &query))?;
         db.select_join(table, query).map_err(IcDbmsError::from)
     })
 }
 
 /// Runs an aggregate query on table `T`, optionally inside a transaction.
-/// Caller must hold [`Permission::Admin`]. Traps when `transaction_id` names
-/// a transaction the caller did not open.
+/// Caller must hold [`AclPermission::Read`] on `T`. Traps when `transaction_id`
+/// names a transaction the caller did not open.
 pub fn aggregate<T, S>(
     query: Query,
     aggregates: Vec<AggregateFunction>,
@@ -226,14 +235,19 @@ where
     let caller = crate::utils::caller();
     assert_caller_owns_transaction(transaction_id.as_ref());
     with_database(transaction_id, database_schema, |db| {
-        acl::require_admin(db, caller)?;
+        acl::require(
+            db,
+            caller,
+            AclPermission::Read,
+            &read_tables(T::table_name(), &query),
+        )?;
         db.aggregate::<T>(query, &aggregates)
             .map_err(IcDbmsError::from)
     })
 }
 
 /// Inserts a record into table `T`, optionally inside a transaction. Caller
-/// must hold [`Permission::Admin`]. Traps when `transaction_id` names a
+/// must hold [`AclPermission::Insert`] on `T`. Traps when `transaction_id` names a
 /// transaction the caller did not open.
 pub fn insert<T, S>(
     record: T::Insert,
@@ -248,13 +262,14 @@ where
     let caller = crate::utils::caller();
     assert_caller_owns_transaction(transaction_id.as_ref());
     with_database(transaction_id, database_schema, |db| {
-        acl::require_admin(db, caller)?;
+        acl::require(db, caller, AclPermission::Insert, &[T::table_name()])?;
         db.insert::<T>(record).map_err(IcDbmsError::from)
     })
 }
 
 /// Updates records of table `T`, optionally inside a transaction. Returns
-/// the number of updated rows. Caller must hold [`Permission::Admin`]. Traps
+/// the number of updated rows. Caller must hold [`AclPermission::Update`] on
+/// `T`. Traps
 /// when `transaction_id` names a transaction the caller did not open.
 pub fn update<T, S>(
     patch: T::Update,
@@ -269,14 +284,16 @@ where
     let caller = crate::utils::caller();
     assert_caller_owns_transaction(transaction_id.as_ref());
     with_database(transaction_id, database_schema, |db| {
-        acl::require_admin(db, caller)?;
+        acl::require(db, caller, AclPermission::Update, &[T::table_name()])?;
         db.update::<T>(patch).map_err(IcDbmsError::from)
     })
 }
 
 /// Deletes records of table `T`, optionally inside a transaction. Returns
-/// the number of deleted rows. Caller must hold [`Permission::Admin`]. Traps
-/// when `transaction_id` names a transaction the caller did not open.
+/// the number of deleted rows. Caller must hold [`AclPermission::Delete`] on
+/// `T` and, with [`DeleteBehavior::Cascade`], on every table that references
+/// `T`. Traps when `transaction_id` names a transaction the caller did not
+/// open.
 pub fn delete<T, S>(
     behaviour: DeleteBehavior,
     filter: Option<Filter>,
@@ -289,14 +306,15 @@ where
 {
     let caller = crate::utils::caller();
     assert_caller_owns_transaction(transaction_id.as_ref());
+    let tables = delete_tables(&database_schema, T::table_name(), &behaviour);
     with_database(transaction_id, database_schema, |db| {
-        acl::require_admin(db, caller)?;
+        acl::require(db, caller, AclPermission::Delete, &tables)?;
         db.delete::<T>(behaviour, filter).map_err(IcDbmsError::from)
     })
 }
 
 /// Returns whether the persisted schema differs from the compiled one.
-/// Caller must hold [`Permission::Admin`] or be a controller.
+/// Caller must hold [`AclPermission::Admin`] or be a controller.
 pub fn has_drift<S>(database_schema: S) -> IcDbmsResult<bool>
 where
     S: DatabaseSchema<IcMemoryProvider> + 'static,
@@ -309,7 +327,7 @@ where
 }
 
 /// Returns the migration operations needed to heal schema drift. Caller must
-/// hold [`Permission::Admin`] or be a controller.
+/// hold [`AclPermission::Admin`] or be a controller.
 pub fn pending_migrations<S>(database_schema: S) -> IcDbmsResult<Vec<MigrationOp>>
 where
     S: DatabaseSchema<IcMemoryProvider> + 'static,
@@ -322,7 +340,7 @@ where
 }
 
 /// Applies the pending migrations under `policy`. Caller must hold
-/// [`Permission::Admin`] or be a controller.
+/// [`AclPermission::Admin`] or be a controller.
 pub fn migrate<S>(policy: MigrationPolicy, database_schema: S) -> IcDbmsResult<()>
 where
     S: DatabaseSchema<IcMemoryProvider> + 'static,
@@ -344,9 +362,54 @@ pub fn pre_upgrade() {
     transaction::clear();
 }
 
+/// Returns the tables a read of `table` with `query` touches: the root
+/// table, every joined table and every eagerly loaded relation, each once.
+fn read_tables<'a>(table: &'a str, query: &'a Query) -> Vec<&'a str> {
+    let mut tables = vec![table];
+    let others = query
+        .joins
+        .iter()
+        .map(|join| join.table.as_str())
+        .chain(query.eager_relations.iter().map(String::as_str));
+    for other in others {
+        if !tables.contains(&other) {
+            tables.push(other);
+        }
+    }
+    tables
+}
+
+/// Returns the tables a delete on `table` removes rows from: `table` itself
+/// and, under [`DeleteBehavior::Cascade`], every table that references it
+/// directly or transitively.
+fn delete_tables<S>(
+    schema: &S,
+    table: &'static str,
+    behaviour: &DeleteBehavior,
+) -> Vec<&'static str>
+where
+    S: DatabaseSchema<IcMemoryProvider>,
+{
+    let mut tables = vec![table];
+    if !matches!(behaviour, DeleteBehavior::Cascade) {
+        return tables;
+    }
+    let mut next = 0;
+    while next < tables.len() {
+        let referencing = schema.referenced_tables(tables[next]);
+        for (referencing_table, _) in referencing {
+            if !tables.contains(&referencing_table) {
+                tables.push(referencing_table);
+            }
+        }
+        next += 1;
+    }
+    tables
+}
+
 /// Controllers may always run migrations: while the schema has drifted the
 /// ACL table cannot be read, and controllers already hold full power over the
-/// canister. Everyone else must hold [`Permission::Admin`].
+/// canister. Everyone else must hold [`AclPermission::Admin`].
 fn authorize_migration(
     db: &WasmDbmsDatabase<'_, IcMemoryProvider>,
     caller: Principal,
@@ -398,7 +461,7 @@ fn assert_caller_owns_transaction(transaction_id: Option<&TransactionId>) {
 #[cfg(test)]
 mod tests {
 
-    use ic_dbms_api::prelude::{AclError, Uint32};
+    use ic_dbms_api::prelude::{AclError, AclGrant, AclPermission, AclRequirement, Uint32};
 
     use super::*;
     use crate::tests::{TestDatabaseSchema, UserInsertRequest, load_fixtures};
@@ -428,24 +491,31 @@ mod tests {
         }
     }
 
-    fn assert_access_denied<T: std::fmt::Debug>(res: IcDbmsResult<T>) {
-        assert!(matches!(
-            res,
+    fn assert_denied<T: std::fmt::Debug>(
+        res: IcDbmsResult<T>,
+        permission: AclPermission,
+        table: Option<&str>,
+    ) {
+        match res {
             Err(IcDbmsError::Acl(AclError::AccessDenied {
-                required: Permission::Admin
-            }))
-        ));
+                required,
+                table: denied_table,
+            })) => {
+                assert_eq!(required, AclRequirement::Permission(permission));
+                assert_eq!(denied_table.as_deref(), table);
+            }
+            other => panic!("expected access denied, got {other:?}"),
+        }
     }
 
     #[test]
     fn test_init_acl_bootstraps_admins() {
         bootstrap_alice();
         let entries = acl_list(TestDatabaseSchema).expect("list");
-        assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].principal, alice());
+        assert_eq!(entries, vec![AclGrant::admin(alice())]);
         assert_eq!(
             my_permissions(TestDatabaseSchema).expect("perms"),
-            vec![Permission::Admin]
+            vec![AclGrant::admin(alice())]
         );
     }
 
@@ -465,26 +535,26 @@ mod tests {
     #[test]
     fn test_should_grant_and_revoke_admin() {
         bootstrap_alice();
-        acl_grant(bob(), Permission::Admin, TestDatabaseSchema).expect("grant");
+        acl_grant(AclGrant::admin(bob()), TestDatabaseSchema).expect("grant");
         assert!(
             acl_list(TestDatabaseSchema)
                 .unwrap()
                 .iter()
-                .any(|e| e.principal == bob())
+                .any(|grant| grant == &AclGrant::admin(bob()))
         );
-        acl_revoke(bob(), Permission::Admin, TestDatabaseSchema).expect("revoke");
+        acl_revoke(AclGrant::admin(bob()), TestDatabaseSchema).expect("revoke");
         assert!(
             !acl_list(TestDatabaseSchema)
                 .unwrap()
                 .iter()
-                .any(|e| e.principal == bob())
+                .any(|grant| grant == &AclGrant::admin(bob()))
         );
     }
 
     #[test]
     fn test_should_refuse_to_revoke_last_admin_through_api() {
         bootstrap_alice();
-        let err = acl_revoke(alice(), Permission::Admin, TestDatabaseSchema).expect_err("last");
+        let err = acl_revoke(AclGrant::admin(alice()), TestDatabaseSchema).expect_err("last");
         assert!(matches!(err, IcDbmsError::Acl(AclError::LastAdmin)));
     }
 
@@ -495,33 +565,59 @@ mod tests {
         });
         init_acl(vec![bob()], TestDatabaseSchema).expect("bootstrap bob");
 
-        assert_access_denied(insert::<crate::tests::User, _>(
-            user(1),
-            None,
-            TestDatabaseSchema,
+        assert_denied(
+            insert::<crate::tests::User, _>(user(1), None, TestDatabaseSchema),
+            AclPermission::Insert,
+            Some("users"),
+        );
+        assert_denied(
+            select::<crate::tests::User, _>(
+                Query::builder().all().build(),
+                None,
+                TestDatabaseSchema,
+            ),
+            AclPermission::Read,
+            Some("users"),
+        );
+        assert_denied(
+            select_raw(
+                "users",
+                Query::builder().all().build(),
+                None,
+                TestDatabaseSchema,
+            ),
+            AclPermission::Read,
+            Some("users"),
+        );
+        assert_denied(
+            select_raw(
+                "ic_dbms_acl",
+                Query::builder().all().build(),
+                None,
+                TestDatabaseSchema,
+            ),
+            AclPermission::Admin,
+            Some("ic_dbms_acl"),
+        );
+        assert!(matches!(
+            begin_transaction(TestDatabaseSchema),
+            Err(IcDbmsError::Acl(AclError::AccessDenied {
+                required: AclRequirement::AnyGrant,
+                table: None,
+            }))
         ));
-        assert_access_denied(select::<crate::tests::User, _>(
-            Query::builder().all().build(),
+        assert_denied(
+            acl_grant(AclGrant::admin(alice()), TestDatabaseSchema),
+            AclPermission::Admin,
             None,
-            TestDatabaseSchema,
-        ));
-        assert_access_denied(select_raw(
-            "users",
-            Query::builder().all().build(),
+        );
+        assert_denied(acl_list(TestDatabaseSchema), AclPermission::Admin, None);
+        assert_denied(has_drift(TestDatabaseSchema), AclPermission::Admin, None);
+        assert_denied(
+            migrate(MigrationPolicy::default(), TestDatabaseSchema),
+            AclPermission::Admin,
             None,
-            TestDatabaseSchema,
-        ));
-        assert_access_denied(select_raw(
-            "ic_dbms_acl",
-            Query::builder().all().build(),
-            None,
-            TestDatabaseSchema,
-        ));
-        assert_access_denied(begin_transaction(TestDatabaseSchema));
-        assert_access_denied(acl_grant(alice(), Permission::Admin, TestDatabaseSchema));
-        assert_access_denied(acl_list(TestDatabaseSchema));
-        assert_access_denied(has_drift(TestDatabaseSchema));
-        assert_access_denied(migrate(MigrationPolicy::default(), TestDatabaseSchema));
+        );
         assert!(my_permissions(TestDatabaseSchema).unwrap().is_empty());
     }
 
@@ -800,5 +896,38 @@ mod tests {
         assert_eq!(crate::transaction::len(), 1);
         pre_upgrade();
         assert_eq!(crate::transaction::len(), 0);
+    }
+
+    #[test]
+    fn test_read_tables_lists_root_joins_and_eager_relations_once() {
+        let plain = Query::builder().all().build();
+        assert_eq!(read_tables("users", &plain), vec!["users"]);
+
+        let query = Query::builder()
+            .all()
+            .inner_join("posts", "users.id", "posts.user")
+            .left_join("messages", "users.id", "messages.sender")
+            .with("posts")
+            .with("users")
+            .build();
+        assert_eq!(
+            read_tables("users", &query),
+            vec!["users", "posts", "messages"]
+        );
+    }
+
+    #[test]
+    fn test_delete_tables_follows_references_only_on_cascade() {
+        assert_eq!(
+            delete_tables(&TestDatabaseSchema, "users", &DeleteBehavior::Restrict),
+            vec!["users"]
+        );
+        let mut cascade = delete_tables(&TestDatabaseSchema, "users", &DeleteBehavior::Cascade);
+        cascade.sort_unstable();
+        assert_eq!(cascade, vec!["messages", "posts", "users"]);
+        assert_eq!(
+            delete_tables(&TestDatabaseSchema, "posts", &DeleteBehavior::Cascade),
+            vec!["posts"]
+        );
     }
 }

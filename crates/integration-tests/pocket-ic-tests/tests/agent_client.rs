@@ -1,5 +1,5 @@
 use ic_dbms_api::prelude::{
-    DeleteBehavior, Filter, Permission, Query, TableSchema, Text, Uint32, Value,
+    AclGrant, AclPermission, DeleteBehavior, Filter, Query, TableSchema, Text, Uint32, Value,
 };
 use ic_dbms_client::prelude::{Client as _, IcDbmsAgentClient};
 use pocket_ic_harness::PocketIcTestEnv;
@@ -25,38 +25,40 @@ async fn test_agent_client_should_manage_acl(env: PocketIcTestEnv<TestCanister>)
     let agent = init_new_agent(e, true).await;
     let client = IcDbmsAgentClient::new(&agent, e.dbms_canister());
 
+    let read_users = AclGrant::table(bob(), AclPermission::Read, "users");
     client
-        .acl_grant(bob(), Permission::Admin)
+        .acl_grant(read_users.clone())
         .await
         .expect("failed to call canister")
-        .expect("failed to grant admin");
+        .expect("failed to grant");
 
     let entries = client
         .acl_list()
         .await
         .expect("failed to call canister")
         .expect("failed to list acl");
-    assert!(entries.iter().any(|e| e.principal == bob()));
+    assert!(entries.contains(&read_users));
 
     client
-        .acl_revoke(bob(), Permission::Admin)
+        .acl_revoke(read_users.clone())
         .await
         .expect("failed to call canister")
-        .expect("failed to revoke admin");
+        .expect("failed to revoke");
 
     let entries = client
         .acl_list()
         .await
         .expect("failed to call canister")
         .expect("failed to list acl");
-    assert!(!entries.iter().any(|e| e.principal == bob()));
+    assert!(!entries.contains(&read_users));
 
-    let perms = client
+    let grants = client
         .my_permissions()
         .await
         .expect("failed to call canister")
         .expect("failed to read permissions");
-    assert_eq!(perms, vec![Permission::Admin]);
+    let agent_principal = agent.get_principal().expect("agent principal");
+    assert_eq!(grants, vec![AclGrant::admin(agent_principal)]);
 }
 
 #[pocket_ic_harness::test]

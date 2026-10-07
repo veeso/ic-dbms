@@ -3,12 +3,37 @@ mod client;
 pub mod table;
 
 use candid::{Encode, Principal};
-use ic_dbms_api::prelude::{IcDbmsCanisterArgs, IcDbmsCanisterInitArgs};
+use ic_dbms_api::prelude::{
+    AclError, AclPermission, AclRequirement, IcDbmsCanisterArgs, IcDbmsCanisterInitArgs,
+    IcDbmsError, IcDbmsResult,
+};
 use pocket_ic_harness::{Canister, PocketIcTestEnv};
 pub use pocket_ic_harness::{admin, alice, bob};
 
 pub use self::agent::init_new_agent;
 pub use self::client::PocketIcClient;
+
+/// Asserts that `res` is an access denied error for `permission` on `table`.
+pub fn assert_access_denied<T: std::fmt::Debug>(
+    res: &IcDbmsResult<T>,
+    permission: AclPermission,
+    table: Option<&str>,
+) {
+    match res {
+        Err(IcDbmsError::Acl(AclError::AccessDenied {
+            required,
+            table: denied_table,
+        })) => {
+            assert_eq!(
+                *required,
+                AclRequirement::Permission(permission),
+                "denied permission"
+            );
+            assert_eq!(denied_table.as_deref(), table, "denied table");
+        }
+        other => panic!("expected access denied for {permission} on {table:?}, got {other:?}"),
+    }
+}
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum TestCanister {

@@ -199,8 +199,8 @@ routing operations to the correct table by name). The `DbmsCanister` derive gene
 ```candid
 service : (IcDbmsCanisterArgs) -> {
   // Access control
-  acl_grant : (principal, Permission) -> (Result);
-  acl_revoke : (principal, Permission) -> (Result);
+  acl_grant : (AclGrant) -> (Result);
+  acl_revoke : (AclGrant) -> (Result);
   acl_list : () -> (Result_2) query;
   my_permissions : () -> (Result_3) query;
 
@@ -261,10 +261,10 @@ type IcDbmsCanisterInitArgs = record {
 };
 ```
 
-> **Warning:** Only principals granted `Admin` can perform database
-> operations. Each principal in `allowed_principals` (or the deployer, when
-> the list is empty) is granted `Admin` at install time; add more later with
-> `acl_grant`.
+> **Warning:** Callers need grants to perform database operations. Each
+> principal in `allowed_principals` (or the deployer, when the list is empty)
+> receives an `Admin` grant at install time; give other principals narrower
+> grants with `acl_grant`.
 
 ### Deploy with dfx
 

@@ -1,5 +1,6 @@
 mod acid;
 mod acl;
+mod acl_enforcement;
 mod agent_client;
 mod aggregate;
 mod crud;

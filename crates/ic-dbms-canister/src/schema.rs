@@ -7,7 +7,7 @@ use ic_dbms_api::prelude::{
 use wasm_dbms::prelude::{DatabaseSchema, WasmDbmsDatabase};
 use wasm_dbms_memory::prelude::MemoryProvider;
 
-use crate::acl::{AclPrincipal, AclSchema};
+use crate::acl::{AclGrantRow, AclSchema};
 
 /// The schema the engine sees: the user's `#[derive(DatabaseSchema)]`
 /// schema plus the reserved tables owned by ic-dbms.
@@ -29,7 +29,7 @@ impl<S> CanisterSchema<S> {
 }
 
 fn is_acl(table: &str) -> bool {
-    table == AclPrincipal::table_name()
+    table == AclGrantRow::table_name()
 }
 
 impl<S, M> DatabaseSchema<M> for CanisterSchema<S>
@@ -274,8 +274,8 @@ mod tests {
             let db = WasmDbmsDatabase::oneshot(ctx, CanisterSchema::new(TestDatabaseSchema));
             crate::acl::grant(
                 &db,
-                crate::utils::caller(),
-                ic_dbms_api::prelude::Permission::Admin,
+                &ic_dbms_api::prelude::AclGrant::admin(crate::utils::caller()),
+                |_| false,
             )
             .expect("grant");
             let users = db
@@ -291,8 +291,8 @@ mod tests {
                 crate::memory::IcMemoryProvider,
             >>::table_columns(&schema, "ic_dbms_acl")
             .expect("columns");
-            assert_eq!(columns.len(), 1);
-            assert_eq!(columns[0].name, "principal");
+            let names: Vec<&str> = columns.iter().map(|column| column.name).collect();
+            assert_eq!(names, ["id", "principal", "permission", "table"]);
         });
     }
 
