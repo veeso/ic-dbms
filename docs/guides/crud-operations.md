@@ -40,7 +40,7 @@ ic-dbms provides four fundamental database operations, accessed through the `ic-
 
 All operations:
 
-- Respect access control (caller must be in ACL)
+- Respect access control (the caller must hold the `Admin` permission)
 - Support optional transaction IDs
 - Validate and sanitize data according to schema rules
 - Enforce foreign key constraints
@@ -84,7 +84,10 @@ client.insert::<User>(User::table_name(), user1, None).await??;
 
 // Second insert with same ID fails with PrimaryKeyConflict
 let result = client.insert::<User>(User::table_name(), user2_same_id, None).await?;
-assert!(matches!(result, Err(IcDbmsError::Query(QueryError::PrimaryKeyConflict))));
+assert!(matches!(
+    result,
+    Err(IcDbmsError::Dbms(DbmsError::Query(QueryError::PrimaryKeyConflict)))
+));
 ```
 
 ### Nullable Fields
@@ -305,7 +308,7 @@ let result = client.delete::<User>(
 
 match result {
     Ok(count) => println!("Deleted {} user(s)", count),
-    Err(IcDbmsError::Query(QueryError::ForeignKeyConstraintViolation)) => {
+    Err(IcDbmsError::Dbms(DbmsError::Query(QueryError::ForeignKeyConstraintViolation))) => {
         println!("Cannot delete: user has posts");
     }
     Err(e) => return Err(e.into()),
@@ -392,10 +395,10 @@ match client.insert::<User>(User::table_name(), user, None).await {
     Ok(Err(db_error)) => {
         // Handle database errors
         match db_error {
-            IcDbmsError::Query(QueryError::PrimaryKeyConflict) => {
+            IcDbmsError::Dbms(DbmsError::Query(QueryError::PrimaryKeyConflict)) => {
                 println!("User already exists");
             }
-            IcDbmsError::Validation(msg) => {
+            IcDbmsError::Dbms(DbmsError::Validation(msg)) => {
                 println!("Validation error: {}", msg);
             }
             _ => println!("Database error: {:?}", db_error),

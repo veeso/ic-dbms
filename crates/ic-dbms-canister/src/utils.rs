@@ -17,6 +17,21 @@ pub fn caller() -> Principal {
     }
 }
 
+/// Returns whether `principal` is a controller of this canister.
+///
+/// Always `false` outside WebAssembly (unit tests).
+pub fn is_controller(principal: Principal) -> bool {
+    #[cfg(target_family = "wasm")]
+    {
+        ic_cdk::api::is_controller(&principal)
+    }
+    #[cfg(not(target_family = "wasm"))]
+    {
+        let _ = principal;
+        false
+    }
+}
+
 #[cfg(test)]
 mod test {
 
@@ -35,5 +50,10 @@ mod test {
         let principal1 = caller();
         let principal2 = caller();
         assert_eq!(principal1, principal2);
+    }
+
+    #[test]
+    fn test_is_controller_is_false_on_host() {
+        assert!(!is_controller(caller()));
     }
 }

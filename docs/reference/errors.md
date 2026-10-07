@@ -3,7 +3,8 @@
 > **Note:** This is the IC-specific error handling reference. For the complete error hierarchy, all error variants, and their causes, see the [generic errors reference](https://wasm-dbms.cc/reference/errors.html).
 
 - [Overview](#overview)
-- [IcDbmsError Type Alias](#icdbmserror-type-alias)
+- [IcDbmsError](#icdbmserror)
+- [AclError](#aclerror)
 - [Double Result Pattern](#double-result-pattern)
   - [Why Two Results?](#why-two-results)
   - [Using the `??` Operator](#using-the--operator)
@@ -22,57 +23,55 @@ When using ic-dbms through the `ic-dbms-client` crate, error handling has an add
 
 ---
 
-## IcDbmsError Type Alias
+## IcDbmsError
 
-`IcDbmsError` is a re-export of `DbmsError` from `wasm-dbms-api`, provided by `ic-dbms-api` for convenience:
+`IcDbmsError` is the error type returned by every endpoint of an ic-dbms
+canister. It wraps the engine's `DbmsError` and adds the access control
+errors, which the engine knows nothing about:
 
 ```rust
 use ic_dbms_api::prelude::IcDbmsError;
 
-// IcDbmsError is the same as wasm_dbms_api::DbmsError
-// It provides the full error hierarchy:
 pub enum IcDbmsError {
-    AccessDenied {
-        table: Option<TableFingerprint>,
-        required: RequiredPerm,
-    },
-    Memory(MemoryError),
-    Migration(MigrationError),
-    Query(QueryError),
-    Table(TableError),
-    Transaction(TransactionError),
-    Sanitize(String),
-    Validation(String),
+    /// The canister access control list refused the call.
+    Acl(AclError),
+    /// The database engine reported an error.
+    Dbms(DbmsError),
+}
+
+pub enum AclError {
+    AccessDenied { required: Permission },
+    AnonymousPrincipal,
+    LastAdmin,
 }
 ```
 
-You can use `IcDbmsError` or `DbmsError` interchangeably. The `IcDbmsError` alias is conventional in IC codebases.
+`DbmsError` (`Memory`, `Migration`, `Query`, `Sanitize`, `Table`,
+`Transaction`, `Validation`) is documented in the
+[generic errors reference](https://wasm-dbms.cc/reference/errors.html).
+`IcDbmsError` implements `From` for `DbmsError`, `AclError` and every engine
+error enum, so `?` works in code that mixes them.
 
 ---
 
-## AccessDenied
+## AclError
 
-Granular ACL checks return `DbmsError::AccessDenied { table, required }` when
-the caller is missing a perm. `required` is a `RequiredPerm` enum:
-
-| Variant             | Meaning                      |
-| ------------------- | ---------------------------- |
-| `Table(TablePerms)` | Per-table CRUD perm missing. |
-| `Admin`             | `admin` bypass missing.      |
-| `ManageAcl`         | ACL-management perm missing. |
-| `Migrate`           | Migration perm missing.      |
-
-`table` is `Some(TableFingerprint)` for table-scoped operations and `None`
-for `manage_acl` / `migrate` failures.
+| Variant                     | Meaning                                                   |
+| --------------------------- | --------------------------------------------------------- |
+| `AccessDenied { required }` | The caller lacks `required` (today always `Admin`).       |
+| `AnonymousPrincipal`        | Permissions cannot be granted to the anonymous principal. |
+| `LastAdmin`                 | The operation would remove the last admin.                |
 
 ```rust
+use ic_dbms_api::prelude::{AclError, IcDbmsError, Permission};
+
 match res {
     Ok(()) => {}
-    Err(IcDbmsError::AccessDenied { required: RequiredPerm::Table(p), .. }) => {
-        eprintln!("missing table perms: {p:?}");
+    Err(IcDbmsError::Acl(AclError::AccessDenied { required })) => {
+        eprintln!("missing permission: {required}");
     }
-    Err(IcDbmsError::AccessDenied { required: RequiredPerm::Migrate, .. }) => {
-        eprintln!("not allowed to migrate");
+    Err(IcDbmsError::Acl(AclError::LastAdmin)) => {
+        eprintln!("grant another admin first");
     }
     Err(other) => return Err(other),
 }
@@ -141,7 +140,7 @@ match client.insert::<User>(User::table_name(), user, None).await {
 ### Basic Pattern
 
 ```rust
-use ic_dbms_api::prelude::{IcDbmsError, QueryError};
+use ic_dbms_api::prelude::{DbmsError, IcDbmsError, QueryError};
 
 let result = client.insert::<User>(User::table_name(), user, None).await;
 
@@ -161,13 +160,13 @@ match client.insert::<User>(User::table_name(), user, None).await {
     }
     Ok(Err(db_error)) => {
         match db_error {
-            IcDbmsError::Query(QueryError::PrimaryKeyConflict) => {
+            IcDbmsError::Dbms(DbmsError::Query(QueryError::PrimaryKeyConflict)) => {
                 println!("User already exists");
             }
-            IcDbmsError::Query(QueryError::BrokenForeignKeyReference) => {
+            IcDbmsError::Dbms(DbmsError::Query(QueryError::BrokenForeignKeyReference)) => {
                 println!("Referenced record doesn't exist");
             }
-            IcDbmsError::Validation(msg) => {
+            IcDbmsError::Dbms(DbmsError::Validation(msg)) => {
                 println!("Validation error: {}", msg);
             }
             _ => {
@@ -186,13 +185,13 @@ match client.insert::<User>(User::table_name(), user, None).await {
 ```rust
 fn handle_db_error(error: IcDbmsError) -> String {
     match error {
-        IcDbmsError::Query(QueryError::PrimaryKeyConflict) =>
+        IcDbmsError::Dbms(DbmsError::Query(QueryError::PrimaryKeyConflict)) =>
             "Record with this ID already exists".to_string(),
-        IcDbmsError::Query(QueryError::BrokenForeignKeyReference) =>
+        IcDbmsError::Dbms(DbmsError::Query(QueryError::BrokenForeignKeyReference)) =>
             "Referenced record not found".to_string(),
-        IcDbmsError::Query(QueryError::ForeignKeyConstraintViolation) =>
+        IcDbmsError::Dbms(DbmsError::Query(QueryError::ForeignKeyConstraintViolation)) =>
             "Cannot delete: record has dependencies".to_string(),
-        IcDbmsError::Validation(msg) =>
+        IcDbmsError::Dbms(DbmsError::Validation(msg)) =>
             format!("Invalid data: {}", msg),
         _ =>
             format!("Unexpected error: {:?}", error),

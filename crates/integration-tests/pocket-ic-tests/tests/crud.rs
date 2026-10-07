@@ -2,7 +2,7 @@ use ic_dbms_api::prelude::{DeleteBehavior, Filter, Query, TableSchema, Text, Uin
 use ic_dbms_client::prelude::{Client as _, IcDbmsPocketIcClient};
 use pocket_ic_harness::PocketIcTestEnv;
 use pocket_ic_tests::table::{User, UserInsertRequest, UserUpdateRequest};
-use pocket_ic_tests::{TestCanister, TestEnvExt as _, admin};
+use pocket_ic_tests::{TestCanister, TestEnvExt as _, admin, alice};
 
 #[pocket_ic_harness::test]
 async fn test_should_insert_and_query_data(env: PocketIcTestEnv<TestCanister>) {
@@ -115,4 +115,27 @@ async fn test_should_update_a_user(env: PocketIcTestEnv<TestCanister>) {
         user.email.as_ref().unwrap(),
         &Text::from("charlie@example.com")
     );
+}
+
+#[pocket_ic_harness::test]
+async fn test_should_not_allow_unauthorized_call(env: PocketIcTestEnv<TestCanister>) {
+    use ic_dbms_api::prelude::{AclError, IcDbmsError, Permission};
+
+    let client = IcDbmsPocketIcClient::new(env.dbms_canister(), alice(), &env.pic);
+
+    let insert_request = UserInsertRequest {
+        id: Uint32::from(4),
+        name: "Eve".into(),
+        email: "eve@example.com".into(),
+    };
+    let result = client
+        .insert::<User>(User::table_name(), insert_request, None)
+        .await
+        .expect("call ok");
+    assert!(matches!(
+        result,
+        Err(IcDbmsError::Acl(AclError::AccessDenied {
+            required: Permission::Admin
+        }))
+    ));
 }

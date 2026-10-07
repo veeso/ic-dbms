@@ -72,6 +72,12 @@ The `wasm-dbms*` crates come from crates.io.
    CRUD and aggregate endpoints, the untyped `select`, transaction, ACL, and
    migration endpoints.
 
+The `DbmsCanister` derive always registers the reserved `ic_dbms_acl` table
+and composes it with the user schema through `CanisterSchema<S>`; table names
+starting with `ic_dbms_` are rejected at compile time. The engine's drift
+detection covers the ACL table, so every database must be opened through
+`CanisterSchema::new(schema)`.
+
 IC tables derive `CandidType` and `Deserialize`; the `#[candid]` attribute adds
 Candid and Serde derives to the generated types. A canister schema combines
 `DatabaseSchema` and `DbmsCanister`, then exports its Candid interface with

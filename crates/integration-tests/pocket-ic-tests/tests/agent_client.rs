@@ -1,18 +1,62 @@
-use ic_dbms_api::prelude::{DeleteBehavior, Filter, Query, TableSchema, Text, Uint32, Value};
+use ic_dbms_api::prelude::{
+    DeleteBehavior, Filter, Permission, Query, TableSchema, Text, Uint32, Value,
+};
 use ic_dbms_client::prelude::{Client as _, IcDbmsAgentClient};
 use pocket_ic_harness::PocketIcTestEnv;
 use pocket_ic_tests::table::{Post, PostInsertRequest, User, UserInsertRequest, UserUpdateRequest};
-use pocket_ic_tests::{TestCanister, TestEnvExt as _, init_new_agent};
+use pocket_ic_tests::{TestCanister, TestEnvExt as _, bob, init_new_agent};
 
 #[pocket_ic_harness::test]
 async fn test_agent_client_should_return_principal(env: PocketIcTestEnv<TestCanister>) {
     let e = &mut env;
     e.pic.make_live(None).await;
 
-    let agent = init_new_agent(e).await;
+    let agent = init_new_agent(e, true).await;
     let client = IcDbmsAgentClient::new(&agent, e.dbms_canister());
 
     assert_eq!(client.principal(), e.dbms_canister());
+}
+
+#[pocket_ic_harness::test]
+async fn test_agent_client_should_manage_acl(env: PocketIcTestEnv<TestCanister>) {
+    let e = &mut env;
+    e.pic.make_live(None).await;
+
+    let agent = init_new_agent(e, true).await;
+    let client = IcDbmsAgentClient::new(&agent, e.dbms_canister());
+
+    client
+        .acl_grant(bob(), Permission::Admin)
+        .await
+        .expect("failed to call canister")
+        .expect("failed to grant admin");
+
+    let entries = client
+        .acl_list()
+        .await
+        .expect("failed to call canister")
+        .expect("failed to list acl");
+    assert!(entries.iter().any(|e| e.principal == bob()));
+
+    client
+        .acl_revoke(bob(), Permission::Admin)
+        .await
+        .expect("failed to call canister")
+        .expect("failed to revoke admin");
+
+    let entries = client
+        .acl_list()
+        .await
+        .expect("failed to call canister")
+        .expect("failed to list acl");
+    assert!(!entries.iter().any(|e| e.principal == bob()));
+
+    let perms = client
+        .my_permissions()
+        .await
+        .expect("failed to call canister")
+        .expect("failed to read permissions");
+    assert_eq!(perms, vec![Permission::Admin]);
 }
 
 #[pocket_ic_harness::test]
@@ -20,7 +64,7 @@ async fn test_agent_client_should_insert_and_select(env: PocketIcTestEnv<TestCan
     let e = &mut env;
     e.pic.make_live(None).await;
 
-    let agent = init_new_agent(e).await;
+    let agent = init_new_agent(e, true).await;
     let client = IcDbmsAgentClient::new(&agent, e.dbms_canister());
 
     let insert_request = UserInsertRequest {
@@ -60,7 +104,7 @@ async fn test_agent_client_should_update(env: PocketIcTestEnv<TestCanister>) {
     let e = &mut env;
     e.pic.make_live(None).await;
 
-    let agent = init_new_agent(e).await;
+    let agent = init_new_agent(e, true).await;
     let client = IcDbmsAgentClient::new(&agent, e.dbms_canister());
 
     // Insert a user first
@@ -108,7 +152,7 @@ async fn test_agent_client_should_delete(env: PocketIcTestEnv<TestCanister>) {
     let e = &mut env;
     e.pic.make_live(None).await;
 
-    let agent = init_new_agent(e).await;
+    let agent = init_new_agent(e, true).await;
     let client = IcDbmsAgentClient::new(&agent, e.dbms_canister());
 
     // Insert a user first
@@ -154,14 +198,15 @@ async fn test_agent_client_should_begin_transaction_and_commit(env: PocketIcTest
     let e = &mut env;
     e.pic.make_live(None).await;
 
-    let agent = init_new_agent(e).await;
+    let agent = init_new_agent(e, true).await;
     let client = IcDbmsAgentClient::new(&agent, e.dbms_canister());
 
     // Begin transaction
     let transaction_id = client
         .begin_transaction()
         .await
-        .expect("failed to call canister");
+        .expect("failed to call canister")
+        .expect("failed to begin transaction");
 
     // Insert user within transaction
     let insert_request = UserInsertRequest {
@@ -229,14 +274,15 @@ async fn test_agent_client_should_rollback_transaction(env: PocketIcTestEnv<Test
     let e = &mut env;
     e.pic.make_live(None).await;
 
-    let agent = init_new_agent(e).await;
+    let agent = init_new_agent(e, true).await;
     let client = IcDbmsAgentClient::new(&agent, e.dbms_canister());
 
     // Begin transaction
     let transaction_id = client
         .begin_transaction()
         .await
-        .expect("failed to call canister");
+        .expect("failed to call canister")
+        .expect("failed to begin transaction");
 
     // Insert user within transaction
     let insert_request = UserInsertRequest {

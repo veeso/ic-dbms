@@ -1,22 +1,30 @@
 # Access Control (IC)
 
-> **Note:** This is the IC-specific access control guide. Access control is an IC-only feature.
+> **Note:** This is the IC-specific access control guide. Access control is an
+> IC-only feature; the wasm-dbms engine has none and leaves it to the embedder.
 
-ic-dbms uses a granular Access Control List (ACL) keyed by `Principal`. Each
-identity carries an `IdentityPerms` record:
+ic-dbms keeps an Access Control List (ACL) of principals inside the database
+itself, in a reserved table called `ic_dbms_acl` that `#[derive(DbmsCanister)]`
+always registers next to your tables. A principal listed in that table holds
+the `Admin` permission and may call every endpoint. A principal that is not
+listed may call only `my_permissions`.
 
-| Field        | Type                       | Meaning                                                |
-| ------------ | -------------------------- | ------------------------------------------------------ |
-| `admin`      | `bool`                     | Bypass all per-table checks. Does NOT imply other ops. |
-| `manage_acl` | `bool`                     | Grant/revoke perms; add/remove identities.             |
-| `migrate`    | `bool`                     | Run `migrate` / `pending_migrations` / `has_drift`.    |
-| `all_tables` | `TablePerms`               | Per-op bits applied to every table.                    |
-| `per_table`  | `Vec<(Table, TablePerms)>` | Per-table additive grants.                             |
+## Permissions
 
-`TablePerms` is a `u8` bitfield over `READ`, `INSERT`, `UPDATE`, `DELETE`.
+```rust
+pub enum Permission {
+    /// Full access: every table operation, transactions, ACL management and
+    /// schema migrations.
+    Admin,
+}
+```
 
-`admin` bypasses table checks but does not silently elevate to `manage_acl`
-or `migrate` — a data admin cannot escalate to ACL/ops roles by accident.
+`Admin` is the only permission today. The model is prepared for per-table
+grants, such as "read tables `users` and `posts`, insert into `users`": they
+will arrive as new `Permission` variants and, on the storage side, as new
+columns or a child table of `ic_dbms_acl` added through the engine's own
+migration machinery. Every endpoint already takes or returns `Permission`
+values, so adding variants does not change their signatures.
 
 ## Initialization
 
@@ -30,131 +38,114 @@ let args = IcDbmsCanisterInitArgs {
 
 Bootstrap rules:
 
-| `allowed_principals` | Result                                          |
-| -------------------- | ----------------------------------------------- |
-| `None`               | Deployer principal becomes a full admin.        |
-| `Some(vec![])`       | Same as `None` — deployer becomes a full admin. |
-| `Some(vec![p, q])`   | Each listed principal becomes a full admin.     |
+| `allowed_principals` | Result                                      |
+| -------------------- | ------------------------------------------- |
+| `None`               | The deployer principal becomes an admin.    |
+| `Some(vec![])`       | Same as `None`: the deployer becomes admin. |
+| `Some(vec![p, q])`   | Each listed principal becomes an admin.     |
 
-A "full admin" carries `admin = true`, `manage_acl = true`, `migrate = true`,
-and `all_tables = TablePerms::all()`.
+`init` registers your tables, then the `ic_dbms_acl` table, then grants
+`Admin` to each principal. The anonymous principal is rejected and makes
+`init` trap.
 
 ## Endpoints
 
-### Operational flags
+| Endpoint         | Kind   | Required permission | Effect                                         |
+| ---------------- | ------ | ------------------- | ---------------------------------------------- |
+| `acl_grant`      | update | `Admin`             | Grant a permission to a principal. Idempotent. |
+| `acl_revoke`     | update | `Admin`             | Revoke a permission. Refuses the last admin.   |
+| `acl_list`       | query  | `Admin`             | List every principal with its permissions.     |
+| `my_permissions` | query  | none                | Return the caller's own permissions.           |
 
-| Endpoint            | Required perm | Effect                        |
-| ------------------- | ------------- | ----------------------------- |
-| `grant_admin`       | `manage_acl`  | Set `admin` on target.        |
-| `revoke_admin`      | `manage_acl`  | Clear `admin` on target.      |
-| `grant_manage_acl`  | `manage_acl`  | Set `manage_acl` on target.   |
-| `revoke_manage_acl` | `manage_acl`  | Clear `manage_acl` on target. |
-| `grant_migrate`     | `manage_acl`  | Set `migrate` on target.      |
-| `revoke_migrate`    | `manage_acl`  | Clear `migrate` on target.    |
+```candid
+type Permission = variant { Admin };
+type AclEntry = record { principal : principal; permissions : vec Permission };
 
-### Table perms
-
-| Endpoint                  | Required perm | Effect                                  |
-| ------------------------- | ------------- | --------------------------------------- |
-| `grant_all_tables_perms`  | `manage_acl`  | OR `perms` into `all_tables`.           |
-| `revoke_all_tables_perms` | `manage_acl`  | Mask `perms` out of `all_tables`.       |
-| `grant_table_perms`       | `manage_acl`  | OR `perms` into `per_table[table]`.     |
-| `revoke_table_perms`      | `manage_acl`  | Mask `perms` out of `per_table[table]`. |
-
-### Identity lifecycle
-
-| Endpoint          | Required perm | Effect                              |
-| ----------------- | ------------- | ----------------------------------- |
-| `remove_identity` | `manage_acl`  | Drop the identity entirely.         |
-| `list_identities` | `manage_acl`  | List every identity with its perms. |
-| `my_perms`        | (none)        | Return the caller's own perms.      |
-
-### CRUD enforcement
-
-`#[derive(DbmsCanister)]` injects a `granted` check before each generated
-endpoint:
-
-| Endpoint kind                         | Required perm        |
-| ------------------------------------- | -------------------- |
-| `select_*` / `aggregate_*` / `select` | `TablePerms::READ`   |
-| `insert_*`                            | `TablePerms::INSERT` |
-| `update_*`                            | `TablePerms::UPDATE` |
-| `delete_*`                            | `TablePerms::DELETE` |
-
-Effective check: `admin || (all_tables | per_table[table]).contains(required)`.
-
-`select_join` enforces READ on the **root** table only. Joined tables are
-not checked separately in v1.
-
-### Migration
-
-| Endpoint             | Required perm |
-| -------------------- | ------------- |
-| `has_drift`          | `migrate`     |
-| `pending_migrations` | `migrate`     |
-| `migrate`            | `migrate`     |
-
-### Transactions
-
-`begin_transaction` / `commit` / `rollback` are unconditional — per-op CRUD
-checks gate the data accesses inside the transaction. An identity with no
-perms can open and commit an empty transaction; the moment it tries to
-read or write, `AccessDenied` is returned.
-
-## Last-`manage_acl` guard
-
-`revoke(ManageAcl)` and `remove_identity` refuse the operation when it
-would leave the ACL with zero `manage_acl`-carrying identities:
-
-```text
-DbmsError::Memory(MemoryError::ConstraintViolation(
-    "at least one identity must retain manage_acl"
-))
+acl_grant      : (principal, Permission) -> (variant { Ok; Err : IcDbmsError });
+acl_revoke     : (principal, Permission) -> (variant { Ok; Err : IcDbmsError });
+acl_list       : () -> (variant { Ok : vec AclEntry; Err : IcDbmsError }) query;
+my_permissions : () -> (variant { Ok : vec Permission; Err : IcDbmsError }) query;
 ```
 
-`admin` and `migrate` carry no such guard — they can be re-granted from any
-`manage_acl` holder.
+### Enforcement
+
+Every generated endpoint except `my_permissions` checks the caller before
+touching data:
+
+| Endpoint kind                                                           | Who may call                              |
+| ----------------------------------------------------------------------- | ----------------------------------------- |
+| `select_*`, `aggregate_*`, `select`, `insert_*`, `update_*`, `delete_*` | `Admin`                                   |
+| `begin_transaction`                                                     | `Admin`                                   |
+| `commit`, `rollback`                                                    | The principal that opened the transaction |
+| `acl_grant`, `acl_revoke`, `acl_list`                                   | `Admin`                                   |
+| `has_drift`, `pending_migrations`, `migrate`                            | `Admin` or a canister controller          |
+
+The check reads the `ic_dbms_acl` table through the same database view as
+the operation, so it costs one primary-key lookup per call.
+
+The untyped `select` endpoint can read `ic_dbms_acl` like any other table;
+because it requires `Admin`, only admins can list admins that way.
+
+### Controllers and schema drift
+
+The ACL lives in the database, so while the schema has drifted after an
+upgrade every read of the ACL table fails with `SchemaDrift`, exactly like a
+CRUD call would. To avoid locking the canister, its controllers may always
+call `has_drift`, `pending_migrations` and `migrate`. Controllers can already
+reinstall or delete the canister, so this grants them nothing new. ACL
+management endpoints are unavailable during drift: run `migrate` first.
+
+### Reserved table names
+
+Table names starting with `ic_dbms_` are reserved. Declaring one in
+`#[tables(...)]` is a compile-time error:
+
+```text
+error: table name `ic_dbms_acl` is reserved: names starting with `ic_dbms_` belong to ic-dbms
+```
+
+## Last-admin guard
+
+`acl_revoke(principal, Admin)` refuses the operation when `principal` is the
+only admin left:
+
+```text
+IcDbmsError::Acl(AclError::LastAdmin)
+```
 
 ## Errors
 
-A failed perm check returns:
+| Error                                                   | Cause                                                   |
+| ------------------------------------------------------- | ------------------------------------------------------- |
+| `IcDbmsError::Acl(AclError::AccessDenied { required })` | The caller lacks `required` (today always `Admin`).     |
+| `IcDbmsError::Acl(AclError::AnonymousPrincipal)`        | `acl_grant` or `init` targeted the anonymous principal. |
+| `IcDbmsError::Acl(AclError::LastAdmin)`                 | `acl_revoke` would remove the last admin.               |
 
-```rust
-DbmsError::AccessDenied {
-    table: Option<TableFingerprint>,
-    required: RequiredPerm,
-}
-```
-
-`RequiredPerm` enumerates the missing perm class:
-
-- `RequiredPerm::Table(TablePerms)` — a table operation.
-- `RequiredPerm::Admin` — admin bypass missing.
-- `RequiredPerm::ManageAcl` — ACL management missing.
-- `RequiredPerm::Migrate` — migration missing.
+See the [errors reference](../reference/errors.md) for the full `IcDbmsError`
+type.
 
 ## Recipes
 
-### Read-only viewer
+### Add an operator
 
 ```rust
-client.grant_all_tables_perms(viewer, TablePerms::READ).await?;
+use ic_dbms_api::prelude::Permission;
+
+client.acl_grant(operator, Permission::Admin).await??;
 ```
 
-### Per-table writer
+### Rotate an operator
 
 ```rust
-client.grant_table_perms(svc, "users", TablePerms::INSERT | TablePerms::UPDATE).await?;
+client.acl_grant(new_operator, Permission::Admin).await??;
+client.acl_revoke(old_operator, Permission::Admin).await??;
 ```
 
-### Migration bot
+### Check your own access
 
 ```rust
-client.grant_migrate(bot).await?;
-```
-
-### ACL deputy
-
-```rust
-client.grant_manage_acl(deputy).await?;
+let perms = client.my_permissions().await??;
+if perms.contains(&Permission::Admin) {
+    // full access
+}
 ```

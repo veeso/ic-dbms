@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use candid::utils::ArgumentEncoder;
 use candid::{CandidType, Principal};
-use ic_dbms_api::prelude::IcDbmsResult;
+use ic_dbms_api::prelude::{AclEntry, IcDbmsResult, Permission};
 
 use crate::client::{Client, RawRecords};
 use crate::prelude::IcDbmsCanisterClientResult;
@@ -59,9 +59,33 @@ impl Client for IcDbmsCanisterClient {
         self.canister_id
     }
 
+    async fn acl_grant(
+        &self,
+        principal: Principal,
+        permission: Permission,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
+        self.call("acl_grant", &(principal, permission)).await
+    }
+
+    async fn acl_revoke(
+        &self,
+        principal: Principal,
+        permission: Permission,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
+        self.call("acl_revoke", &(principal, permission)).await
+    }
+
+    async fn acl_list(&self) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<AclEntry>>> {
+        self.call("acl_list", &()).await
+    }
+
+    async fn my_permissions(&self) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<Permission>>> {
+        self.call("my_permissions", &()).await
+    }
+
     async fn begin_transaction(
         &self,
-    ) -> IcDbmsCanisterClientResult<ic_dbms_api::prelude::TransactionId> {
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<ic_dbms_api::prelude::TransactionId>> {
         self.call("begin_transaction", &()).await
     }
 

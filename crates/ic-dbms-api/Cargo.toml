@@ -23,5 +23,6 @@ description = "Public API types for ic-dbms-canister. This crate provides shared
 candid = { workspace = true }
 ic-cdk = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
 wasm-dbms-api = { workspace = true, features = ["candid"] }
 wasm-dbms-macros = { workspace = true }

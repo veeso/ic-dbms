@@ -122,24 +122,15 @@ service : (IcDbmsCanisterArgs) -> {
   delete_posts : (DeleteBehavior, opt Filter, opt nat) -> (Result_u64);
 
   // Transaction methods (shared)
-  begin_transaction : () -> (nat);
-  commit : (nat) -> (Result);
-  rollback : (nat) -> (Result);
+  begin_transaction : () -> (Result_TransactionId);
+  commit : (nat64) -> (Result);
+  rollback : (nat64) -> (Result);
 
-  // ACL methods (shared) — granular perms, see Access Control guide
-  grant_admin              : (principal) -> (Result);
-  revoke_admin             : (principal) -> (Result);
-  grant_manage_acl         : (principal) -> (Result);
-  revoke_manage_acl        : (principal) -> (Result);
-  grant_migrate            : (principal) -> (Result);
-  revoke_migrate           : (principal) -> (Result);
-  grant_all_tables_perms   : (principal, TablePerms) -> (Result);
-  revoke_all_tables_perms  : (principal, TablePerms) -> (Result);
-  grant_table_perms        : (principal, text, TablePerms) -> (Result);
-  revoke_table_perms       : (principal, text, TablePerms) -> (Result);
-  remove_identity          : (principal) -> (Result);
-  list_identities          : () -> (Result_Vec_IdentityPerms) query;
-  my_perms                 : () -> (IdentityPerms) query;
+  // Access control (shared), see the Access Control guide
+  acl_grant      : (principal, Permission) -> (Result);
+  acl_revoke     : (principal, Permission) -> (Result);
+  acl_list       : () -> (Result_Vec_AclEntry) query;
+  my_permissions : () -> (Result_Vec_Permission) query;
 
   // Schema migrations (shared) — see Migration Endpoints below
   has_drift : () -> (Result_bool) query;
@@ -245,14 +236,16 @@ migrate            : (MigrationPolicy)
 ```
 
 - `has_drift` is `O(1)` once the per-context drift flag is cached. CRUD
-  endpoints early-return `IcDbmsError::Migration(MigrationError::SchemaDrift)`
-  while drift is set; ACL and migration endpoints bypass the check.
+  endpoints early-return `IcDbmsError::Dbms(DbmsError::Migration(MigrationError::SchemaDrift))`
+  while drift is set. The ACL lives in the database too, so ACL endpoints
+  fail the same way during drift; canister controllers may always call the
+  three migration endpoints.
 - `pending_migrations` always recomputes the diff. Safe to call during drift.
 - `migrate` plans, validates against `MigrationPolicy`, sorts ops into the
   deterministic apply order, and runs them inside a single journaled session.
   Failures roll the journal back and leave persisted snapshots untouched.
 
-The `IcDbmsError::Migration(MigrationError)` variants
+The `IcDbmsError::Dbms(DbmsError::Migration(MigrationError))` variants
 (`SchemaDrift`, `IncompatibleType`, `MissingDefault`, `ConstraintViolation`,
 `DestructiveOpDenied`, `TransformAborted`, `DataRewriteUnsupported`) are
 documented in the [errors reference](./errors.md).
@@ -268,9 +261,14 @@ type IcDbmsCanisterArgs = variant {
 };
 
 type IcDbmsCanisterInitArgs = record {
-  allowed_principals : vec principal;
+  allowed_principals : opt vec principal;
 };
 ```
+
+Each listed principal (or the deployer when the list is `null` or empty) is
+granted `Permission::Admin`. The derive also registers the reserved
+`ic_dbms_acl` table; table names starting with `ic_dbms_` are rejected at
+compile time.
 
 ---
 

@@ -11,7 +11,8 @@ async fn test_should_operate_on_a_transaction(env: PocketIcTestEnv<TestCanister>
     let transaction_id = client
         .begin_transaction()
         .await
-        .expect("failed to call canister");
+        .expect("failed to call canister")
+        .expect("failed to begin transaction");
 
     // insert user
     let insert_request = UserInsertRequest {
@@ -82,7 +83,8 @@ async fn test_should_rollback_transaction(env: PocketIcTestEnv<TestCanister>) {
     let transaction_id = client
         .begin_transaction()
         .await
-        .expect("failed to call canister");
+        .expect("failed to call canister")
+        .expect("failed to begin transaction");
 
     // insert user
     let insert_request = UserInsertRequest {

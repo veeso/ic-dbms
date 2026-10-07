@@ -198,13 +198,14 @@ routing operations to the correct table by name). The `DbmsCanister` derive gene
 
 ```candid
 service : (IcDbmsCanisterArgs) -> {
-  // ACL Management
-  acl_add_principal : (principal) -> (Result);
-  acl_allowed_principals : () -> (vec principal) query;
-  acl_remove_principal : (principal) -> (Result);
+  // Access control
+  acl_grant : (principal, Permission) -> (Result);
+  acl_revoke : (principal, Permission) -> (Result);
+  acl_list : () -> (Result_2) query;
+  my_permissions : () -> (Result_3) query;
 
   // Transactions
-  begin_transaction : () -> (nat);
+  begin_transaction : () -> (Result_4);
   commit : (nat) -> (Result);
   rollback : (nat) -> (Result);
 
@@ -256,12 +257,14 @@ type IcDbmsCanisterArgs = variant {
 };
 
 type IcDbmsCanisterInitArgs = record {
-  allowed_principals : vec principal;
+  allowed_principals : opt vec principal;
 };
 ```
 
-> **Warning:** Only principals in `allowed_principals` can perform database operations. Make sure to include all
-> necessary principals (your frontend canister, admin principal, etc.).
+> **Warning:** Only principals granted `Admin` can perform database
+> operations. Each principal in `allowed_principals` (or the deployer, when
+> the list is empty) is granted `Admin` at install time; add more later with
+> `acl_grant`.
 
 ### Deploy with dfx
 

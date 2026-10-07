@@ -9,9 +9,9 @@ mod types;
 
 use candid::{CandidType, Principal};
 use ic_dbms_api::prelude::{
-    AggregateFunction, AggregatedRow, DeleteBehavior, Filter, IcDbmsResult, InsertRecord,
-    JoinColumnDef, MigrationOp, MigrationPolicy, Query, TableSchema, TransactionId, UpdateRecord,
-    Value,
+    AclEntry, AggregateFunction, AggregatedRow, DeleteBehavior, Filter, IcDbmsResult, InsertRecord,
+    JoinColumnDef, MigrationOp, MigrationPolicy, Permission, Query, TableSchema, TransactionId,
+    UpdateRecord, Value,
 };
 
 #[cfg(feature = "ic-agent")]
@@ -34,8 +34,38 @@ pub trait Client {
     /// Returns the [`Principal`] of the IC DBMS Canister.
     fn principal(&self) -> Principal;
 
-    /// Begins a new transaction and returns its ID.
-    fn begin_transaction(&self) -> impl Future<Output = IcDbmsCanisterClientResult<TransactionId>>;
+    /// Grants `permission` to `principal`. The caller must hold
+    /// [`Permission::Admin`].
+    fn acl_grant(
+        &self,
+        principal: Principal,
+        permission: Permission,
+    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>;
+
+    /// Revokes `permission` from `principal`. The caller must hold
+    /// [`Permission::Admin`]; the last admin cannot be revoked.
+    fn acl_revoke(
+        &self,
+        principal: Principal,
+        permission: Permission,
+    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>;
+
+    /// Lists every principal together with its permissions. The caller must
+    /// hold [`Permission::Admin`].
+    fn acl_list(
+        &self,
+    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<Vec<AclEntry>>>>;
+
+    /// Returns the caller's own permissions.
+    fn my_permissions(
+        &self,
+    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<Vec<Permission>>>>;
+
+    /// Begins a new transaction and returns its ID. The caller must hold
+    /// [`Permission::Admin`].
+    fn begin_transaction(
+        &self,
+    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<TransactionId>>>;
 
     /// Commits the transaction with the given ID.
     fn commit(

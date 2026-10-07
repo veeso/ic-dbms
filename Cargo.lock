@@ -1458,6 +1458,7 @@ dependencies = [
  "candid",
  "ic-cdk",
  "serde",
+ "thiserror 2.0.18",
  "wasm-dbms-api",
  "wasm-dbms-macros",
 ]

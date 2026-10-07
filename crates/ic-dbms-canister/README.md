@@ -15,8 +15,8 @@
 A framework to build database canisters on the Internet Computer, powered by the [wasm-dbms](https://crates.io/crates/wasm-dbms) engine.
 
 Define your data tables using Rust structs, derive the `Table` and `DbmsCanister` traits,
-and get a fully functional database canister with CRUD operations, transactions, and ACL-based
-access control.
+and get a fully functional database canister with CRUD operations, transactions, and access
+control by principal.
 
 ## Usage
 
@@ -69,10 +69,11 @@ pub struct IcDbmsCanisterGenerator;
 
 ```candid
 service : (IcDbmsCanisterArgs) -> {
-  acl_add_principal : (principal) -> (Result);
-  acl_allowed_principals : () -> (vec principal) query;
-  acl_remove_principal : (principal) -> (Result);
-  begin_transaction : () -> (nat);
+  acl_grant : (principal, Permission) -> (Result);
+  acl_list : () -> (Result_2) query;
+  acl_revoke : (principal, Permission) -> (Result);
+  my_permissions : () -> (Result_3) query;
+  begin_transaction : () -> (Result_4);
   commit : (nat) -> (Result);
   delete_posts : (DeleteBehavior, opt Filter_1, opt nat) -> (Result_1);
   delete_users : (DeleteBehavior, opt Filter_1, opt nat) -> (Result_1);

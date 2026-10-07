@@ -1,5 +1,5 @@
 use candid::{CandidType, Decode, Encode, Principal};
-use ic_dbms_api::prelude::IcDbmsResult;
+use ic_dbms_api::prelude::{AclEntry, IcDbmsResult, Permission};
 use pocket_ic::nonblocking::PocketIc;
 
 use crate::client::{Client, RawRecords};
@@ -84,9 +84,47 @@ impl Client for IcDbmsPocketIcClient<'_> {
         self.principal
     }
 
+    async fn acl_grant(
+        &self,
+        principal: Principal,
+        permission: Permission,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
+        self.update(
+            self.principal,
+            self.caller,
+            "acl_grant",
+            Encode!(&principal, &permission).map_err(PocketIcError::Candid)?,
+        )
+        .await
+    }
+
+    async fn acl_revoke(
+        &self,
+        principal: Principal,
+        permission: Permission,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
+        self.update(
+            self.principal,
+            self.caller,
+            "acl_revoke",
+            Encode!(&principal, &permission).map_err(PocketIcError::Candid)?,
+        )
+        .await
+    }
+
+    async fn acl_list(&self) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<AclEntry>>> {
+        self.query(self.principal, self.caller, "acl_list", Vec::new())
+            .await
+    }
+
+    async fn my_permissions(&self) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<Permission>>> {
+        self.query(self.principal, self.caller, "my_permissions", Vec::new())
+            .await
+    }
+
     async fn begin_transaction(
         &self,
-    ) -> IcDbmsCanisterClientResult<ic_dbms_api::prelude::TransactionId> {
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<ic_dbms_api::prelude::TransactionId>> {
         self.update(self.principal, self.caller, "begin_transaction", Vec::new())
             .await
     }

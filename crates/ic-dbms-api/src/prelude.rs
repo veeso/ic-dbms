@@ -4,6 +4,7 @@
 pub use wasm_dbms_api::prelude::*;
 
 // IC-specific types.
+pub use crate::acl::{AclEntry, AclError, Permission};
 pub use crate::error::{IcDbmsError, IcDbmsResult};
 pub use crate::init::{IcDbmsCanisterArgs, IcDbmsCanisterInitArgs, IcDbmsCanisterUpgradeArgs};
 pub use crate::principal::Principal;

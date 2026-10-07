@@ -17,7 +17,7 @@ IC-DBMS is an adapter layer that brings the [wasm-dbms](https://github.com/veeso
 
 - **Candid serialization** for all types and API endpoints
 - **Canister lifecycle management** (init, upgrade, inspect)
-- **ACL-based access control** using IC principals
+- **ACL-based access control** keyed by IC principals and stored in a reserved table
 - **Procedural macros** to generate complete canister APIs from schema definitions
 - **Client libraries** for inter-canister calls, external agent access, and integration testing
 
@@ -60,7 +60,7 @@ IC-DBMS is composed of four crates:
 
 | Crate                | Description                                                                                                                                                                    | Depends On                 |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- |
-| **ic-dbms-api**      | Shared types, re-exports `wasm-dbms-api` types with IC additions. Provides `IcDbmsError` type alias and IC-compatible type wrappers.                                           | `wasm-dbms-api`            |
+| **ic-dbms-api**      | Shared types, re-exports `wasm-dbms-api` types with IC additions. Provides the `IcDbmsError` enum, the ACL types, and IC-compatible type wrappers.                             | `wasm-dbms-api`            |
 | **ic-dbms-canister** | Core canister engine. Provides the `DbmsCanister` derive macro target, ACL management, canister init/upgrade lifecycle, and the IC stable memory provider.                     | `wasm-dbms`, `ic-dbms-api` |
 | **ic-dbms-macros**   | Procedural macros: `#[derive(DatabaseSchema)]` (IC variant, uses IC crate paths) and `#[derive(DbmsCanister)]` for generating complete canister APIs.                          | `wasm-dbms-macros`         |
 | **ic-dbms-client**   | Client library with three implementations: `IcDbmsCanisterClient` (inter-canister), `IcDbmsAgentClient` (external via IC agent), `IcDbmsPocketIcClient` (integration testing). | `ic-dbms-api`              |
@@ -129,7 +129,7 @@ For the full walkthrough, see the [Get Started guide](./guides/get-started.md).
 
 - [Get Started](./guides/get-started.md) - Set up and deploy your first IC database canister
 - [CRUD Operations](./guides/crud-operations.md) - Insert, select, update, delete via the IC client
-- [Access Control](./guides/access-control.md) - ACL management with IC principals
+- [Access Control](./guides/access-control.md) - Admin principals and the reserved ACL table
 - [Client API](./guides/client-api.md) - All client types and usage patterns
 
 For core wasm-dbms guides (querying, transactions, relationships, validators, sanitizers, custom data types), see the [generic guides](https://wasm-dbms.cc/).
