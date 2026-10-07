@@ -30,7 +30,7 @@ use syn::{DeriveInput, parse_macro_input};
 
 mod dbms_canister;
 
-/// Automatically implements the api for the ic-dbms-canister with all the required methods to interact with the ACL and
+/// Automatically implements the api for the ic-dbms-canister with all the required methods to interact with
 /// the defined tables.
 #[proc_macro_derive(DbmsCanister, attributes(tables))]
 pub fn derive_dbms_canister(input: TokenStream) -> TokenStream {

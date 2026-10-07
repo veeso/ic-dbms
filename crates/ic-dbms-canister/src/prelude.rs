@@ -8,6 +8,6 @@ pub use wasm_dbms::prelude::{
 };
 pub use wasm_dbms::transaction::session::TransactionSession;
 pub use wasm_dbms_macros::DatabaseSchema;
-pub use wasm_dbms_memory::prelude::{AccessControl, MemoryProvider};
+pub use wasm_dbms_memory::prelude::MemoryProvider;
 
-pub use crate::memory::{DBMS_CONTEXT, IcAccessControlList, IcMemoryProvider};
+pub use crate::memory::{DBMS_CONTEXT, IcMemoryProvider};

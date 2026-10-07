@@ -116,7 +116,10 @@ impl UpdateRecord for UserUpdateRequest {
     type Record = UserRecord;
     type Schema = User;
 
-    fn from_values(values: &[(ColumnDef, Value)], where_clause: Option<Filter>) -> Self {
+    fn from_values(
+        values: &[(ColumnDef, Value)],
+        where_clause: Option<Filter>,
+    ) -> crate::prelude::IcDbmsResult<Self> {
         let mut id = None;
         let mut name = None;
 
@@ -136,11 +139,11 @@ impl UpdateRecord for UserUpdateRequest {
             }
         }
 
-        UserUpdateRequest {
+        Ok(UserUpdateRequest {
             id,
             name,
             where_clause,
-        }
+        })
     }
 
     fn update_values(&self) -> Vec<(ColumnDef, Value)> {
@@ -512,7 +515,7 @@ mod custom_type_tests {
             }),
         )];
 
-        let update = TaskUpdateRequest::from_values(&values, None);
+        let update = TaskUpdateRequest::from_values(&values, None).expect("from_values");
         assert_eq!(update.priority, Some(Priority::High));
     }
 

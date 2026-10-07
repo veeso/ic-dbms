@@ -9,9 +9,9 @@ mod types;
 
 use candid::{CandidType, Principal};
 use ic_dbms_api::prelude::{
-    AggregateFunction, AggregatedRow, DeleteBehavior, Filter, IcDbmsResult, IdentityPerms,
-    InsertRecord, JoinColumnDef, MigrationOp, MigrationPolicy, Query, TablePerms, TableSchema,
-    TransactionId, UpdateRecord, Value,
+    AggregateFunction, AggregatedRow, DeleteBehavior, Filter, IcDbmsResult, InsertRecord,
+    JoinColumnDef, MigrationOp, MigrationPolicy, Query, TableSchema, TransactionId, UpdateRecord,
+    Value,
 };
 
 #[cfg(feature = "ic-agent")]
@@ -33,86 +33,6 @@ type RawRecords = Vec<Vec<(JoinColumnDef, Value)>>;
 pub trait Client {
     /// Returns the [`Principal`] of the IC DBMS Canister.
     fn principal(&self) -> Principal;
-
-    /// Grants the `admin` bypass flag to `principal`.
-    fn grant_admin(
-        &self,
-        principal: Principal,
-    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>;
-
-    /// Revokes the `admin` bypass flag from `principal`.
-    fn revoke_admin(
-        &self,
-        principal: Principal,
-    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>;
-
-    /// Grants the `manage_acl` flag to `principal`.
-    fn grant_manage_acl(
-        &self,
-        principal: Principal,
-    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>;
-
-    /// Revokes the `manage_acl` flag from `principal`.
-    fn revoke_manage_acl(
-        &self,
-        principal: Principal,
-    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>;
-
-    /// Grants the `migrate` flag to `principal`.
-    fn grant_migrate(
-        &self,
-        principal: Principal,
-    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>;
-
-    /// Revokes the `migrate` flag from `principal`.
-    fn revoke_migrate(
-        &self,
-        principal: Principal,
-    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>;
-
-    /// Grants `perms` on every table to `principal`.
-    fn grant_all_tables_perms(
-        &self,
-        principal: Principal,
-        perms: TablePerms,
-    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>;
-
-    /// Revokes `perms` on every table from `principal`.
-    fn revoke_all_tables_perms(
-        &self,
-        principal: Principal,
-        perms: TablePerms,
-    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>;
-
-    /// Grants `perms` on the named `table` to `principal`.
-    fn grant_table_perms(
-        &self,
-        principal: Principal,
-        table: &str,
-        perms: TablePerms,
-    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>;
-
-    /// Revokes `perms` on the named `table` from `principal`.
-    fn revoke_table_perms(
-        &self,
-        principal: Principal,
-        table: &str,
-        perms: TablePerms,
-    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>;
-
-    /// Removes `principal` entirely from the ACL.
-    fn remove_identity(
-        &self,
-        principal: Principal,
-    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>;
-
-    /// Lists every identity together with its [`IdentityPerms`].
-    fn list_identities(
-        &self,
-    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<Vec<(Principal, IdentityPerms)>>>>;
-
-    /// Returns the caller's own [`IdentityPerms`].
-    fn my_perms(&self) -> impl Future<Output = IcDbmsCanisterClientResult<IdentityPerms>>;
 
     /// Begins a new transaction and returns its ID.
     fn begin_transaction(&self) -> impl Future<Output = IcDbmsCanisterClientResult<TransactionId>>;

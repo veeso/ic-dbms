@@ -6,9 +6,8 @@ use std::cell::RefCell;
 
 use candid::{CandidType, Deserialize, Principal};
 use ic_dbms_api::prelude::{
-    AggregateFunction, AggregatedRow, DeleteBehavior, Filter, IcDbmsResult, IdentityPerms,
-    JoinColumnDef, MigrationOp, MigrationPolicy, Query, Table, TablePerms, Text, TransactionId,
-    Uint32, Value,
+    AggregateFunction, AggregatedRow, DeleteBehavior, Filter, IcDbmsResult, JoinColumnDef,
+    MigrationOp, MigrationPolicy, Query, Table, Text, TransactionId, Uint32, Value,
 };
 use ic_dbms_client::prelude::{Client as _, IcDbmsCanisterClient};
 
@@ -32,131 +31,6 @@ pub fn init(ic_dbms_canister: Principal) {
     IC_DBMS_CANISTER.with_borrow_mut(|c| {
         *c = ic_dbms_canister;
     });
-}
-
-#[ic_cdk::update]
-pub async fn grant_admin(principal: Principal) -> Result<IcDbmsResult<()>, String> {
-    let client = new_client();
-    client
-        .grant_admin(principal)
-        .await
-        .map_err(|e| e.to_string())
-}
-
-#[ic_cdk::update]
-pub async fn revoke_admin(principal: Principal) -> Result<IcDbmsResult<()>, String> {
-    let client = new_client();
-    client
-        .revoke_admin(principal)
-        .await
-        .map_err(|e| e.to_string())
-}
-
-#[ic_cdk::update]
-pub async fn grant_manage_acl(principal: Principal) -> Result<IcDbmsResult<()>, String> {
-    let client = new_client();
-    client
-        .grant_manage_acl(principal)
-        .await
-        .map_err(|e| e.to_string())
-}
-
-#[ic_cdk::update]
-pub async fn revoke_manage_acl(principal: Principal) -> Result<IcDbmsResult<()>, String> {
-    let client = new_client();
-    client
-        .revoke_manage_acl(principal)
-        .await
-        .map_err(|e| e.to_string())
-}
-
-#[ic_cdk::update]
-pub async fn grant_migrate(principal: Principal) -> Result<IcDbmsResult<()>, String> {
-    let client = new_client();
-    client
-        .grant_migrate(principal)
-        .await
-        .map_err(|e| e.to_string())
-}
-
-#[ic_cdk::update]
-pub async fn revoke_migrate(principal: Principal) -> Result<IcDbmsResult<()>, String> {
-    let client = new_client();
-    client
-        .revoke_migrate(principal)
-        .await
-        .map_err(|e| e.to_string())
-}
-
-#[ic_cdk::update]
-pub async fn grant_all_tables_perms(
-    principal: Principal,
-    perms: TablePerms,
-) -> Result<IcDbmsResult<()>, String> {
-    let client = new_client();
-    client
-        .grant_all_tables_perms(principal, perms)
-        .await
-        .map_err(|e| e.to_string())
-}
-
-#[ic_cdk::update]
-pub async fn revoke_all_tables_perms(
-    principal: Principal,
-    perms: TablePerms,
-) -> Result<IcDbmsResult<()>, String> {
-    let client = new_client();
-    client
-        .revoke_all_tables_perms(principal, perms)
-        .await
-        .map_err(|e| e.to_string())
-}
-
-#[ic_cdk::update]
-pub async fn grant_table_perms(
-    principal: Principal,
-    table: String,
-    perms: TablePerms,
-) -> Result<IcDbmsResult<()>, String> {
-    let client = new_client();
-    client
-        .grant_table_perms(principal, &table, perms)
-        .await
-        .map_err(|e| e.to_string())
-}
-
-#[ic_cdk::update]
-pub async fn revoke_table_perms(
-    principal: Principal,
-    table: String,
-    perms: TablePerms,
-) -> Result<IcDbmsResult<()>, String> {
-    let client = new_client();
-    client
-        .revoke_table_perms(principal, &table, perms)
-        .await
-        .map_err(|e| e.to_string())
-}
-
-#[ic_cdk::update]
-pub async fn remove_identity(principal: Principal) -> Result<IcDbmsResult<()>, String> {
-    let client = new_client();
-    client
-        .remove_identity(principal)
-        .await
-        .map_err(|e| e.to_string())
-}
-
-#[ic_cdk::update]
-pub async fn list_identities() -> Result<IcDbmsResult<Vec<(Principal, IdentityPerms)>>, String> {
-    let client = new_client();
-    client.list_identities().await.map_err(|e| e.to_string())
-}
-
-#[ic_cdk::update]
-pub async fn my_perms() -> Result<IdentityPerms, String> {
-    let client = new_client();
-    client.my_perms().await.map_err(|e| e.to_string())
 }
 
 #[ic_cdk::update]

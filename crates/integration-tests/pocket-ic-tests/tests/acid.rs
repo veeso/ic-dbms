@@ -20,11 +20,7 @@ async fn test_should_operate_on_a_transaction(env: PocketIcTestEnv<TestCanister>
         email: "frankmetano@example.com".into(),
     };
     client
-        .insert::<User>(
-            User::table_name(),
-            insert_request,
-            Some(transaction_id.clone()),
-        )
+        .insert::<User>(User::table_name(), insert_request, Some(transaction_id))
         .await
         .expect("failed to call canister")
         .expect("failed to insert user");
@@ -36,11 +32,7 @@ async fn test_should_operate_on_a_transaction(env: PocketIcTestEnv<TestCanister>
         content: "This is my first post.".into(),
     };
     client
-        .insert::<Post>(
-            Post::table_name(),
-            insert_request,
-            Some(transaction_id.clone()),
-        )
+        .insert::<Post>(Post::table_name(), insert_request, Some(transaction_id))
         .await
         .expect("failed to call canister")
         .expect("failed to insert post");
@@ -99,11 +91,7 @@ async fn test_should_rollback_transaction(env: PocketIcTestEnv<TestCanister>) {
         email: "julia.scoreza@example.com".into(),
     };
     client
-        .insert::<User>(
-            User::table_name(),
-            insert_request,
-            Some(transaction_id.clone()),
-        )
+        .insert::<User>(User::table_name(), insert_request, Some(transaction_id))
         .await
         .expect("failed to call canister")
         .expect("failed to insert user");
@@ -115,11 +103,7 @@ async fn test_should_rollback_transaction(env: PocketIcTestEnv<TestCanister>) {
         content: "I've just started blogging.".into(),
     };
     client
-        .insert::<Post>(
-            Post::table_name(),
-            insert_request,
-            Some(transaction_id.clone()),
-        )
+        .insert::<Post>(Post::table_name(), insert_request, Some(transaction_id))
         .await
         .expect("failed to call canister")
         .expect("failed to insert post");
@@ -169,7 +153,7 @@ async fn test_should_not_perform_transaction_not_owned(env: PocketIcTestEnv<Test
         email: "kevin.scoreza@example.com".into(),
     };
     let result = client
-        .insert::<User>(User::table_name(), insert_request, transaction_id.clone())
+        .insert::<User>(User::table_name(), insert_request, transaction_id)
         .await;
     assert!(result.is_err());
 }

@@ -3,7 +3,6 @@ mod agent_client;
 mod aggregate;
 mod crud;
 mod custom_types;
-mod granular_acl;
 mod ic_dbms_canister_client;
 mod migrations;
 mod select_raw;
