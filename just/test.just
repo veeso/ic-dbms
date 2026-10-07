@@ -6,7 +6,13 @@ test_all: test integration_test
 [group('test')]
 test args="":
   cargo test --workspace --lib {{ args }}
+  just test_macros {{ args }}
   just doc_test
+
+# Run the macro crate unit tests without workspace feature unification.
+[group('test')]
+test_macros args="":
+  cargo test --package ic-dbms-macros --lib {{ args }}
 
 # Run workspace documentation tests.
 [group('test')]

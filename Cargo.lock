@@ -1477,6 +1477,7 @@ dependencies = [
  "wasm-dbms-api",
  "wasm-dbms-macros",
  "wasm-dbms-memory",
+ "wasm-dbms-sql",
 ]
 
 [[package]]
@@ -3797,6 +3798,18 @@ checksum = "b6033b09a48b5f1d0d86cbd24fe9eeb3866e7a52876d267b7552d86bff61d692"
 dependencies = [
  "wasm-dbms-api",
  "xxhash-rust",
+]
+
+[[package]]
+name = "wasm-dbms-sql"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "096a025b07504c22a844fe78a4ec228e5cebd27e12d1873bdae7ff4c148901eb"
+dependencies = [
+ "rust_decimal",
+ "wasm-dbms",
+ "wasm-dbms-api",
+ "wasm-dbms-memory",
 ]
 
 [[package]]

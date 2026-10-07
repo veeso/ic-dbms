@@ -24,6 +24,10 @@ name = "ic_dbms_macros"
 path = "src/lib.rs"
 proc-macro = true
 
+[features]
+default = []
+sql = []
+
 [dependencies]
 proc-macro2 = { workspace = true }
 quote = { workspace = true }

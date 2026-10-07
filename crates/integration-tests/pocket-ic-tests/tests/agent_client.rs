@@ -1,5 +1,6 @@
 use ic_dbms_api::prelude::{
-    AclGrant, AclPermission, DeleteBehavior, Filter, Query, TableSchema, Text, Uint32, Value,
+    AclGrant, AclPermission, DeleteBehavior, Filter, Query, SqlResult, TableSchema, Text, Uint32,
+    Value,
 };
 use ic_dbms_client::prelude::{Client as _, IcDbmsAgentClient};
 use pocket_ic_harness::PocketIcTestEnv;
@@ -317,4 +318,35 @@ async fn test_agent_client_should_rollback_transaction(env: PocketIcTestEnv<Test
         .expect("failed to query user");
 
     assert!(users.is_empty());
+}
+
+#[pocket_ic_harness::test]
+async fn test_agent_client_should_run_sql(env: PocketIcTestEnv<TestCanister>) {
+    let e = &mut env;
+    e.pic.make_live(None).await;
+
+    let agent = init_new_agent(e, true).await;
+    let client = IcDbmsAgentClient::new(&agent, e.dbms_canister());
+
+    let inserted = client
+        .sql(
+            "INSERT INTO users (id, name, email) VALUES (?, 'Grace', 'grace@example.com')",
+            vec![Value::from(7u32)],
+            None,
+        )
+        .await
+        .expect("failed to call canister")
+        .expect("insert");
+    assert_eq!(inserted, SqlResult::RowsAffected(1));
+
+    let selected = client
+        .sql_query("SELECT name FROM users WHERE id = 7", vec![], None)
+        .await
+        .expect("failed to call canister")
+        .expect("select");
+    let SqlResult::Rows(rows) = selected else {
+        panic!("expected rows");
+    };
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0][0].1, Value::from("Grace"));
 }

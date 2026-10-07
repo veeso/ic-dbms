@@ -15,6 +15,6 @@ crate-type = ["cdylib", "rlib"]
 candid = { workspace = true }
 ic-cdk = { workspace = true }
 ic-dbms-api = { workspace = true }
-ic-dbms-client = { workspace = true }
+ic-dbms-client = { workspace = true, features = ["sql"] }
 serde = { workspace = true, features = ["derive"] }
 wasm-dbms-api = { workspace = true }

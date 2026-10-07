@@ -16,6 +16,12 @@
 //! All other derive macros (`Encode`, `Table`, `DatabaseSchema`, `CustomDataType`)
 //! are provided by `wasm-dbms-macros` and re-exported through the
 //! `ic-dbms-api` and `ic-dbms-canister` preludes.
+//!
+//! ## Feature flags
+//!
+//! | name  | description                                           | default |
+//! | ----- | ----------------------------------------------------- | ------- |
+//! | `sql` | Generate the `sql` and `sql_query` canister endpoints. |         |
 
 #![doc(html_playground_url = "https://play.rust-lang.org")]
 #![doc(
@@ -36,6 +42,10 @@ mod dbms_canister;
 ///
 /// The derive always registers the reserved `ic_dbms_acl` table; table names
 /// starting with `ic_dbms_` are rejected at compile time.
+///
+/// With the `sql` feature of `ic-dbms-canister` enabled, the derive also
+/// emits the `sql` update endpoint and the `sql_query` query endpoint,
+/// which run SQL statements against the database.
 ///
 /// The derive also defines the canister's `pre_upgrade` hook, which clears
 /// the transaction ownership ledger. Define `post_upgrade` yourself when you

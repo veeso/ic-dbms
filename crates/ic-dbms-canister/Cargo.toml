@@ -19,6 +19,10 @@ repository = { workspace = true }
 rust-version = { workspace = true }
 description = "A framework to build Database canisters on the Internet Computer using DBMS, by just providing the schema."
 
+[features]
+default = []
+sql = ["dep:wasm-dbms-sql", "ic-dbms-api/sql", "ic-dbms-macros/sql"]
+
 [dependencies]
 candid = { workspace = true }
 ic-cdk = { workspace = true }
@@ -29,9 +33,14 @@ wasm-dbms = { workspace = true }
 wasm-dbms-api = { workspace = true }
 wasm-dbms-macros = { workspace = true }
 wasm-dbms-memory = { workspace = true }
+wasm-dbms-sql = { workspace = true, optional = true }
 
 [dev-dependencies]
 criterion = { workspace = true }
+
+[package.metadata.docs.rs]
+features = ["sql"]
+rustdoc-args = ["--cfg", "docsrs"]
 
 [[bench]]
 name = "read_table"

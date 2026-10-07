@@ -3,6 +3,8 @@
 use candid::CandidType;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+#[cfg(feature = "sql")]
+use wasm_dbms_api::prelude::SqlError;
 use wasm_dbms_api::prelude::{
     DbmsError, MemoryError, MigrationError, QueryError, TableError, TransactionError,
 };
@@ -13,7 +15,8 @@ use crate::acl::AclError;
 ///
 /// Engine errors are wrapped in [`IcDbmsError::Dbms`]; access control
 /// failures, which the engine knows nothing about, are
-/// [`IcDbmsError::Acl`].
+/// [`IcDbmsError::Acl`]. With the `sql` feature, errors raised while
+/// parsing, planning or running a SQL statement are `IcDbmsError::Sql`.
 #[derive(Debug, Error, CandidType, Serialize, Deserialize)]
 pub enum IcDbmsError {
     /// The canister access control list refused the call.
@@ -22,6 +25,11 @@ pub enum IcDbmsError {
     /// The database engine reported an error.
     #[error("{0}")]
     Dbms(#[from] DbmsError),
+    /// The SQL front-end rejected or failed to run a statement.
+    #[cfg(feature = "sql")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "sql")))]
+    #[error("SQL error: {0}")]
+    Sql(#[from] SqlError),
 }
 
 impl From<MemoryError> for IcDbmsError {
@@ -124,6 +132,36 @@ mod test {
         assert!(matches!(
             decoded,
             IcDbmsError::Acl(AclError::AnonymousPrincipal)
+        ));
+    }
+
+    #[cfg(feature = "sql")]
+    #[test]
+    fn test_should_wrap_sql_error() {
+        use wasm_dbms_api::prelude::SqlError;
+
+        let error: IcDbmsError = SqlError::MissingWhereClause.into();
+        assert!(matches!(
+            error,
+            IcDbmsError::Sql(SqlError::MissingWhereClause)
+        ));
+        assert_eq!(
+            error.to_string(),
+            "SQL error: UPDATE and DELETE require a WHERE clause"
+        );
+    }
+
+    #[cfg(feature = "sql")]
+    #[test]
+    fn test_should_candid_roundtrip_sql_error() {
+        use wasm_dbms_api::prelude::SqlError;
+
+        let error = IcDbmsError::Sql(SqlError::UnknownTable("ghosts".to_string()));
+        let bytes = candid::encode_one(&error).expect("encode");
+        let decoded: IcDbmsError = candid::decode_one(&bytes).expect("decode");
+        assert!(matches!(
+            decoded,
+            IcDbmsError::Sql(SqlError::UnknownTable(table)) if table == "ghosts"
         ));
     }
 }

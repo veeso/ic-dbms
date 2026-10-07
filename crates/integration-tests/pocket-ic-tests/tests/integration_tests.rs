@@ -8,6 +8,7 @@ mod custom_types;
 mod ic_dbms_canister_client;
 mod migrations;
 mod select_raw;
+mod sql;
 
 #[pocket_ic_harness::test]
 async fn test_should_init_dbms_canister(

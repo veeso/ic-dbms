@@ -5,6 +5,7 @@
 - [Overview](#overview)
 - [IcDbmsError](#icdbmserror)
 - [AclError](#aclerror)
+- [SqlError](#sqlerror)
 - [Double Result Pattern](#double-result-pattern)
   - [Why Two Results?](#why-two-results)
   - [Using the `??` Operator](#using-the--operator)
@@ -37,6 +38,9 @@ pub enum IcDbmsError {
     Acl(AclError),
     /// The database engine reported an error.
     Dbms(DbmsError),
+    /// The SQL front-end rejected or failed to run a statement
+    /// (only with the `sql` feature).
+    Sql(SqlError),
 }
 
 pub enum AclError {
@@ -54,8 +58,8 @@ pub enum AclError {
 `DbmsError` (`Memory`, `Migration`, `Query`, `Sanitize`, `Table`,
 `Transaction`, `Validation`) is documented in the
 [generic errors reference](https://wasm-dbms.cc/reference/errors.html).
-`IcDbmsError` implements `From` for `DbmsError`, `AclError` and every engine
-error enum, so `?` works in code that mixes them.
+`IcDbmsError` implements `From` for `DbmsError`, `AclError`, `SqlError` and
+every engine error enum, so `?` works in code that mixes them.
 
 ---
 
@@ -87,6 +91,25 @@ match res {
     Err(other) => return Err(other),
 }
 ```
+
+---
+
+## SqlError
+
+With the `sql` feature, the `sql` and `sql_query` endpoints return
+`IcDbmsError::Sql(SqlError)` when a statement cannot be parsed, planned or
+run. The variants are defined by wasm-dbms and documented in the
+[wasm-dbms SQL reference](https://wasm-dbms.cc/reference/sql.html). Two
+cases are specific to canisters:
+
+- `SqlError::Unsupported` with the message `sql_query only runs SELECT
+  statements; use sql for writes and transactions`, returned by `sql_query`
+  for any other statement.
+- `SqlError::UnknownTable("ic_dbms_acl")` for any statement that names the
+  reserved access control table.
+
+Engine errors raised while running a statement, such as a primary key
+conflict, arrive as `SqlError::Runtime(DbmsError)`.
 
 ## Double Result Pattern
 

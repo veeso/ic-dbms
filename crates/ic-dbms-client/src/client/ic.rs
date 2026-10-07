@@ -205,6 +205,27 @@ impl Client for IcDbmsCanisterClient {
     ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
         self.call("migrate", &(policy,)).await
     }
+
+    #[cfg(feature = "sql")]
+    async fn sql(
+        &self,
+        query: &str,
+        params: Vec<ic_dbms_api::prelude::Value>,
+        transaction_id: Option<ic_dbms_api::prelude::TransactionId>,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<ic_dbms_api::prelude::SqlResult>> {
+        self.call("sql", &(query, params, transaction_id)).await
+    }
+
+    #[cfg(feature = "sql")]
+    async fn sql_query(
+        &self,
+        query: &str,
+        params: Vec<ic_dbms_api::prelude::Value>,
+        transaction_id: Option<ic_dbms_api::prelude::TransactionId>,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<ic_dbms_api::prelude::SqlResult>> {
+        self.call("sql_query", &(query, params, transaction_id))
+            .await
+    }
 }
 
 #[cfg(test)]

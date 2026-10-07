@@ -6,6 +6,8 @@
 //! the caller against the ACL through the same database it then operates on.
 
 mod inspect;
+#[cfg(feature = "sql")]
+mod sql;
 
 use candid::Principal;
 use ic_dbms_api::prelude::{
@@ -16,6 +18,9 @@ use ic_dbms_api::prelude::{
 use wasm_dbms::prelude::{DatabaseSchema, WasmDbmsDatabase};
 
 pub use self::inspect::inspect;
+#[cfg(feature = "sql")]
+#[cfg_attr(docsrs, doc(cfg(feature = "sql")))]
+pub use self::sql::{SQL_QUERY_READ_ONLY, sql, sql_query};
 use crate::memory::{DBMS_CONTEXT, IcMemoryProvider};
 use crate::schema::CanisterSchema;
 use crate::{acl, transaction, trap};

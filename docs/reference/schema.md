@@ -136,13 +136,18 @@ service : (IcDbmsCanisterArgs) -> {
   has_drift : () -> (Result_bool) query;
   pending_migrations : () -> (Result_Vec_MigrationOp) query;
   migrate : (MigrationPolicy) -> (Result);
+
+  // SQL (only with the `sql` feature), see the SQL guide
+  sql : (text, vec Value, opt nat64) -> (Result_SqlResult);
+  sql_query : (text, vec Value, opt nat64) -> (Result_SqlResult) query;
 }
 ```
 
 Each endpoint checks the caller's grants before running: per-table endpoints
 need the matching `Read`, `Insert`, `Update` or `Delete` permission, the
 untyped `select` needs `Read` on every table it touches, and ACL and migration
-endpoints need `Admin`. See the
+endpoints need `Admin`. The `sql` endpoints need the permission each statement
+implies. See the
 [Access Control guide](../guides/access-control.md#enforcement).
 
 **Lifecycle hooks:** the derive defines `init` (registers the tables and the
@@ -155,7 +160,7 @@ ownership ledger). Define `post_upgrade` yourself when you need one.
 **Parameter patterns:**
 
 - `opt nat64` is the optional transaction ID
-- `select` and `aggregate` methods are `query` calls (no state changes, no cycles consumed)
+- `select`, `aggregate` and `sql_query` methods are `query` calls (no state changes, no cycles consumed)
 - All other methods are `update` calls
 
 **Aggregate endpoint:** `aggregate_<table>` runs `Database::aggregate` for that
@@ -164,6 +169,10 @@ table. The `vec AggregateFunction` parameter lists `COUNT(*)` / `COUNT(col)` /
 `group_by`, `having`, `order_by`, `limit`, and `offset`. See the
 [generic Query API reference](https://wasm-dbms.cc/reference/query.html#aggregate-types) for
 type definitions and the [aggregate pipeline](https://wasm-dbms.cc/reference/query.html#execution-order).
+
+**SQL endpoints:** with the `sql` feature of `ic-dbms-canister` enabled,
+the derive also emits `sql` and `sql_query`. Without the feature neither
+endpoint exists. See the [SQL guide](../guides/sql.md).
 
 ### Migration Endpoints
 

@@ -9,6 +9,7 @@
 - [Access Control](guides/access-control.md)
 - [Client API](guides/client-api.md)
 - [Migrations](guides/migrations.md)
+- [SQL](guides/sql.md)
 
 # Reference
 
