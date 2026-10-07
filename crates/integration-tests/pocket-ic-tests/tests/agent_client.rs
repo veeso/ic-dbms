@@ -4,10 +4,10 @@ use ic_dbms_api::prelude::{
 use ic_dbms_client::prelude::{Client as _, IcDbmsAgentClient};
 use pocket_ic_harness::PocketIcTestEnv;
 use pocket_ic_tests::table::{Post, PostInsertRequest, User, UserInsertRequest, UserUpdateRequest};
-use pocket_ic_tests::{TestCanisterSetup, TestEnvExt as _, admin, bob, init_new_agent};
+use pocket_ic_tests::{TestCanister, TestEnvExt as _, admin, bob, init_new_agent};
 
 #[pocket_ic_harness::test]
-async fn test_agent_client_should_return_principal(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_agent_client_should_return_principal(env: PocketIcTestEnv<TestCanister>) {
     let e = &mut env;
     e.pic.make_live(None).await;
 
@@ -18,7 +18,7 @@ async fn test_agent_client_should_return_principal(env: PocketIcTestEnv<TestCani
 }
 
 #[pocket_ic_harness::test]
-async fn test_agent_client_should_grant_admin(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_agent_client_should_grant_admin(env: PocketIcTestEnv<TestCanister>) {
     let e = &mut env;
     e.pic.make_live(None).await;
 
@@ -33,7 +33,7 @@ async fn test_agent_client_should_grant_admin(env: PocketIcTestEnv<TestCanisterS
 }
 
 #[pocket_ic_harness::test]
-async fn test_agent_client_should_revoke_admin(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_agent_client_should_revoke_admin(env: PocketIcTestEnv<TestCanister>) {
     let e = &mut env;
     e.pic.make_live(None).await;
 
@@ -65,7 +65,7 @@ async fn test_agent_client_should_revoke_admin(env: PocketIcTestEnv<TestCanister
 }
 
 #[pocket_ic_harness::test]
-async fn test_agent_client_should_list_identities(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_agent_client_should_list_identities(env: PocketIcTestEnv<TestCanister>) {
     let e = &mut env;
     e.pic.make_live(None).await;
 
@@ -82,7 +82,7 @@ async fn test_agent_client_should_list_identities(env: PocketIcTestEnv<TestCanis
 }
 
 #[pocket_ic_harness::test]
-async fn test_agent_client_should_grant_table_perms(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_agent_client_should_grant_table_perms(env: PocketIcTestEnv<TestCanister>) {
     let e = &mut env;
     e.pic.make_live(None).await;
 
@@ -97,7 +97,7 @@ async fn test_agent_client_should_grant_table_perms(env: PocketIcTestEnv<TestCan
 }
 
 #[pocket_ic_harness::test]
-async fn test_agent_client_should_insert_and_select(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_agent_client_should_insert_and_select(env: PocketIcTestEnv<TestCanister>) {
     let e = &mut env;
     e.pic.make_live(None).await;
 
@@ -137,7 +137,7 @@ async fn test_agent_client_should_insert_and_select(env: PocketIcTestEnv<TestCan
 }
 
 #[pocket_ic_harness::test]
-async fn test_agent_client_should_update(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_agent_client_should_update(env: PocketIcTestEnv<TestCanister>) {
     let e = &mut env;
     e.pic.make_live(None).await;
 
@@ -185,7 +185,7 @@ async fn test_agent_client_should_update(env: PocketIcTestEnv<TestCanisterSetup>
 }
 
 #[pocket_ic_harness::test]
-async fn test_agent_client_should_delete(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_agent_client_should_delete(env: PocketIcTestEnv<TestCanister>) {
     let e = &mut env;
     e.pic.make_live(None).await;
 
@@ -231,9 +231,7 @@ async fn test_agent_client_should_delete(env: PocketIcTestEnv<TestCanisterSetup>
 }
 
 #[pocket_ic_harness::test]
-async fn test_agent_client_should_begin_transaction_and_commit(
-    env: PocketIcTestEnv<TestCanisterSetup>,
-) {
+async fn test_agent_client_should_begin_transaction_and_commit(env: PocketIcTestEnv<TestCanister>) {
     let e = &mut env;
     e.pic.make_live(None).await;
 
@@ -316,7 +314,7 @@ async fn test_agent_client_should_begin_transaction_and_commit(
 }
 
 #[pocket_ic_harness::test]
-async fn test_agent_client_should_rollback_transaction(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_agent_client_should_rollback_transaction(env: PocketIcTestEnv<TestCanister>) {
     let e = &mut env;
     e.pic.make_live(None).await;
 

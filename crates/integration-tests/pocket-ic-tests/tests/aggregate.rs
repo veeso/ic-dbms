@@ -6,7 +6,7 @@ use ic_dbms_api::prelude::{
 use ic_dbms_client::prelude::{Client as _, IcDbmsPocketIcClient};
 use pocket_ic_harness::PocketIcTestEnv;
 use pocket_ic_tests::table::{User, UserInsertRequest};
-use pocket_ic_tests::{PocketIcClient, TestCanisterSetup, TestEnvExt as _, admin};
+use pocket_ic_tests::{PocketIcClient, TestCanister, TestEnvExt as _, admin};
 
 async fn seed_users(client: &IcDbmsPocketIcClient<'_>) {
     for (id, name, email) in [
@@ -28,7 +28,7 @@ async fn seed_users(client: &IcDbmsPocketIcClient<'_>) {
 }
 
 #[pocket_ic_harness::test]
-async fn test_aggregate_count_all_via_pocket_ic_client(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_aggregate_count_all_via_pocket_ic_client(env: PocketIcTestEnv<TestCanister>) {
     let client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
     seed_users(&client).await;
 
@@ -49,7 +49,7 @@ async fn test_aggregate_count_all_via_pocket_ic_client(env: PocketIcTestEnv<Test
 }
 
 #[pocket_ic_harness::test]
-async fn test_aggregate_sum_min_max_no_group(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_aggregate_sum_min_max_no_group(env: PocketIcTestEnv<TestCanister>) {
     let client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
     seed_users(&client).await;
 
@@ -83,7 +83,7 @@ async fn test_aggregate_sum_min_max_no_group(env: PocketIcTestEnv<TestCanisterSe
 }
 
 #[pocket_ic_harness::test]
-async fn test_aggregate_group_by_with_having(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_aggregate_group_by_with_having(env: PocketIcTestEnv<TestCanister>) {
     let client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
     seed_users(&client).await;
 
@@ -117,7 +117,7 @@ async fn test_aggregate_group_by_with_having(env: PocketIcTestEnv<TestCanisterSe
 }
 
 #[pocket_ic_harness::test]
-async fn test_aggregate_having_filters_out_groups(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_aggregate_having_filters_out_groups(env: PocketIcTestEnv<TestCanister>) {
     let client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
     seed_users(&client).await;
 
@@ -141,7 +141,7 @@ async fn test_aggregate_having_filters_out_groups(env: PocketIcTestEnv<TestCanis
 }
 
 #[pocket_ic_harness::test]
-async fn test_aggregate_invalid_query_returns_err(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_aggregate_invalid_query_returns_err(env: PocketIcTestEnv<TestCanister>) {
     let client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
 
     // SUM on Text column — must be rejected at planning.
@@ -159,7 +159,7 @@ async fn test_aggregate_invalid_query_returns_err(env: PocketIcTestEnv<TestCanis
 }
 
 #[pocket_ic_harness::test]
-async fn test_aggregate_via_integration_canister(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_aggregate_via_integration_canister(env: PocketIcTestEnv<TestCanister>) {
     let dbms = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
     seed_users(&dbms).await;
 

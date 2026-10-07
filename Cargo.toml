@@ -25,19 +25,19 @@ anyhow = "1"
 candid = "0.10"
 criterion = "0.8"
 flate2 = "1"
-ic-agent = "0.47"
+ic-agent = "0.49"
 ic-cdk = "0.20"
 ic-dbms-api = { version = "0.9", path = "crates/ic-dbms-api" }
 ic-dbms-canister = { version = "0.9", path = "crates/ic-dbms-canister" }
 ic-dbms-client = { version = "0.9", path = "crates/ic-dbms-client" }
 ic-dbms-macros = { version = "0.9", path = "crates/ic-dbms-macros" }
-pocket-ic = "13"
-pocket-ic-harness = "0.2"
+pocket-ic = "16"
+pocket-ic-harness = "16"
 proc-macro2 = "1"
 quote = "1"
 reqwest = "0.13"
 serde = "1"
-syn = "2"
+syn = "3"
 thiserror = "2"
 tokio = "1"
 url = "2"
