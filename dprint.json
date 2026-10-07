@@ -21,7 +21,8 @@
   "excludes": [
     "**/target",
     ".artifact",
-    ".claude/plans",
+    ".agents/",
+    ".claude/",
     ".superpowers",
     "docs/superpowers",
     "Cargo.lock",
