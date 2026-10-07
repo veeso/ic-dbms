@@ -1,8 +1,23 @@
-use ic_dbms_api::prelude::{Filter, Query, TableSchema, Text, Uint32, Value};
-use ic_dbms_client::prelude::{Client as _, IcDbmsPocketIcClient};
+use ic_dbms_api::prelude::{Filter, Permission, Query, TableSchema, Text, Uint32, Value};
+use ic_dbms_client::prelude::{
+    Client as _, IcDbmCanisterClientError, IcDbmsPocketIcClient, PocketIcError,
+};
 use pocket_ic_harness::PocketIcTestEnv;
 use pocket_ic_tests::table::{Post, PostInsertRequest, User, UserInsertRequest};
-use pocket_ic_tests::{TestCanister, TestEnvExt as _, admin};
+use pocket_ic_tests::{TestCanister, TestEnvExt as _, admin, bob};
+
+fn assert_transaction_trap<T: std::fmt::Debug>(result: Result<T, IcDbmCanisterClientError>) {
+    match result {
+        Err(IcDbmCanisterClientError::PocketIc(PocketIcError::Reject(reject))) => {
+            assert!(
+                reject.reject_message.contains("does not own transaction"),
+                "unexpected rejection message: {}",
+                reject.reject_message
+            );
+        }
+        other => panic!("expected transaction ownership trap, got {other:?}"),
+    }
+}
 
 #[pocket_ic_harness::test]
 async fn test_should_operate_on_a_transaction(env: PocketIcTestEnv<TestCanister>) {
@@ -158,4 +173,50 @@ async fn test_should_not_perform_transaction_not_owned(env: PocketIcTestEnv<Test
         .insert::<User>(User::table_name(), insert_request, transaction_id)
         .await;
     assert!(result.is_err());
+}
+
+#[pocket_ic_harness::test]
+async fn test_should_not_commit_transaction_of_another_principal(
+    env: PocketIcTestEnv<TestCanister>,
+) {
+    let admin_client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
+    // bob is an admin too, so only ownership can stop him.
+    admin_client
+        .acl_grant(bob(), Permission::Admin)
+        .await
+        .expect("failed to call canister")
+        .expect("failed to grant admin");
+
+    let transaction_id = admin_client
+        .begin_transaction()
+        .await
+        .expect("failed to call canister")
+        .expect("failed to begin transaction");
+
+    let bob_client = IcDbmsPocketIcClient::new(env.dbms_canister(), bob(), &env.pic);
+
+    // bob cannot write inside admin's transaction: the canister traps.
+    let insert_request = UserInsertRequest {
+        id: Uint32::from(8),
+        name: "Mallory".into(),
+        email: "mallory@example.com".into(),
+    };
+    let result = bob_client
+        .insert::<User>(User::table_name(), insert_request, Some(transaction_id))
+        .await;
+    assert_transaction_trap(result);
+
+    // bob cannot commit or roll back admin's transaction either.
+    assert_transaction_trap(bob_client.commit(transaction_id).await);
+    assert_transaction_trap(bob_client.rollback(transaction_id).await);
+
+    // The owner still can.
+    admin_client
+        .commit(transaction_id)
+        .await
+        .expect("failed to call canister")
+        .expect("owner commits");
+
+    // A closed id traps for everyone, including the former owner.
+    assert_transaction_trap(admin_client.commit(transaction_id).await);
 }

@@ -121,7 +121,7 @@ To insert within a transaction, pass the transaction ID:
 
 ```rust
 // Begin transaction
-let tx_id = client.begin_transaction().await?;
+let tx_id = client.begin_transaction().await??;
 
 // Insert within transaction
 client.insert::<User>(User::table_name(), user, Some(tx_id)).await??;
@@ -351,9 +351,16 @@ println!("Deleted all {} users and their related records", deleted);
 
 All CRUD operations accept an optional transaction ID. When provided, the operation is performed within that transaction and won't be visible to other callers until committed:
 
+A transaction belongs to the principal that called `begin_transaction`. Any
+call that names the transaction id from another principal, and any call that
+names an unknown or already closed id, traps. The canister keeps this
+ownership table on the heap only: it is not written to stable memory. Open
+transactions and their owners are discarded together on every upgrade, so
+commit or roll back before upgrading.
+
 ```rust
 // Begin transaction
-let tx_id = client.begin_transaction().await?;
+let tx_id = client.begin_transaction().await??;
 
 // Perform operations within transaction
 client.insert::<User>(User::table_name(), user1, Some(tx_id)).await??;

@@ -18,7 +18,7 @@ use wasm_dbms::prelude::{DatabaseSchema, WasmDbmsDatabase};
 pub use self::inspect::inspect;
 use crate::memory::{DBMS_CONTEXT, IcMemoryProvider};
 use crate::schema::CanisterSchema;
-use crate::{acl, trap};
+use crate::{acl, transaction, trap};
 
 /// Registers the reserved ACL table and grants [`Permission::Admin`] to every
 /// principal in `principals`. Called by the generated `init` after the user
@@ -91,55 +91,68 @@ where
     with_database(None, database_schema, |db| acl::permissions_of(db, caller))
 }
 
-/// Begins a new transaction and returns its ID. Caller must hold
-/// [`Permission::Admin`].
+/// Begins a new transaction owned by the caller and returns its ID. Caller
+/// must hold [`Permission::Admin`].
 pub fn begin_transaction<S>(database_schema: S) -> IcDbmsResult<TransactionId>
 where
     S: DatabaseSchema<IcMemoryProvider> + 'static,
 {
     let caller = crate::utils::caller();
     with_database(None, database_schema, |db| acl::require_admin(db, caller))?;
-    Ok(DBMS_CONTEXT.with(|ctx| ctx.begin_transaction()))
+    let transaction_id = DBMS_CONTEXT.with(|ctx| ctx.begin_transaction());
+    transaction::record(transaction_id, caller);
+    Ok(transaction_id)
 }
 
-/// Commits the transaction with the given ID.
+/// Commits the transaction with the given ID. Caller must own the
+/// transaction.
 ///
-/// Traps when the ID does not name an open transaction.
+/// Traps when the ID is unknown, already closed, or owned by another
+/// principal. The ownership entry is removed whether or not the engine call
+/// succeeds, because the engine consumes the transaction either way.
 pub fn commit<S>(transaction_id: TransactionId, database_schema: S) -> IcDbmsResult<()>
 where
     S: DatabaseSchema<IcMemoryProvider> + 'static,
 {
-    assert_transaction_is_open(Some(&transaction_id));
-    DBMS_CONTEXT.with(|ctx| {
+    assert_caller_owns_transaction(Some(&transaction_id));
+    let result = DBMS_CONTEXT.with(|ctx| {
         let mut db = WasmDbmsDatabase::from_transaction(
             ctx,
             CanisterSchema::new(database_schema),
             transaction_id,
         );
         db.commit().map_err(IcDbmsError::from)
-    })
+    });
+    transaction::forget(&transaction_id);
+    result
 }
 
-/// Rolls back the transaction with the given ID.
+/// Rolls back the transaction with the given ID. Caller must own the
+/// transaction.
 ///
-/// Traps when the ID does not name an open transaction.
+/// Traps when the ID is unknown, already closed, or owned by another
+/// principal. The ownership entry is removed whether or not the engine call
+/// succeeds.
 pub fn rollback<S>(transaction_id: TransactionId, database_schema: S) -> IcDbmsResult<()>
 where
     S: DatabaseSchema<IcMemoryProvider> + 'static,
 {
-    assert_transaction_is_open(Some(&transaction_id));
-    DBMS_CONTEXT.with(|ctx| {
+    assert_caller_owns_transaction(Some(&transaction_id));
+    let result = DBMS_CONTEXT.with(|ctx| {
         let mut db = WasmDbmsDatabase::from_transaction(
             ctx,
             CanisterSchema::new(database_schema),
             transaction_id,
         );
         db.rollback().map_err(IcDbmsError::from)
-    })
+    });
+    transaction::forget(&transaction_id);
+    result
 }
 
 /// Selects typed records from table `T`, optionally inside a transaction.
-/// Caller must hold [`Permission::Admin`].
+/// Caller must hold [`Permission::Admin`]. Traps when `transaction_id` names
+/// a transaction the caller did not open.
 pub fn select<T, S>(
     query: Query,
     transaction_id: Option<TransactionId>,
@@ -150,7 +163,7 @@ where
     S: DatabaseSchema<IcMemoryProvider> + 'static,
 {
     let caller = crate::utils::caller();
-    assert_transaction_is_open(transaction_id.as_ref());
+    assert_caller_owns_transaction(transaction_id.as_ref());
     with_database(transaction_id, database_schema, |db| {
         acl::require_admin(db, caller)?;
         db.select::<T>(query).map_err(IcDbmsError::from)
@@ -158,7 +171,8 @@ where
 }
 
 /// Selects untyped rows from the table called `table`, optionally inside a
-/// transaction. Caller must hold [`Permission::Admin`].
+/// transaction. Caller must hold [`Permission::Admin`]. Traps when
+/// `transaction_id` names a transaction the caller did not open.
 pub fn select_raw<S>(
     table: &str,
     query: Query,
@@ -169,7 +183,7 @@ where
     S: DatabaseSchema<IcMemoryProvider> + 'static,
 {
     let caller = crate::utils::caller();
-    assert_transaction_is_open(transaction_id.as_ref());
+    assert_caller_owns_transaction(transaction_id.as_ref());
     with_database(transaction_id, database_schema, |db| {
         acl::require_admin(db, caller)?;
         db.select_raw(table, query).map_err(IcDbmsError::from)
@@ -177,7 +191,8 @@ where
 }
 
 /// Runs a query with joins rooted at `table`, optionally inside a
-/// transaction. Caller must hold [`Permission::Admin`].
+/// transaction. Caller must hold [`Permission::Admin`]. Traps when
+/// `transaction_id` names a transaction the caller did not open.
 pub fn select_join<S>(
     table: &str,
     query: Query,
@@ -188,7 +203,7 @@ where
     S: DatabaseSchema<IcMemoryProvider> + 'static,
 {
     let caller = crate::utils::caller();
-    assert_transaction_is_open(transaction_id.as_ref());
+    assert_caller_owns_transaction(transaction_id.as_ref());
     with_database(transaction_id, database_schema, |db| {
         acl::require_admin(db, caller)?;
         db.select_join(table, query).map_err(IcDbmsError::from)
@@ -196,7 +211,8 @@ where
 }
 
 /// Runs an aggregate query on table `T`, optionally inside a transaction.
-/// Caller must hold [`Permission::Admin`].
+/// Caller must hold [`Permission::Admin`]. Traps when `transaction_id` names
+/// a transaction the caller did not open.
 pub fn aggregate<T, S>(
     query: Query,
     aggregates: Vec<AggregateFunction>,
@@ -208,7 +224,7 @@ where
     S: DatabaseSchema<IcMemoryProvider> + 'static,
 {
     let caller = crate::utils::caller();
-    assert_transaction_is_open(transaction_id.as_ref());
+    assert_caller_owns_transaction(transaction_id.as_ref());
     with_database(transaction_id, database_schema, |db| {
         acl::require_admin(db, caller)?;
         db.aggregate::<T>(query, &aggregates)
@@ -217,7 +233,8 @@ where
 }
 
 /// Inserts a record into table `T`, optionally inside a transaction. Caller
-/// must hold [`Permission::Admin`].
+/// must hold [`Permission::Admin`]. Traps when `transaction_id` names a
+/// transaction the caller did not open.
 pub fn insert<T, S>(
     record: T::Insert,
     transaction_id: Option<TransactionId>,
@@ -229,7 +246,7 @@ where
     S: DatabaseSchema<IcMemoryProvider> + 'static,
 {
     let caller = crate::utils::caller();
-    assert_transaction_is_open(transaction_id.as_ref());
+    assert_caller_owns_transaction(transaction_id.as_ref());
     with_database(transaction_id, database_schema, |db| {
         acl::require_admin(db, caller)?;
         db.insert::<T>(record).map_err(IcDbmsError::from)
@@ -237,7 +254,8 @@ where
 }
 
 /// Updates records of table `T`, optionally inside a transaction. Returns
-/// the number of updated rows. Caller must hold [`Permission::Admin`].
+/// the number of updated rows. Caller must hold [`Permission::Admin`]. Traps
+/// when `transaction_id` names a transaction the caller did not open.
 pub fn update<T, S>(
     patch: T::Update,
     transaction_id: Option<TransactionId>,
@@ -249,7 +267,7 @@ where
     S: DatabaseSchema<IcMemoryProvider> + 'static,
 {
     let caller = crate::utils::caller();
-    assert_transaction_is_open(transaction_id.as_ref());
+    assert_caller_owns_transaction(transaction_id.as_ref());
     with_database(transaction_id, database_schema, |db| {
         acl::require_admin(db, caller)?;
         db.update::<T>(patch).map_err(IcDbmsError::from)
@@ -257,7 +275,8 @@ where
 }
 
 /// Deletes records of table `T`, optionally inside a transaction. Returns
-/// the number of deleted rows. Caller must hold [`Permission::Admin`].
+/// the number of deleted rows. Caller must hold [`Permission::Admin`]. Traps
+/// when `transaction_id` names a transaction the caller did not open.
 pub fn delete<T, S>(
     behaviour: DeleteBehavior,
     filter: Option<Filter>,
@@ -269,7 +288,7 @@ where
     S: DatabaseSchema<IcMemoryProvider> + 'static,
 {
     let caller = crate::utils::caller();
-    assert_transaction_is_open(transaction_id.as_ref());
+    assert_caller_owns_transaction(transaction_id.as_ref());
     with_database(transaction_id, database_schema, |db| {
         acl::require_admin(db, caller)?;
         db.delete::<T>(behaviour, filter).map_err(IcDbmsError::from)
@@ -316,6 +335,15 @@ where
     })
 }
 
+/// Clears the transaction ownership ledger. Called by the generated
+/// `pre_upgrade` hook.
+///
+/// The heap is discarded on upgrade anyway, so this only makes the intent
+/// explicit: open transactions and their owners do not survive an upgrade.
+pub fn pre_upgrade() {
+    transaction::clear();
+}
+
 /// Controllers may always run migrations: while the schema has drifted the
 /// ACL table cannot be read, and controllers already hold full power over the
 /// canister. Everyone else must hold [`Permission::Admin`].
@@ -347,13 +375,22 @@ where
     })
 }
 
-/// Traps unless `transaction_id` is `None` or names an open transaction.
-fn assert_transaction_is_open(transaction_id: Option<&TransactionId>) {
+/// Traps unless `transaction_id` is `None` or names an open transaction
+/// that the caller opened.
+///
+/// A mismatch is reported exactly like an unknown ID, so a caller cannot
+/// learn whether somebody else's transaction exists. An ID the engine has
+/// already closed is evicted from the ledger before trapping.
+fn assert_caller_owns_transaction(transaction_id: Option<&TransactionId>) {
     let Some(tx_id) = transaction_id else {
         return;
     };
     let caller = crate::utils::caller();
     if !DBMS_CONTEXT.with(|ctx| ctx.has_transaction(tx_id)) {
+        transaction::forget(tx_id);
+        trap!("Caller {caller} does not own transaction {tx_id}");
+    }
+    if transaction::owner(tx_id) != Some(caller) {
         trap!("Caller {caller} does not own transaction {tx_id}");
     }
 }
@@ -666,14 +703,102 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "transaction ownership is restored by the ledger added in step 3 of this branch"]
     #[should_panic = "Caller ghsi2-tqaaa-aaaan-aaaca-cai does not own transaction 0"]
     fn test_should_not_allow_operating_wrong_tx() {
         load_fixtures();
         bootstrap_alice();
 
+        // bob opens a transaction through the engine and the ledger
         let tx_id = DBMS_CONTEXT.with(|ctx| ctx.begin_transaction());
+        crate::transaction::record(tx_id, bob());
 
+        // try to commit the transaction started by bob (we are alice)
         let _ = commit(tx_id, TestDatabaseSchema);
+    }
+
+    #[test]
+    #[should_panic = "Caller ghsi2-tqaaa-aaaan-aaaca-cai does not own transaction 0"]
+    fn test_should_not_allow_inserting_into_wrong_tx() {
+        load_fixtures();
+        bootstrap_alice();
+        let tx_id = DBMS_CONTEXT.with(|ctx| ctx.begin_transaction());
+        crate::transaction::record(tx_id, bob());
+        let _ = insert::<crate::tests::User, _>(user(100), Some(tx_id), TestDatabaseSchema);
+    }
+
+    #[test]
+    fn test_begin_records_caller_and_commit_forgets_it() {
+        bootstrap_alice();
+        let tx_id = begin_transaction(TestDatabaseSchema).expect("begin");
+        assert_eq!(crate::transaction::owner(&tx_id), Some(alice()));
+        commit(tx_id, TestDatabaseSchema).expect("commit");
+        assert_eq!(crate::transaction::owner(&tx_id), None);
+        assert_eq!(crate::transaction::len(), 0);
+    }
+
+    #[test]
+    fn test_commit_forgets_owner_when_engine_returns_error() {
+        load_fixtures();
+        bootstrap_alice();
+        let tx_id = begin_transaction(TestDatabaseSchema).expect("begin");
+        let staged_patch = crate::tests::UserUpdateRequest {
+            id: None,
+            name: Some("staged".into()),
+            email: None,
+            age: None,
+            where_clause: Some(Filter::Eq("id".to_string(), Uint32::from(0u32).into())),
+        };
+        update::<crate::tests::User, _>(staged_patch, Some(tx_id), TestDatabaseSchema)
+            .expect("stage update");
+
+        let concurrent_patch = crate::tests::UserUpdateRequest {
+            id: None,
+            name: Some("concurrent".into()),
+            email: None,
+            age: None,
+            where_clause: Some(Filter::Eq("id".to_string(), Uint32::from(0u32).into())),
+        };
+        update::<crate::tests::User, _>(concurrent_patch, None, TestDatabaseSchema)
+            .expect("update outside transaction");
+
+        let result = commit(tx_id, TestDatabaseSchema);
+        assert!(matches!(result, Err(IcDbmsError::Dbms(_))));
+        assert_eq!(crate::transaction::owner(&tx_id), None);
+        assert!(!DBMS_CONTEXT.with(|ctx| ctx.has_transaction(&tx_id)));
+    }
+
+    #[test]
+    fn test_rollback_forgets_owner() {
+        bootstrap_alice();
+        let tx_id = begin_transaction(TestDatabaseSchema).expect("begin");
+        rollback(tx_id, TestDatabaseSchema).expect("rollback");
+        assert_eq!(crate::transaction::owner(&tx_id), None);
+    }
+
+    #[test]
+    fn test_should_trap_and_evict_closed_transaction() {
+        bootstrap_alice();
+        let tx_id = begin_transaction(TestDatabaseSchema).expect("begin");
+        commit(tx_id, TestDatabaseSchema).expect("commit");
+        // Pretend the ledger missed the close.
+        crate::transaction::record(tx_id, alice());
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            commit(tx_id, TestDatabaseSchema)
+        }));
+        assert!(result.is_err(), "closed transaction must trap");
+        assert_eq!(
+            crate::transaction::owner(&tx_id),
+            None,
+            "stale entry evicted"
+        );
+    }
+
+    #[test]
+    fn test_pre_upgrade_clears_ledger() {
+        bootstrap_alice();
+        let _tx = begin_transaction(TestDatabaseSchema).expect("begin");
+        assert_eq!(crate::transaction::len(), 1);
+        pre_upgrade();
+        assert_eq!(crate::transaction::len(), 0);
     }
 }

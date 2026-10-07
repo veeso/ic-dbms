@@ -12,6 +12,7 @@ pub fn dbms_canister(input: DeriveInput) -> syn::Result<TokenStream2> {
 
     let init_fn = impl_init(&metadata.tables, struct_ident);
     let inspect_fn = impl_inspect();
+    let pre_upgrade_fn = impl_pre_upgrade();
     let acl_api = impl_acl_api(struct_ident);
     let transaction_api = impl_transaction_api(struct_ident);
     let tables_api = impl_tables_api(&metadata.tables, struct_ident);
@@ -21,6 +22,7 @@ pub fn dbms_canister(input: DeriveInput) -> syn::Result<TokenStream2> {
     Ok(quote::quote! {
         #init_fn
         #inspect_fn
+        #pre_upgrade_fn
         #acl_api
         #transaction_api
         #tables_api
@@ -67,6 +69,15 @@ fn impl_inspect() -> TokenStream2 {
         #[::ic_cdk::inspect_message]
         fn inspect() {
             ::ic_dbms_canister::api::inspect()
+        }
+    }
+}
+
+fn impl_pre_upgrade() -> TokenStream2 {
+    quote::quote! {
+        #[::ic_cdk::pre_upgrade]
+        fn pre_upgrade() {
+            ::ic_dbms_canister::api::pre_upgrade()
         }
     }
 }

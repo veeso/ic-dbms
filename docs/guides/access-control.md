@@ -83,6 +83,11 @@ touching data:
 The check reads the `ic_dbms_acl` table through the same database view as
 the operation, so it costs one primary-key lookup per call.
 
+Transaction ownership is tracked in the canister heap, not in the engine:
+`begin_transaction` records the caller next to the new id, every call that
+names the id compares the caller with that record, and commit or rollback
+removes it. A mismatch and an unknown id trap with the same message.
+
 The untyped `select` endpoint can read `ic_dbms_acl` like any other table;
 because it requires `Admin`, only admins can list admins that way.
 

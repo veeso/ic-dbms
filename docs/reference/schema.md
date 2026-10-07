@@ -108,18 +108,18 @@ For each table, the macro generates five CRUD/aggregate endpoints plus shared tr
 ```candid
 service : (IcDbmsCanisterArgs) -> {
   // Per-table CRUD (example for "users" table)
-  insert_users : (UserInsertRequest, opt nat) -> (Result);
-  select_users : (Query, opt nat) -> (Result_Vec_UserRecord) query;
-  aggregate_users : (Query, vec AggregateFunction, opt nat) -> (Result_Vec_AggregatedRow) query;
-  update_users : (UserUpdateRequest, opt nat) -> (Result_u64);
-  delete_users : (DeleteBehavior, opt Filter, opt nat) -> (Result_u64);
+  insert_users : (UserInsertRequest, opt nat64) -> (Result);
+  select_users : (Query, opt nat64) -> (Result_Vec_UserRecord) query;
+  aggregate_users : (Query, vec AggregateFunction, opt nat64) -> (Result_Vec_AggregatedRow) query;
+  update_users : (UserUpdateRequest, opt nat64) -> (Result_u64);
+  delete_users : (DeleteBehavior, opt Filter, opt nat64) -> (Result_u64);
 
   // Per-table CRUD (example for "posts" table)
-  insert_posts : (PostInsertRequest, opt nat) -> (Result);
-  select_posts : (Query, opt nat) -> (Result_Vec_PostRecord) query;
-  aggregate_posts : (Query, vec AggregateFunction, opt nat) -> (Result_Vec_AggregatedRow) query;
-  update_posts : (PostUpdateRequest, opt nat) -> (Result_u64);
-  delete_posts : (DeleteBehavior, opt Filter, opt nat) -> (Result_u64);
+  insert_posts : (PostInsertRequest, opt nat64) -> (Result);
+  select_posts : (Query, opt nat64) -> (Result_Vec_PostRecord) query;
+  aggregate_posts : (Query, vec AggregateFunction, opt nat64) -> (Result_Vec_AggregatedRow) query;
+  update_posts : (PostUpdateRequest, opt nat64) -> (Result_u64);
+  delete_posts : (DeleteBehavior, opt Filter, opt nat64) -> (Result_u64);
 
   // Transaction methods (shared)
   begin_transaction : () -> (Result_TransactionId);
@@ -139,11 +139,16 @@ service : (IcDbmsCanisterArgs) -> {
 }
 ```
 
+**Lifecycle hooks:** the derive defines `init` (registers the tables and the
+reserved ACL table, grants `Admin` to `allowed_principals`), `inspect_message`
+(accepts every call) and `pre_upgrade` (clears the heap-only transaction
+ownership ledger). Define `post_upgrade` yourself when you need one.
+
 **Method naming convention:** `{operation}_{table_name}` (e.g., `insert_users`, `select_posts`, `aggregate_users`, `delete_comments`)
 
 **Parameter patterns:**
 
-- `opt nat` is the optional transaction ID
+- `opt nat64` is the optional transaction ID
 - `select` and `aggregate` methods are `query` calls (no state changes, no cycles consumed)
 - All other methods are `update` calls
 

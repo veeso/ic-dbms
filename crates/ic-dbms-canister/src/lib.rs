@@ -106,6 +106,7 @@
 //! - `begin_transaction()`: Starts a new transaction and returns its ID. The caller must be an admin.
 //! - `commit(transaction_id)`: Commits the transaction with the given ID. The user must own the transaction to commit it.
 //! - `rollback(transaction_id)`: Rolls back the transaction with the given ID. The user must own the transaction to roll it back.
+//! - Ownership is tracked on the canister heap and cleared by the generated `pre_upgrade` hook. Open transactions do not survive upgrades.
 //!
 //! ### Data Manipulation
 //!
@@ -167,4 +168,5 @@ pub mod prelude;
 pub mod schema;
 #[cfg(test)]
 mod tests;
+pub mod transaction;
 pub mod utils;

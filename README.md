@@ -175,8 +175,8 @@ Which one to pick:
 - **ic-dbms** when you want a database canister generated from Rust types: a
   typed Candid API per table, access control per principal,
   validators and sanitizers, typed clients for canisters and off-chain agents,
-  transactions that span several calls, and a plain Rust toolchain with no C
-  code or WASI step.
+  transactions that span several calls and are owned by the principal that
+  opened them, and a plain Rust toolchain with no C code or WASI step.
 
 Other projects exist but are no longer maintained or are not relational:
 [ZenDB](https://github.com/NatLabs/ZenDB) (Motoko document database, archived),

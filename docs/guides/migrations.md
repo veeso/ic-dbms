@@ -32,11 +32,17 @@ disk, the DBMS enters drift state and refuses CRUD until you call `migrate`.
 The ACL lives in the database too, so ACL endpoints fail with `SchemaDrift` as
 well; canister controllers may always call the migration endpoints.
 
+Open transactions do not survive an upgrade: the engine keeps them on the
+heap, and so does the canister's transaction ownership ledger. Both are
+discarded together; the generated `pre_upgrade` hook clears the ledger
+explicitly. Commit or roll back before upgrading. Because the macro defines
+`pre_upgrade`, define only `post_upgrade` yourself. Discard every transaction
+ID from before the upgrade because the engine may reuse those numeric IDs.
+
 The drift hash is recomputed lazily, on the first `has_drift` /
 `pending_migrations` / CRUD call after boot, and cached on the DBMS context.
-There is no post-upgrade hook: the canister simply boots, declares drift on
-first access, and waits for the operator (or a `post_upgrade` snippet you
-write yourself) to call `migrate`.
+The canister simply boots, declares drift on first access, and waits for the
+operator (or a `post_upgrade` snippet you write yourself) to call `migrate`.
 
 ---
 

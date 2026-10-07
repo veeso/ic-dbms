@@ -36,6 +36,10 @@ mod dbms_canister;
 ///
 /// The derive always registers the reserved `ic_dbms_acl` table; table names
 /// starting with `ic_dbms_` are rejected at compile time.
+///
+/// The derive also defines the canister's `pre_upgrade` hook, which clears
+/// the transaction ownership ledger. Define `post_upgrade` yourself when you
+/// need one; do not define another `pre_upgrade`.
 #[proc_macro_derive(DbmsCanister, attributes(tables))]
 pub fn derive_dbms_canister(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

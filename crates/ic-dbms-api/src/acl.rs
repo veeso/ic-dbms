@@ -14,8 +14,9 @@ use thiserror::Error;
 
 /// A permission that can be granted to a principal.
 ///
-/// Adding a variant is a backward-compatible change for callers that only
-/// use the existing variants.
+/// The endpoints already carry this enum, so future per-table grants can be
+/// represented by adding variants; clients that need to use new variants
+/// must update their type definitions accordingly.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, CandidType, Serialize, Deserialize)]
 pub enum Permission {
     /// Full access: every table operation, transactions, ACL management and

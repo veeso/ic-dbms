@@ -206,20 +206,20 @@ service : (IcDbmsCanisterArgs) -> {
 
   // Transactions
   begin_transaction : () -> (Result_4);
-  commit : (nat) -> (Result);
-  rollback : (nat) -> (Result);
+  commit : (nat64) -> (Result);
+  rollback : (nat64) -> (Result);
 
   // Users CRUD
-  insert_users : (UserInsertRequest, opt nat) -> (Result);
-  select_users : (Query, opt nat) -> (Result_1) query;
-  update_users : (UserUpdateRequest, opt nat) -> (Result_2);
-  delete_users : (DeleteBehavior, opt Filter, opt nat) -> (Result_2);
+  insert_users : (UserInsertRequest, opt nat64) -> (Result);
+  select_users : (Query, opt nat64) -> (Result_1) query;
+  update_users : (UserUpdateRequest, opt nat64) -> (Result_2);
+  delete_users : (DeleteBehavior, opt Filter, opt nat64) -> (Result_2);
 
   // Posts CRUD
-  insert_posts : (PostInsertRequest, opt nat) -> (Result);
-  select_posts : (Query, opt nat) -> (Result_3) query;
-  update_posts : (PostUpdateRequest, opt nat) -> (Result_2);
-  delete_posts : (DeleteBehavior, opt Filter, opt nat) -> (Result_2);
+  insert_posts : (PostInsertRequest, opt nat64) -> (Result);
+  select_posts : (Query, opt nat64) -> (Result_3) query;
+  update_posts : (PostUpdateRequest, opt nat64) -> (Result_2);
+  delete_posts : (DeleteBehavior, opt Filter, opt nat64) -> (Result_2);
 }
 ```
 
