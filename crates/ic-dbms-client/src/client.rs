@@ -9,9 +9,9 @@ mod types;
 
 use candid::{CandidType, Principal};
 use ic_dbms_api::prelude::{
-    AclEntry, AggregateFunction, AggregatedRow, DeleteBehavior, Filter, IcDbmsResult, InsertRecord,
-    JoinColumnDef, MigrationOp, MigrationPolicy, Permission, Query, TableSchema, TransactionId,
-    UpdateRecord, Value,
+    AclGrant, AggregateFunction, AggregatedRow, DeleteBehavior, Filter, IcDbmsResult, InsertRecord,
+    JoinColumnDef, MigrationOp, MigrationPolicy, Query, TableSchema, TransactionId, UpdateRecord,
+    Value,
 };
 
 #[cfg(feature = "ic-agent")]
@@ -34,35 +34,34 @@ pub trait Client {
     /// Returns the [`Principal`] of the IC DBMS Canister.
     fn principal(&self) -> Principal;
 
-    /// Grants `permission` to `principal`. The caller must hold
-    /// [`Permission::Admin`].
+    /// Stores `grant`. The caller must hold
+    /// [`ic_dbms_api::prelude::AclPermission::Admin`].
     fn acl_grant(
         &self,
-        principal: Principal,
-        permission: Permission,
+        grant: AclGrant,
     ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>;
 
-    /// Revokes `permission` from `principal`. The caller must hold
-    /// [`Permission::Admin`]; the last admin cannot be revoked.
+    /// Removes `grant`. The caller must hold
+    /// [`ic_dbms_api::prelude::AclPermission::Admin`]; the
+    /// last admin grant cannot be revoked.
     fn acl_revoke(
         &self,
-        principal: Principal,
-        permission: Permission,
+        grant: AclGrant,
     ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>;
 
-    /// Lists every principal together with its permissions. The caller must
-    /// hold [`Permission::Admin`].
+    /// Lists every grant. The caller must hold
+    /// [`ic_dbms_api::prelude::AclPermission::Admin`].
     fn acl_list(
         &self,
-    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<Vec<AclEntry>>>>;
+    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<Vec<AclGrant>>>>;
 
-    /// Returns the caller's own permissions.
+    /// Returns the caller's own grants.
     fn my_permissions(
         &self,
-    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<Vec<Permission>>>>;
+    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<Vec<AclGrant>>>>;
 
-    /// Begins a new transaction and returns its ID. The caller must hold
-    /// [`Permission::Admin`].
+    /// Begins a new transaction and returns its ID. The caller must hold at
+    /// least one grant.
     fn begin_transaction(
         &self,
     ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<TransactionId>>>;

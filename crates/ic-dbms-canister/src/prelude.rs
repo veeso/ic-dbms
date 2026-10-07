@@ -10,7 +10,7 @@ pub use wasm_dbms::transaction::session::TransactionSession;
 pub use wasm_dbms_macros::DatabaseSchema;
 pub use wasm_dbms_memory::prelude::MemoryProvider;
 
-pub use crate::acl::{AclPrincipal, AclSchema, RESERVED_TABLE_PREFIX};
+pub use crate::acl::{AclGrantRow, AclSchema, RESERVED_TABLE_PREFIX};
 pub use crate::memory::{DBMS_CONTEXT, IcMemoryProvider};
 pub use crate::schema::CanisterSchema;
 pub use crate::transaction;

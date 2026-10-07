@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use candid::utils::ArgumentEncoder;
 use candid::{CandidType, Principal};
-use ic_dbms_api::prelude::{AclEntry, IcDbmsResult, Permission};
+use ic_dbms_api::prelude::{AclGrant, IcDbmsResult};
 
 use crate::client::{Client, RawRecords};
 use crate::prelude::IcDbmsCanisterClientResult;
@@ -59,27 +59,19 @@ impl Client for IcDbmsCanisterClient {
         self.canister_id
     }
 
-    async fn acl_grant(
-        &self,
-        principal: Principal,
-        permission: Permission,
-    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
-        self.call("acl_grant", &(principal, permission)).await
+    async fn acl_grant(&self, grant: AclGrant) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
+        self.call("acl_grant", &(grant,)).await
     }
 
-    async fn acl_revoke(
-        &self,
-        principal: Principal,
-        permission: Permission,
-    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
-        self.call("acl_revoke", &(principal, permission)).await
+    async fn acl_revoke(&self, grant: AclGrant) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
+        self.call("acl_revoke", &(grant,)).await
     }
 
-    async fn acl_list(&self) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<AclEntry>>> {
+    async fn acl_list(&self) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<AclGrant>>> {
         self.call("acl_list", &()).await
     }
 
-    async fn my_permissions(&self) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<Permission>>> {
+    async fn my_permissions(&self) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<AclGrant>>> {
         self.call("my_permissions", &()).await
     }
 

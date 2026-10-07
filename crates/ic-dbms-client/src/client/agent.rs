@@ -7,8 +7,8 @@ use candid::utils::ArgumentEncoder;
 use candid::{CandidType, Decode, Principal};
 use ic_agent::Agent;
 use ic_dbms_api::prelude::{
-    AclEntry, AggregateFunction, AggregatedRow, DeleteBehavior, Filter, IcDbmsResult, InsertRecord,
-    MigrationOp, MigrationPolicy, Permission, Query, TableSchema, TransactionId, UpdateRecord,
+    AclGrant, AggregateFunction, AggregatedRow, DeleteBehavior, Filter, IcDbmsResult, InsertRecord,
+    MigrationOp, MigrationPolicy, Query, TableSchema, TransactionId, UpdateRecord,
 };
 
 use crate::client::{Client, RawRecords};
@@ -81,27 +81,19 @@ impl Client for IcDbmsAgentClient<'_> {
         self.canister_id
     }
 
-    async fn acl_grant(
-        &self,
-        principal: Principal,
-        permission: Permission,
-    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
-        self.update("acl_grant", (principal, permission)).await
+    async fn acl_grant(&self, grant: AclGrant) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
+        self.update("acl_grant", (grant,)).await
     }
 
-    async fn acl_revoke(
-        &self,
-        principal: Principal,
-        permission: Permission,
-    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
-        self.update("acl_revoke", (principal, permission)).await
+    async fn acl_revoke(&self, grant: AclGrant) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
+        self.update("acl_revoke", (grant,)).await
     }
 
-    async fn acl_list(&self) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<AclEntry>>> {
+    async fn acl_list(&self) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<AclGrant>>> {
         self.query("acl_list", ()).await
     }
 
-    async fn my_permissions(&self) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<Permission>>> {
+    async fn my_permissions(&self) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<AclGrant>>> {
         self.query("my_permissions", ()).await
     }
 

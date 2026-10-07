@@ -69,9 +69,9 @@ pub struct IcDbmsCanisterGenerator;
 
 ```candid
 service : (IcDbmsCanisterArgs) -> {
-  acl_grant : (principal, Permission) -> (Result);
+  acl_grant : (AclGrant) -> (Result);
   acl_list : () -> (Result_2) query;
-  acl_revoke : (principal, Permission) -> (Result);
+  acl_revoke : (AclGrant) -> (Result);
   my_permissions : () -> (Result_3) query;
   begin_transaction : () -> (Result_4);
   commit : (nat64) -> (Result);

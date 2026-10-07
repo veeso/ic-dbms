@@ -116,27 +116,25 @@ fn impl_acl_api(struct_ident: &syn::Ident) -> TokenStream2 {
     quote::quote! {
         #[::ic_cdk::update]
         fn acl_grant(
-            principal: ::candid::Principal,
-            permission: ::ic_dbms_api::prelude::Permission,
+            grant: ::ic_dbms_api::prelude::AclGrant,
         ) -> ::ic_dbms_api::prelude::IcDbmsResult<()> {
-            ::ic_dbms_canister::api::acl_grant(principal, permission, #struct_ident)
+            ::ic_dbms_canister::api::acl_grant(grant, #struct_ident)
         }
 
         #[::ic_cdk::update]
         fn acl_revoke(
-            principal: ::candid::Principal,
-            permission: ::ic_dbms_api::prelude::Permission,
+            grant: ::ic_dbms_api::prelude::AclGrant,
         ) -> ::ic_dbms_api::prelude::IcDbmsResult<()> {
-            ::ic_dbms_canister::api::acl_revoke(principal, permission, #struct_ident)
+            ::ic_dbms_canister::api::acl_revoke(grant, #struct_ident)
         }
 
         #[::ic_cdk::query]
-        fn acl_list() -> ::ic_dbms_api::prelude::IcDbmsResult<Vec<::ic_dbms_api::prelude::AclEntry>> {
+        fn acl_list() -> ::ic_dbms_api::prelude::IcDbmsResult<Vec<::ic_dbms_api::prelude::AclGrant>> {
             ::ic_dbms_canister::api::acl_list(#struct_ident)
         }
 
         #[::ic_cdk::query]
-        fn my_permissions() -> ::ic_dbms_api::prelude::IcDbmsResult<Vec<::ic_dbms_api::prelude::Permission>> {
+        fn my_permissions() -> ::ic_dbms_api::prelude::IcDbmsResult<Vec<::ic_dbms_api::prelude::AclGrant>> {
             ::ic_dbms_canister::api::my_permissions(#struct_ident)
         }
     }

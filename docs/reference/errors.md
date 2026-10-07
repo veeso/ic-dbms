@@ -40,8 +40,13 @@ pub enum IcDbmsError {
 }
 
 pub enum AclError {
-    AccessDenied { required: Permission },
+    AccessDenied {
+        required: AclRequirement,
+        table: Option<String>,
+    },
+    AdminGrantWithTable,
     AnonymousPrincipal,
+    InvalidTable(String),
     LastAdmin,
 }
 ```
@@ -56,19 +61,25 @@ error enum, so `?` works in code that mixes them.
 
 ## AclError
 
-| Variant                     | Meaning                                                   |
-| --------------------------- | --------------------------------------------------------- |
-| `AccessDenied { required }` | The caller lacks `required` (today always `Admin`).       |
-| `AnonymousPrincipal`        | Permissions cannot be granted to the anonymous principal. |
-| `LastAdmin`                 | The operation would remove the last admin.                |
+| Variant                            | Meaning                                                                                  |
+| ---------------------------------- | ---------------------------------------------------------------------------------------- |
+| `AccessDenied { required, table }` | The caller lacks `required`; `table` names the table for permission-specific operations. |
+| `AdminGrantWithTable`              | An `Admin` grant named a table; `Admin` always covers every table.                       |
+| `AnonymousPrincipal`               | Grants cannot be given to the anonymous principal.                                       |
+| `InvalidTable(name)`               | The grant named an unknown or reserved table.                                            |
+| `LastAdmin`                        | The operation would remove the last `Admin` grant.                                       |
+
+`required` is `AclRequirement::Permission(permission)` for operations needing
+a specific permission. It is `AclRequirement::AnyGrant` when
+`begin_transaction` is called by a principal holding no grants.
 
 ```rust
-use ic_dbms_api::prelude::{AclError, IcDbmsError, Permission};
+use ic_dbms_api::prelude::{AclError, IcDbmsError};
 
 match res {
     Ok(()) => {}
-    Err(IcDbmsError::Acl(AclError::AccessDenied { required })) => {
-        eprintln!("missing permission: {required}");
+    Err(IcDbmsError::Acl(AclError::AccessDenied { required, table })) => {
+        eprintln!("missing access: {required} on {table:?}");
     }
     Err(IcDbmsError::Acl(AclError::LastAdmin)) => {
         eprintln!("grant another admin first");

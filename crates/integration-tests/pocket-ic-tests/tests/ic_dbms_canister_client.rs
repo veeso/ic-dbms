@@ -9,43 +9,41 @@ use pocket_ic_tests::{PocketIcClient, TestCanister, TestEnvExt as _, admin, bob}
 type TestResult<T> = Result<IcDbmsResult<T>, String>;
 
 #[pocket_ic_harness::test]
-async fn test_should_grant_and_revoke_admin_through_wrapper(env: PocketIcTestEnv<TestCanister>) {
-    use ic_dbms_api::prelude::{AclEntry, Permission};
+async fn test_should_grant_and_revoke_through_wrapper(env: PocketIcTestEnv<TestCanister>) {
+    use ic_dbms_api::prelude::{AclGrant, AclPermission};
 
     let client = PocketIcClient::new(env.dbms_canister_client_integration(), admin(), &env.pic);
+    let read_users = AclGrant::table(bob(), AclPermission::Read, "users");
 
     let res: Result<IcDbmsResult<()>, String> = client
-        .update(
-            "acl_grant",
-            Encode!(&bob(), &Permission::Admin).expect("Failed to encode"),
-        )
+        .update("acl_grant", Encode!(&read_users).expect("Failed to encode"))
         .await
         .expect("Can't update");
-    res.expect("Client error").expect("Failed to grant admin");
+    res.expect("Client error").expect("Failed to grant");
 
-    let entries: Result<IcDbmsResult<Vec<AclEntry>>, String> = client
+    let entries: Result<IcDbmsResult<Vec<AclGrant>>, String> = client
         .update("acl_list", Encode!().expect("Failed to encode"))
         .await
         .expect("Can't query");
     let entries = entries.expect("Client error").expect("list ok");
-    assert!(entries.iter().any(|e| e.principal == bob()));
+    assert!(entries.contains(&read_users));
 
     let res: Result<IcDbmsResult<()>, String> = client
         .update(
             "acl_revoke",
-            Encode!(&bob(), &Permission::Admin).expect("Failed to encode"),
+            Encode!(&read_users).expect("Failed to encode"),
         )
         .await
         .expect("Can't update");
-    res.expect("Client error").expect("Failed to revoke admin");
+    res.expect("Client error").expect("Failed to revoke");
 
-    let perms: Result<IcDbmsResult<Vec<Permission>>, String> = client
+    let grants: Result<IcDbmsResult<Vec<AclGrant>>, String> = client
         .update("my_permissions", Encode!().expect("Failed to encode"))
         .await
         .expect("Can't query");
     assert_eq!(
-        perms.expect("Client error").expect("my_permissions ok"),
-        vec![Permission::Admin]
+        grants.expect("Client error").expect("my_permissions ok"),
+        vec![AclGrant::admin(env.dbms_canister_client_integration())]
     );
 }
 

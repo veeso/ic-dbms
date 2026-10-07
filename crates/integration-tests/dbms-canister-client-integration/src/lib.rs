@@ -6,9 +6,8 @@ use std::cell::RefCell;
 
 use candid::{CandidType, Deserialize, Principal};
 use ic_dbms_api::prelude::{
-    AclEntry, AggregateFunction, AggregatedRow, DeleteBehavior, Filter, IcDbmsResult,
-    JoinColumnDef, MigrationOp, MigrationPolicy, Permission, Query, Table, Text, TransactionId,
-    Uint32, Value,
+    AclGrant, AggregateFunction, AggregatedRow, DeleteBehavior, Filter, IcDbmsResult,
+    JoinColumnDef, MigrationOp, MigrationPolicy, Query, Table, Text, TransactionId, Uint32, Value,
 };
 use ic_dbms_client::prelude::{Client as _, IcDbmsCanisterClient};
 
@@ -35,37 +34,25 @@ pub fn init(ic_dbms_canister: Principal) {
 }
 
 #[ic_cdk::update]
-pub async fn acl_grant(
-    principal: Principal,
-    permission: Permission,
-) -> Result<IcDbmsResult<()>, String> {
+pub async fn acl_grant(grant: AclGrant) -> Result<IcDbmsResult<()>, String> {
     let client = new_client();
-    client
-        .acl_grant(principal, permission)
-        .await
-        .map_err(|e| e.to_string())
+    client.acl_grant(grant).await.map_err(|e| e.to_string())
 }
 
 #[ic_cdk::update]
-pub async fn acl_revoke(
-    principal: Principal,
-    permission: Permission,
-) -> Result<IcDbmsResult<()>, String> {
+pub async fn acl_revoke(grant: AclGrant) -> Result<IcDbmsResult<()>, String> {
     let client = new_client();
-    client
-        .acl_revoke(principal, permission)
-        .await
-        .map_err(|e| e.to_string())
+    client.acl_revoke(grant).await.map_err(|e| e.to_string())
 }
 
 #[ic_cdk::update]
-pub async fn acl_list() -> Result<IcDbmsResult<Vec<AclEntry>>, String> {
+pub async fn acl_list() -> Result<IcDbmsResult<Vec<AclGrant>>, String> {
     let client = new_client();
     client.acl_list().await.map_err(|e| e.to_string())
 }
 
 #[ic_cdk::update]
-pub async fn my_permissions() -> Result<IcDbmsResult<Vec<Permission>>, String> {
+pub async fn my_permissions() -> Result<IcDbmsResult<Vec<AclGrant>>, String> {
     let client = new_client();
     client.my_permissions().await.map_err(|e| e.to_string())
 }

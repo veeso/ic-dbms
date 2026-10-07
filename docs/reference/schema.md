@@ -127,10 +127,10 @@ service : (IcDbmsCanisterArgs) -> {
   rollback : (nat64) -> (Result);
 
   // Access control (shared), see the Access Control guide
-  acl_grant      : (principal, Permission) -> (Result);
-  acl_revoke     : (principal, Permission) -> (Result);
-  acl_list       : () -> (Result_Vec_AclEntry) query;
-  my_permissions : () -> (Result_Vec_Permission) query;
+  acl_grant      : (AclGrant) -> (Result);
+  acl_revoke     : (AclGrant) -> (Result);
+  acl_list       : () -> (Result_Vec_AclGrant) query;
+  my_permissions : () -> (Result_Vec_AclGrant) query;
 
   // Schema migrations (shared) — see Migration Endpoints below
   has_drift : () -> (Result_bool) query;
@@ -139,8 +139,14 @@ service : (IcDbmsCanisterArgs) -> {
 }
 ```
 
+Each endpoint checks the caller's grants before running: per-table endpoints
+need the matching `Read`, `Insert`, `Update` or `Delete` permission, the
+untyped `select` needs `Read` on every table it touches, and ACL and migration
+endpoints need `Admin`. See the
+[Access Control guide](../guides/access-control.md#enforcement).
+
 **Lifecycle hooks:** the derive defines `init` (registers the tables and the
-reserved ACL table, grants `Admin` to `allowed_principals`), `inspect_message`
+reserved ACL table, stores an `Admin` grant for each of `allowed_principals`), `inspect_message`
 (accepts every call) and `pre_upgrade` (clears the heap-only transaction
 ownership ledger). Define `post_upgrade` yourself when you need one.
 
@@ -270,8 +276,8 @@ type IcDbmsCanisterInitArgs = record {
 };
 ```
 
-Each listed principal (or the deployer when the list is `null` or empty) is
-granted `Permission::Admin`. The derive also registers the reserved
+Each listed principal (or the deployer when the list is `null` or empty)
+receives an `AclGrant::admin` grant. The derive also registers the reserved
 `ic_dbms_acl` table; table names starting with `ic_dbms_` are rejected at
 compile time.
 

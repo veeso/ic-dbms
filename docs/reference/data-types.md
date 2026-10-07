@@ -157,27 +157,43 @@ const owner = Principal.fromText("aaaaa-aa");
 
 ## ACL Types
 
-The access control list exposes three types via Candid:
+The access control list exposes these types via Candid:
 
 ```candid
-type Permission = variant {
-  Admin;
+type AclPermission = variant {
+  Admin; Read; Insert; Update; Delete;
 };
 
-type AclEntry = record {
+type AclRequirement = variant {
+  Permission : AclPermission;
+  AnyGrant;
+};
+
+type AclGrant = record {
   principal   : principal;
-  permissions : vec Permission;
+  permission  : AclPermission;
+  table       : opt text;
 };
 
 type AclError = variant {
-  AccessDenied       : record { required : Permission };
+  AccessDenied       : record {
+    required : AclRequirement;
+    table    : opt text;
+  };
+  AdminGrantWithTable;
   AnonymousPrincipal;
+  InvalidTable : text;
   LastAdmin;
 };
 ```
 
-`Permission` will grow new variants for per-table grants; clients that only
-use `Admin` keep working.
+An `AclGrant` with no table applies to every user table. `Admin` grants always
+have no table and apply to every operation, including ACL management and
+migrations.
+
+`AclRequirement::Permission` identifies a specific permission required by an
+operation. `AclRequirement::AnyGrant` is used when an unlisted principal tries
+to open a transaction.
 
 ## IC-Specific Considerations
 

@@ -40,7 +40,7 @@ ic-dbms provides four fundamental database operations, accessed through the `ic-
 
 All operations:
 
-- Respect access control (the caller must hold the `Admin` permission)
+- Respect access control (the caller must hold the matching grant)
 - Support optional transaction IDs
 - Validate and sanitize data according to schema rules
 - Enforce foreign key constraints

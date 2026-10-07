@@ -1,4 +1,4 @@
-use ic_dbms_api::prelude::{Filter, Permission, Query, TableSchema, Text, Uint32, Value};
+use ic_dbms_api::prelude::{AclGrant, Filter, Query, TableSchema, Text, Uint32, Value};
 use ic_dbms_client::prelude::{
     Client as _, IcDbmCanisterClientError, IcDbmsPocketIcClient, PocketIcError,
 };
@@ -182,7 +182,7 @@ async fn test_should_not_commit_transaction_of_another_principal(
     let admin_client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
     // bob is an admin too, so only ownership can stop him.
     admin_client
-        .acl_grant(bob(), Permission::Admin)
+        .acl_grant(AclGrant::admin(bob()))
         .await
         .expect("failed to call canister")
         .expect("failed to grant admin");

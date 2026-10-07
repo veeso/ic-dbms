@@ -69,9 +69,9 @@
 //!
 //! ```txt
 //! service : (IcDbmsCanisterArgs) -> {
-//!   acl_grant : (principal, Permission) -> (Result);
+//!   acl_grant : (AclGrant) -> (Result);
 //!   acl_list : () -> (Result_4) query;
-//!   acl_revoke : (principal, Permission) -> (Result);
+//!   acl_revoke : (AclGrant) -> (Result);
 //!   begin_transaction : () -> (Result_6);
 //!   commit : (nat64) -> (Result);
 //!   delete_posts : (DeleteBehavior, opt Filter_1, opt nat64) -> (Result_1);
@@ -93,17 +93,19 @@
 //!
 //! ### Access Control
 //!
-//! Every endpoint except `my_permissions` requires the caller to hold `Permission::Admin`.
-//! Admins are stored in the reserved `ic_dbms_acl` table.
+//! Every endpoint except `my_permissions` checks the caller's grants, stored
+//! in the reserved `ic_dbms_acl` table. A grant is a principal, an
+//! `AclPermission` (`Admin`, `Read`, `Insert`, `Update`, `Delete`) and an
+//! optional table; no table means every table. `Admin` allows everything.
 //!
-//! - `acl_grant(principal, permission)`: Grants a permission. Idempotent.
-//! - `acl_revoke(principal, permission)`: Revokes a permission. The last admin cannot be revoked.
-//! - `acl_list()`: Lists every principal with its permissions.
-//! - `my_permissions()`: Returns the caller's permissions. Allowed for everyone.
+//! - `acl_grant(grant)`: Stores a grant. Requires `Admin`. Idempotent.
+//! - `acl_revoke(grant)`: Removes a grant. Requires `Admin`. The last admin cannot be revoked.
+//! - `acl_list()`: Lists every grant. Requires `Admin`.
+//! - `my_permissions()`: Returns the caller's grants. Allowed for everyone.
 //!
 //! ### Transaction Management
 //!
-//! - `begin_transaction()`: Starts a new transaction and returns its ID. The caller must be an admin.
+//! - `begin_transaction()`: Starts a new transaction and returns its ID. The caller must hold at least one grant.
 //! - `commit(transaction_id)`: Commits the transaction with the given ID. The user must own the transaction to commit it.
 //! - `rollback(transaction_id)`: Rolls back the transaction with the given ID. The user must own the transaction to roll it back.
 //! - Ownership is tracked on the canister heap and cleared by the generated `pre_upgrade` hook. Open transactions do not survive upgrades.

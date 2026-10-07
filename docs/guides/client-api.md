@@ -189,18 +189,10 @@ pub trait Client {
     async fn rollback(&self, tx: u64) -> Result<Result<(), IcDbmsError>>;
 
     // Access control
-    async fn acl_grant(
-        &self,
-        principal: Principal,
-        permission: Permission,
-    ) -> Result<Result<(), IcDbmsError>>;
-    async fn acl_revoke(
-        &self,
-        principal: Principal,
-        permission: Permission,
-    ) -> Result<Result<(), IcDbmsError>>;
-    async fn acl_list(&self) -> Result<Result<Vec<AclEntry>, IcDbmsError>>;
-    async fn my_permissions(&self) -> Result<Result<Vec<Permission>, IcDbmsError>>;
+    async fn acl_grant(&self, grant: AclGrant) -> Result<Result<(), IcDbmsError>>;
+    async fn acl_revoke(&self, grant: AclGrant) -> Result<Result<(), IcDbmsError>>;
+    async fn acl_list(&self) -> Result<Result<Vec<AclGrant>, IcDbmsError>>;
+    async fn my_permissions(&self) -> Result<Result<Vec<AclGrant>, IcDbmsError>>;
 
     // Schema Migrations
     async fn has_drift(&self) -> Result<Result<bool, IcDbmsError>>;
@@ -393,21 +385,26 @@ client
 
 ```rust
 use candid::Principal;
-use ic_dbms_api::prelude::Permission;
+use ic_dbms_api::prelude::{AclGrant, AclPermission};
 
 // Grant admin
 let operator = Principal::from_text("aaaaa-aa").unwrap();
-client.acl_grant(operator, Permission::Admin).await??;
+client.acl_grant(AclGrant::admin(operator)).await??;
 
-// List principals
-for entry in client.acl_list().await?? {
-    println!("{} -> {:?}", entry.principal, entry.permissions);
+// Let a service insert into one table only
+client
+    .acl_grant(AclGrant::table(service, AclPermission::Insert, "users"))
+    .await??;
+
+// List grants
+for grant in client.acl_list().await?? {
+    println!("{} -> {} on {:?}", grant.principal, grant.permission, grant.table);
 }
 
 // Revoke admin (fails with AclError::LastAdmin for the last one)
-client.acl_revoke(operator, Permission::Admin).await??;
+client.acl_revoke(AclGrant::admin(operator)).await??;
 
-// Own permissions, allowed for everyone
+// Own grants, allowed for everyone
 let mine = client.my_permissions().await??;
 ```
 

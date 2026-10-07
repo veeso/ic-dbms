@@ -119,7 +119,8 @@ async fn test_should_update_a_user(env: PocketIcTestEnv<TestCanister>) {
 
 #[pocket_ic_harness::test]
 async fn test_should_not_allow_unauthorized_call(env: PocketIcTestEnv<TestCanister>) {
-    use ic_dbms_api::prelude::{AclError, IcDbmsError, Permission};
+    use ic_dbms_api::prelude::AclPermission;
+    use pocket_ic_tests::assert_access_denied;
 
     let client = IcDbmsPocketIcClient::new(env.dbms_canister(), alice(), &env.pic);
 
@@ -132,10 +133,5 @@ async fn test_should_not_allow_unauthorized_call(env: PocketIcTestEnv<TestCanist
         .insert::<User>(User::table_name(), insert_request, None)
         .await
         .expect("call ok");
-    assert!(matches!(
-        result,
-        Err(IcDbmsError::Acl(AclError::AccessDenied {
-            required: Permission::Admin
-        }))
-    ));
+    assert_access_denied(&result, AclPermission::Insert, Some("users"));
 }

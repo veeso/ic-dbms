@@ -57,7 +57,7 @@ per-table CRUD methods:
 | `pending_migrations` | query  | Returns the planned `Vec<MigrationOp>` without applying.  |
 | `migrate`            | update | Plans, validates, sorts, and applies the diff atomically. |
 
-All three are gated: the caller must hold `Permission::Admin` or be a
+All three are gated: the caller must hold `AclPermission::Admin` or be a
 controller of the canister. Anonymous and unlisted principals are rejected
 before the DBMS is touched.
 
