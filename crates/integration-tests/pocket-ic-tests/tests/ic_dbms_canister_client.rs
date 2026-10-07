@@ -1,6 +1,6 @@
 use candid::Encode;
 use ic_dbms_api::prelude::{
-    DeleteBehavior, Filter, IcDbmsResult, JoinColumnDef, Query, TransactionId, Value,
+    DeleteBehavior, Filter, IcDbmsResult, JoinColumnDef, Query, SqlResult, TransactionId, Value,
 };
 use pocket_ic_harness::PocketIcTestEnv;
 use pocket_ic_tests::table::{UserInsertRequest, UserRecord, UserUpdateRequest};
@@ -219,4 +219,44 @@ async fn test_should_insert_select_update_delete(env: PocketIcTestEnv<TestCanist
         .expect("Client error")
         .expect("Failed to select records");
     assert!(records.is_empty());
+}
+
+#[pocket_ic_harness::test]
+async fn test_should_run_sql_through_wrapper(env: PocketIcTestEnv<TestCanister>) {
+    let client = PocketIcClient::new(env.dbms_canister_client_integration(), admin(), &env.pic);
+
+    let res: TestResult<SqlResult> = client
+        .update(
+            "sql",
+            Encode!(
+                &"INSERT INTO users (id, name, email) VALUES (8, 'Heidi', 'heidi@example.com')",
+                &Vec::<Value>::new(),
+                &None::<TransactionId>
+            )
+            .expect("Failed to encode"),
+        )
+        .await
+        .expect("Can't update");
+    assert_eq!(
+        res.expect("Client error").expect("insert"),
+        SqlResult::RowsAffected(1)
+    );
+
+    let res: TestResult<SqlResult> = client
+        .update(
+            "sql_query",
+            Encode!(
+                &"SELECT name FROM users WHERE id = ?",
+                &vec![Value::from(8u32)],
+                &None::<TransactionId>
+            )
+            .expect("Failed to encode"),
+        )
+        .await
+        .expect("Can't update");
+    let SqlResult::Rows(rows) = res.expect("Client error").expect("select") else {
+        panic!("expected rows");
+    };
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0][0].1, Value::from("Heidi"));
 }

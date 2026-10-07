@@ -1,5 +1,7 @@
 //! Composition of the user schema with the reserved tables.
 
+use std::rc::Rc;
+
 use ic_dbms_api::prelude::{
     AggregateFunction, AggregatedRow, ColumnDef, DbmsResult, DeleteBehavior, Filter, Query,
     TableSchema as _, TableSchemaSnapshot, Value,
@@ -17,14 +19,27 @@ use crate::acl::{AclGrantRow, AclSchema};
 /// report `SchemaDrift` and `migrate` would drop it. Operations on the
 /// reserved table name are routed to [`AclSchema`]; everything else goes to
 /// the inner schema.
+///
+/// The inner schema is shared, so cloning a `CanisterSchema` never clones the
+/// user's schema type, which does not need to implement [`Clone`].
 pub struct CanisterSchema<S> {
-    inner: S,
+    inner: Rc<S>,
 }
 
 impl<S> CanisterSchema<S> {
     /// Wraps the user schema `inner`.
     pub fn new(inner: S) -> Self {
-        Self { inner }
+        Self {
+            inner: Rc::new(inner),
+        }
+    }
+}
+
+impl<S> Clone for CanisterSchema<S> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: Rc::clone(&self.inner),
+        }
     }
 }
 
@@ -264,6 +279,23 @@ mod tests {
                 MigrationOp::DropTable { name } if name == "ic_dbms_acl"
             )));
         });
+    }
+
+    #[test]
+    fn test_should_clone_without_cloning_inner_schema() {
+        register_all();
+        // `TestDatabaseSchema` does not implement `Clone`.
+        let schema = CanisterSchema::new(TestDatabaseSchema);
+        let cloned = schema.clone();
+        DBMS_CONTEXT.with(|ctx| {
+            let db = WasmDbmsDatabase::oneshot(ctx, cloned);
+            assert!(!db.has_drift().expect("drift check"));
+        });
+        let columns = <CanisterSchema<TestDatabaseSchema> as DatabaseSchema<
+            crate::memory::IcMemoryProvider,
+        >>::table_columns(&schema, "users")
+        .expect("users columns");
+        assert!(columns.iter().any(|column| column.name == "email"));
     }
 
     #[test]

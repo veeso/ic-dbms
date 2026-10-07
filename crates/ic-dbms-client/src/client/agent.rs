@@ -8,7 +8,7 @@ use candid::{CandidType, Decode, Principal};
 use ic_agent::Agent;
 use ic_dbms_api::prelude::{
     AclGrant, AggregateFunction, AggregatedRow, DeleteBehavior, Filter, IcDbmsResult, InsertRecord,
-    MigrationOp, MigrationPolicy, Query, TableSchema, TransactionId, UpdateRecord,
+    MigrationOp, MigrationPolicy, Query, TableSchema, TransactionId, UpdateRecord, Value,
 };
 
 use crate::client::{Client, RawRecords};
@@ -224,5 +224,26 @@ impl Client for IcDbmsAgentClient<'_> {
         policy: MigrationPolicy,
     ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>> {
         self.update("migrate", (policy,)).await
+    }
+
+    #[cfg(feature = "sql")]
+    async fn sql(
+        &self,
+        query: &str,
+        params: Vec<Value>,
+        transaction_id: Option<TransactionId>,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<ic_dbms_api::prelude::SqlResult>> {
+        self.update("sql", (query, params, transaction_id)).await
+    }
+
+    #[cfg(feature = "sql")]
+    async fn sql_query(
+        &self,
+        query: &str,
+        params: Vec<Value>,
+        transaction_id: Option<TransactionId>,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<ic_dbms_api::prelude::SqlResult>> {
+        self.query("sql_query", (query, params, transaction_id))
+            .await
     }
 }

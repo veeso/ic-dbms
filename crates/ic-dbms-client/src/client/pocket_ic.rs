@@ -286,4 +286,36 @@ impl Client for IcDbmsPocketIcClient<'_> {
         )
         .await
     }
+
+    #[cfg(feature = "sql")]
+    async fn sql(
+        &self,
+        query: &str,
+        params: Vec<ic_dbms_api::prelude::Value>,
+        transaction_id: Option<ic_dbms_api::prelude::TransactionId>,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<ic_dbms_api::prelude::SqlResult>> {
+        self.update(
+            self.principal,
+            self.caller,
+            "sql",
+            Encode!(&query, &params, &transaction_id).map_err(PocketIcError::Candid)?,
+        )
+        .await
+    }
+
+    #[cfg(feature = "sql")]
+    async fn sql_query(
+        &self,
+        query: &str,
+        params: Vec<ic_dbms_api::prelude::Value>,
+        transaction_id: Option<ic_dbms_api::prelude::TransactionId>,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<ic_dbms_api::prelude::SqlResult>> {
+        self.query(
+            self.principal,
+            self.caller,
+            "sql_query",
+            Encode!(&query, &params, &transaction_id).map_err(PocketIcError::Candid)?,
+        )
+        .await
+    }
 }

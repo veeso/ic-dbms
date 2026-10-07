@@ -17,6 +17,14 @@
 //!
 //! The generic interface is provided by the [`Client`](crate::prelude::Client) trait.
 //!
+//! ## Feature flags
+//!
+//! | name        | description                                        | default |
+//! | ----------- | -------------------------------------------------- | ------- |
+//! | `ic-agent`  | Enable the client backed by `ic-agent`.             |         |
+//! | `pocket-ic` | Enable the client backed by PocketIC.               |         |
+//! | `sql`       | Enable methods and API types for the SQL endpoints. |         |
+//!
 //! ## Available Types
 //!
 //! You can import all the useful types and traits by using the prelude module:

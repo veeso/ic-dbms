@@ -19,6 +19,10 @@ repository = { workspace = true }
 rust-version = { workspace = true }
 description = "Public API types for ic-dbms-canister. This crate provides shared types for interacting and implementing the ic-dbms-canister."
 
+[features]
+default = []
+sql = ["wasm-dbms-api/sql"]
+
 [dependencies]
 candid = { workspace = true }
 ic-cdk = { workspace = true }
@@ -26,3 +30,7 @@ serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 wasm-dbms-api = { workspace = true, features = ["candid"] }
 wasm-dbms-macros = { workspace = true }
+
+[package.metadata.docs.rs]
+features = ["sql"]
+rustdoc-args = ["--cfg", "docsrs"]

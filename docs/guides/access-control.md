@@ -115,6 +115,10 @@ no table matches every user table; `Admin` matches everything.
 Operations inside a transaction are checked one by one, exactly as outside
 it: opening a transaction does not widen what the caller may do.
 
+SQL statements sent to `sql` or `sql_query` (with the `sql` feature) are
+checked with the same rules, per statement; see the
+[SQL guide](./sql.md#access-control).
+
 The reserved `ic_dbms_acl` table is never matched by a table-less grant, so
 only `Admin` can read it through the untyped `select`, directly or through a
 join.

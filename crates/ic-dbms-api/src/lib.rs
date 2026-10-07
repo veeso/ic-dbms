@@ -17,6 +17,12 @@
 //! ```rust
 //! use ic_dbms_api::prelude::*;
 //! ```
+//!
+//! ## Feature flags
+//!
+//! | name  | description                                      | default |
+//! | ----- | ------------------------------------------------ | ------- |
+//! | `sql` | Re-export the SQL API types from `wasm-dbms-api`. |         |
 
 #![doc(html_playground_url = "https://play.rust-lang.org")]
 #![doc(

@@ -18,6 +18,7 @@ pub fn dbms_canister(input: DeriveInput) -> syn::Result<TokenStream2> {
     let tables_api = impl_tables_api(&metadata.tables, struct_ident);
     let select_raw_api = impl_select_raw_api(struct_ident);
     let migration_api = impl_migration_api(struct_ident);
+    let sql_api = impl_sql_api(struct_ident, cfg!(feature = "sql"));
 
     Ok(quote::quote! {
         #init_fn
@@ -28,6 +29,7 @@ pub fn dbms_canister(input: DeriveInput) -> syn::Result<TokenStream2> {
         #tables_api
         #select_raw_api
         #migration_api
+        #sql_api
     })
 }
 
@@ -185,6 +187,33 @@ fn impl_migration_api(struct_ident: &syn::Ident) -> TokenStream2 {
     }
 }
 
+/// Emits the `sql` update endpoint and the `sql_query` query endpoint, or
+/// nothing when `enabled` is `false` (the `sql` feature is off).
+fn impl_sql_api(struct_ident: &syn::Ident, enabled: bool) -> TokenStream2 {
+    if !enabled {
+        return TokenStream2::new();
+    }
+    quote::quote! {
+        #[::ic_cdk::update]
+        fn sql(
+            query: String,
+            params: Vec<::ic_dbms_api::prelude::Value>,
+            transaction_id: Option<::ic_dbms_api::prelude::TransactionId>,
+        ) -> ::ic_dbms_api::prelude::IcDbmsResult<::ic_dbms_api::prelude::SqlResult> {
+            ::ic_dbms_canister::api::sql(&query, &params, transaction_id, #struct_ident)
+        }
+
+        #[::ic_cdk::query]
+        fn sql_query(
+            query: String,
+            params: Vec<::ic_dbms_api::prelude::Value>,
+            transaction_id: Option<::ic_dbms_api::prelude::TransactionId>,
+        ) -> ::ic_dbms_api::prelude::IcDbmsResult<::ic_dbms_api::prelude::SqlResult> {
+            ::ic_dbms_canister::api::sql_query(&query, &params, transaction_id, #struct_ident)
+        }
+    }
+}
+
 fn impl_table_api(table: &TableMetadata, struct_ident: &syn::Ident) -> TokenStream2 {
     let table_name = &table.name;
     let entity = &table.table;
@@ -226,5 +255,68 @@ fn impl_table_api(table: &TableMetadata, struct_ident: &syn::Ident) -> TokenStre
         fn #delete_fn_name(delete_behavior: ::ic_dbms_api::prelude::DeleteBehavior, filter: Option<::ic_dbms_api::prelude::Filter>, transaction_id: Option<::ic_dbms_api::prelude::TransactionId>) -> ::ic_dbms_api::prelude::IcDbmsResult<u64> {
             ::ic_dbms_canister::api::delete::<#entity, #struct_ident>(delete_behavior, filter, transaction_id, #struct_ident)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use syn::parse_quote;
+
+    use super::*;
+
+    /// Returns `(name, "update" | "query")` for every endpoint in `tokens`.
+    fn endpoints(tokens: TokenStream2) -> Vec<(String, String)> {
+        let file: syn::File = syn::parse2(tokens).expect("macro output must be valid items");
+        file.items
+            .into_iter()
+            .filter_map(|item| match item {
+                syn::Item::Fn(function) => {
+                    let kind = function.attrs.iter().find_map(|attr| {
+                        let name = attr.path().segments.last()?.ident.to_string();
+                        matches!(name.as_str(), "update" | "query").then_some(name)
+                    })?;
+                    Some((function.sig.ident.to_string(), kind))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn schema_ident() -> syn::Ident {
+        format_ident!("Schema")
+    }
+
+    #[test]
+    fn test_should_emit_sql_endpoints_when_enabled() {
+        assert_eq!(
+            endpoints(impl_sql_api(&schema_ident(), true)),
+            vec![
+                ("sql".to_string(), "update".to_string()),
+                ("sql_query".to_string(), "query".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_should_not_emit_sql_endpoints_when_disabled() {
+        assert!(impl_sql_api(&schema_ident(), false).is_empty());
+    }
+
+    #[test]
+    fn test_should_follow_sql_feature_in_derive() {
+        let input: DeriveInput = parse_quote! {
+            #[tables(User = "users")]
+            struct Schema;
+        };
+        let names: Vec<String> = endpoints(dbms_canister(input).expect("derive"))
+            .into_iter()
+            .map(|(name, _)| name)
+            .collect();
+        let has_sql = names
+            .iter()
+            .any(|name| name == "sql" || name == "sql_query");
+        assert_eq!(has_sql, cfg!(feature = "sql"));
+        assert!(names.iter().any(|name| name == "select_users"));
     }
 }

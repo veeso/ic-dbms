@@ -19,7 +19,7 @@
 //! candid = { version = "0.10", features = ["value"] }
 //! ic-cdk = "0.20"
 //! ic-dbms-api = "0.10"
-//! ic-dbms-canister = "0.10"
+//! ic-dbms-canister = { version = "0.10", features = ["sql"] }
 //! serde = "1"
 //! ```
 //!
@@ -80,6 +80,8 @@
 //!   insert_users : (UserInsertRequest, opt nat64) -> (Result);
 //!   my_permissions : () -> (Result_5) query;
 //!   rollback : (nat64) -> (Result);
+//!   sql : (text, vec Value, opt nat64) -> (Result_7);
+//!   sql_query : (text, vec Value, opt nat64) -> (Result_7) query;
 //!   select_posts : (Query, opt nat64) -> (Result_2) query;
 //!   select_users : (Query_1, opt nat64) -> (Result_3) query;
 //!   update_posts : (PostUpdateRequest, opt nat64) -> (Result_1);
@@ -118,6 +120,21 @@
 //! - `select_<table_name>(query, transaction_id)`: Selects records from the specified table based on the query. Optionally within a transaction.
 //! - `update_<table_name>(updates, transaction_id)`: Updates records in the specified table. Optionally within a transaction.
 //! - `delete_<table_name>(delete_behavior, filter, transaction_id)`: Deletes records from the specified table based on the filter and delete behavior. Optionally within a transaction.
+//!
+//! ### SQL (`sql` feature)
+//!
+//! Enable the `sql` feature of `ic-dbms-canister` to also generate:
+//!
+//! - `sql(query, params, transaction_id)`: Runs one SQL statement (update call). `BEGIN` returns a transaction ID to pass to later statements.
+//! - `sql_query(query, params, transaction_id)`: Runs one `SELECT` statement (query call) and refuses every other statement.
+//!
+//! Statements are checked against the access control list like the typed endpoints, and tables reserved for ic-dbms are not visible to SQL.
+//!
+//! ## Feature flags
+//!
+//! | name  | description                                                 | default |
+//! | ----- | ----------------------------------------------------------- | ------- |
+//! | `sql` | Generate SQL endpoints and include the SQL execution engine. |         |
 //!
 //! ## Interacting with the Canister
 //!

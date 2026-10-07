@@ -26,8 +26,8 @@ control by principal.
 [dependencies]
 candid = { version = "0.10", features = ["value"] }
 ic-cdk = "0.19"
-ic-dbms-api = "0.6"
-ic-dbms-canister = "0.6"
+ic-dbms-api = "0.10"
+ic-dbms-canister = { version = "0.10", features = ["sql"] }
 serde = "1"
 ```
 
@@ -80,6 +80,8 @@ service : (IcDbmsCanisterArgs) -> {
   insert_posts : (PostInsertRequest, opt nat64) -> (Result);
   insert_users : (UserInsertRequest, opt nat64) -> (Result);
   rollback : (nat64) -> (Result);
+  sql : (text, vec Value, opt nat64) -> (Result_7);
+  sql_query : (text, vec Value, opt nat64) -> (Result_7) query;
   select_posts : (Query, opt nat64) -> (Result_2) query;
   select_users : (Query_1, opt nat64) -> (Result_3) query;
   update_posts : (PostUpdateRequest, opt nat64) -> (Result_1);

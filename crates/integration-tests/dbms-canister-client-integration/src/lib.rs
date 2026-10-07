@@ -7,7 +7,8 @@ use std::cell::RefCell;
 use candid::{CandidType, Deserialize, Principal};
 use ic_dbms_api::prelude::{
     AclGrant, AggregateFunction, AggregatedRow, DeleteBehavior, Filter, IcDbmsResult,
-    JoinColumnDef, MigrationOp, MigrationPolicy, Query, Table, Text, TransactionId, Uint32, Value,
+    JoinColumnDef, MigrationOp, MigrationPolicy, Query, SqlResult, Table, Text, TransactionId,
+    Uint32, Value,
 };
 use ic_dbms_client::prelude::{Client as _, IcDbmsCanisterClient};
 
@@ -175,6 +176,32 @@ pub async fn pending_migrations() -> Result<IcDbmsResult<Vec<MigrationOp>>, Stri
 pub async fn migrate(policy: MigrationPolicy) -> Result<IcDbmsResult<()>, String> {
     let client = new_client();
     client.migrate(policy).await.map_err(|e| e.to_string())
+}
+
+#[ic_cdk::update]
+pub async fn sql(
+    query: String,
+    params: Vec<Value>,
+    transaction_id: Option<TransactionId>,
+) -> Result<IcDbmsResult<SqlResult>, String> {
+    let client = new_client();
+    client
+        .sql(&query, params, transaction_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[ic_cdk::update]
+pub async fn sql_query(
+    query: String,
+    params: Vec<Value>,
+    transaction_id: Option<TransactionId>,
+) -> Result<IcDbmsResult<SqlResult>, String> {
+    let client = new_client();
+    client
+        .sql_query(&query, params, transaction_id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[inline]

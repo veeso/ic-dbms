@@ -8,6 +8,8 @@ mod pocket_ic;
 mod types;
 
 use candid::{CandidType, Principal};
+#[cfg(feature = "sql")]
+use ic_dbms_api::prelude::SqlResult;
 use ic_dbms_api::prelude::{
     AclGrant, AggregateFunction, AggregatedRow, DeleteBehavior, Filter, IcDbmsResult, InsertRecord,
     JoinColumnDef, MigrationOp, MigrationPolicy, Query, TableSchema, TransactionId, UpdateRecord,
@@ -160,4 +162,34 @@ pub trait Client {
         &self,
         policy: MigrationPolicy,
     ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<()>>>;
+
+    /// Runs one SQL statement through the `sql` update endpoint.
+    ///
+    /// `params` binds one value per `?` placeholder, in order. `BEGIN`
+    /// returns a transaction ID in [`SqlResult::TxBegin`]; pass it as
+    /// `transaction_id` to run later statements, `COMMIT` and `ROLLBACK`
+    /// inside that transaction. Requires the `sql` feature here and on the
+    /// canister.
+    #[cfg(feature = "sql")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "sql")))]
+    fn sql(
+        &self,
+        query: &str,
+        params: Vec<Value>,
+        transaction_id: Option<TransactionId>,
+    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<SqlResult>>>;
+
+    /// Runs one `SELECT` statement through the `sql_query` query endpoint.
+    ///
+    /// The canister refuses any other statement with
+    /// [`ic_dbms_api::prelude::SqlError::Unsupported`]. Requires the `sql`
+    /// feature here and on the canister.
+    #[cfg(feature = "sql")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "sql")))]
+    fn sql_query(
+        &self,
+        query: &str,
+        params: Vec<Value>,
+        transaction_id: Option<TransactionId>,
+    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<SqlResult>>>;
 }

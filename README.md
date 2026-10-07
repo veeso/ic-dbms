@@ -97,7 +97,8 @@ canister lives in [`crates/example`](./crates/example).
 ## Generated canister API
 
 The `DbmsCanister` macro generates these endpoints for every table, plus shared
-transaction, access control, and migration endpoints:
+transaction, access control, and migration endpoints. Enabling the `sql`
+feature adds the two SQL endpoints shown below:
 
 ```candid
 service : (IcDbmsCanisterArgs) -> {
@@ -122,6 +123,9 @@ service : (IcDbmsCanisterArgs) -> {
   has_drift : () -> (Result_3) query;
   migrate : (MigrationPolicy) -> (Result_1);
   pending_migrations : () -> (Result_5) query;
+  // SQL, with the `sql` feature
+  sql : (text, vec Value, opt nat64) -> (Result_10);
+  sql_query : (text, vec Value, opt nat64) -> (Result_10) query;
 }
 ```
 
@@ -140,7 +144,7 @@ data in a canister. It reflects each project's own documentation as of October
 | Latest release                      | 0.9.0 (April 2026)                                 | 0.5.0 (April 2026)                               | 2.1.0 (September 2026)                        | 0.264 (October 2026), pre-1.0                       | 0.7.2 (September 2025)             |
 | License                             | MIT                                                | MIT                                              | MIT or Apache-2.0                             | MIT or Apache-2.0                                   | Apache-2.0                         |
 | Query interface                     | Typed Rust query builder and generated Candid API  | SQL through `rusqlite`                           | SQL through its own facade                    | Typed Rust API; optional single-entity SQL subset   | Rust collection API                |
-| SQL                                 | No (planned)                                       | Full SQLite dialect                              | Full SQLite dialect, with FTS5 and JSON       | Subset: no joins, subqueries, or CTEs               | No                                 |
+| SQL                                 | Optional subset with joins and aggregates          | Full SQLite dialect                              | Full SQLite dialect, with FTS5 and JSON       | Subset: no joins, subqueries, or CTEs               | No                                 |
 | Schema definition                   | Rust structs and derive macros                     | SQL DDL                                          | SQL DDL                                       | Rust model macros and `build.rs`                    | Hand-written Rust types            |
 | Generated canister API              | Yes, typed endpoints per table                     | No                                               | No                                            | Admin endpoints only                                | No                                 |
 | Transactions                        | ACID, commit and rollback                          | SQLite transactions                              | One update call is one transaction            | Atomic batch of up to 64 entities in one store      | None                               |

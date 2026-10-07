@@ -141,6 +141,14 @@ ic-dbms-client = { version = "0.9", features = ["ic-agent"] }
 ic-dbms-client = { version = "0.9", features = ["pocket-ic"] }
 ```
 
+**For SQL endpoints:** enable the `sql` feature, together with any other
+feature you need:
+
+```toml
+[dependencies]
+ic-dbms-client = { version = "0.10", features = ["sql"] }
+```
+
 ---
 
 ## The Client Trait
@@ -198,6 +206,20 @@ pub trait Client {
     async fn has_drift(&self) -> Result<Result<bool, IcDbmsError>>;
     async fn pending_migrations(&self) -> Result<Result<Vec<MigrationOp>, IcDbmsError>>;
     async fn migrate(&self, policy: MigrationPolicy) -> Result<Result<(), IcDbmsError>>;
+
+    // SQL (requires the `sql` feature)
+    async fn sql(
+        &self,
+        query: &str,
+        params: Vec<Value>,
+        tx: Option<u64>,
+    ) -> Result<Result<SqlResult, IcDbmsError>>;
+    async fn sql_query(
+        &self,
+        query: &str,
+        params: Vec<Value>,
+        tx: Option<u64>,
+    ) -> Result<Result<SqlResult, IcDbmsError>>;
 }
 ```
 
@@ -407,6 +429,19 @@ client.acl_revoke(AclGrant::admin(operator)).await??;
 // Own grants, allowed for everyone
 let mine = client.my_permissions().await??;
 ```
+
+### SQL
+
+With the `sql` feature, `sql` runs any statement through the update
+endpoint and `sql_query` runs a `SELECT` through the query endpoint:
+
+```rust
+let rows = client
+    .sql_query("SELECT name FROM users WHERE id = ?", vec![Value::from(1u32)], None)
+    .await??;
+```
+
+See the [SQL guide](./sql.md) for results, transactions and permissions.
 
 ---
 

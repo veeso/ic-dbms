@@ -19,6 +19,12 @@ repository = { workspace = true }
 rust-version = { workspace = true }
 description = "ic-dbms-canister client library for interacting with the ic-dbms-canister."
 
+[features]
+default = []
+ic-agent = ["dep:ic-agent"]
+pocket-ic = ["dep:pocket-ic"]
+sql = ["ic-dbms-api/sql"]
+
 [dependencies]
 candid = { workspace = true }
 ic-agent = { workspace = true, optional = true }
@@ -32,15 +38,10 @@ serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["full"] }
 wasm-dbms-api = { workspace = true }
 
-[features]
-default = []
-ic-agent = ["dep:ic-agent"]
-pocket-ic = ["dep:pocket-ic"]
-
 [[example]]
 name = "client"
 path = "examples/client.rs"
 
 [package.metadata.docs.rs]
-features = ["ic-agent", "pocket-ic"]
+features = ["ic-agent", "pocket-ic", "sql"]
 rustdoc-args = ["--cfg", "docsrs"]

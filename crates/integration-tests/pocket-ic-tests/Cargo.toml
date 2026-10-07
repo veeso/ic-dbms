@@ -13,8 +13,8 @@ anyhow = { workspace = true }
 candid = { workspace = true }
 flate2 = { workspace = true }
 ic-agent = { workspace = true }
-ic-dbms-api = { workspace = true }
-ic-dbms-client = { workspace = true, features = ["ic-agent", "pocket-ic"] }
+ic-dbms-api = { workspace = true, features = ["sql"] }
+ic-dbms-client = { workspace = true, features = ["ic-agent", "pocket-ic", "sql"] }
 pocket-ic = { workspace = true }
 pocket-ic-harness = { workspace = true }
 reqwest = { workspace = true }
