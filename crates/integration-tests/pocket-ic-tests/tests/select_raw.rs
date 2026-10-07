@@ -5,10 +5,10 @@ use ic_dbms_api::prelude::{
 use ic_dbms_client::prelude::{Client as _, IcDbmsPocketIcClient};
 use pocket_ic_harness::PocketIcTestEnv;
 use pocket_ic_tests::table::{User, UserInsertRequest};
-use pocket_ic_tests::{TestCanisterSetup, TestEnvExt as _, admin};
+use pocket_ic_tests::{TestCanister, TestEnvExt as _, admin};
 
 #[pocket_ic_harness::test]
-async fn test_should_select_raw_all_columns(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_should_select_raw_all_columns(env: PocketIcTestEnv<TestCanister>) {
     let client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
 
     let insert_request = UserInsertRequest {
@@ -53,7 +53,7 @@ async fn test_should_select_raw_all_columns(env: PocketIcTestEnv<TestCanisterSet
 }
 
 #[pocket_ic_harness::test]
-async fn test_should_select_raw_specific_columns(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_should_select_raw_specific_columns(env: PocketIcTestEnv<TestCanister>) {
     let client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
 
     let insert_request = UserInsertRequest {
@@ -91,7 +91,7 @@ async fn test_should_select_raw_specific_columns(env: PocketIcTestEnv<TestCanist
 }
 
 #[pocket_ic_harness::test]
-async fn test_should_select_raw_with_limit_and_offset(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_should_select_raw_with_limit_and_offset(env: PocketIcTestEnv<TestCanister>) {
     let client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
 
     // Insert 3 users
@@ -137,7 +137,7 @@ async fn test_should_select_raw_with_limit_and_offset(env: PocketIcTestEnv<TestC
 }
 
 #[pocket_ic_harness::test]
-async fn test_should_fail_select_raw_unknown_table(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_should_fail_select_raw_unknown_table(env: PocketIcTestEnv<TestCanister>) {
     let query = Query::builder().all().build();
 
     let payload = Encode!(&"nonexistent".to_string(), &query, &None::<u64>)

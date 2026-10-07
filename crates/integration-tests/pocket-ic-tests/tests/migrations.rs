@@ -2,10 +2,10 @@ use candid::Encode;
 use ic_dbms_api::prelude::{IcDbmsResult, MigrationOp, MigrationPolicy};
 use ic_dbms_client::prelude::{Client as _, IcDbmsPocketIcClient};
 use pocket_ic_harness::PocketIcTestEnv;
-use pocket_ic_tests::{TestCanisterSetup, TestEnvExt as _, admin};
+use pocket_ic_tests::{TestCanister, TestEnvExt as _, admin};
 
 #[pocket_ic_harness::test]
-async fn test_should_report_no_drift_on_fresh_canister(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_should_report_no_drift_on_fresh_canister(env: PocketIcTestEnv<TestCanister>) {
     let client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
 
     let drift = client
@@ -18,7 +18,7 @@ async fn test_should_report_no_drift_on_fresh_canister(env: PocketIcTestEnv<Test
 }
 
 #[pocket_ic_harness::test]
-async fn test_should_return_empty_pending_migrations(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_should_return_empty_pending_migrations(env: PocketIcTestEnv<TestCanister>) {
     let client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
 
     let ops: Vec<MigrationOp> = client
@@ -31,7 +31,7 @@ async fn test_should_return_empty_pending_migrations(env: PocketIcTestEnv<TestCa
 }
 
 #[pocket_ic_harness::test]
-async fn test_should_migrate_noop_when_no_drift(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_should_migrate_noop_when_no_drift(env: PocketIcTestEnv<TestCanister>) {
     let client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
 
     client
@@ -49,7 +49,7 @@ async fn test_should_migrate_noop_when_no_drift(env: PocketIcTestEnv<TestCaniste
 }
 
 #[pocket_ic_harness::test]
-async fn test_should_call_through_wrapper_canister(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_should_call_through_wrapper_canister(env: PocketIcTestEnv<TestCanister>) {
     let wrapper = env.dbms_canister_client_integration();
 
     let drift: Result<IcDbmsResult<bool>, String> = env

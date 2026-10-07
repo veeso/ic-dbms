@@ -2,9 +2,9 @@ use ic_agent::Agent;
 use ic_dbms_client::prelude::{Client, IcDbmsPocketIcClient};
 use pocket_ic_harness::PocketIcTestEnv;
 
-use crate::{TestCanisterSetup, TestEnvExt, admin};
+use crate::{TestCanister, TestEnvExt, admin};
 
-pub async fn init_new_agent(ctx: &PocketIcTestEnv<TestCanisterSetup>, add_to_acl: bool) -> Agent {
+pub async fn init_new_agent(ctx: &PocketIcTestEnv<TestCanister>, add_to_acl: bool) -> Agent {
     let endpoint = ctx.endpoint().expect("context must be in live mode");
 
     let agent = Agent::builder()

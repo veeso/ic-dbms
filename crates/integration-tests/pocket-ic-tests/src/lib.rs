@@ -4,7 +4,7 @@ pub mod table;
 
 use candid::{Encode, Principal};
 use ic_dbms_api::prelude::{IcDbmsCanisterArgs, IcDbmsCanisterInitArgs};
-use pocket_ic_harness::{Canister, CanisterSetup, PocketIcTestEnv};
+use pocket_ic_harness::{Canister, PocketIcTestEnv};
 pub use pocket_ic_harness::{admin, alice, bob};
 
 pub use self::agent::init_new_agent;
@@ -33,6 +33,24 @@ impl Canister for TestCanister {
     fn all_canisters() -> &'static [Self] {
         &[Self::DbmsCanister, Self::DbmsCanisterClientIntegration]
     }
+
+    fn init_arg(&self, env: &PocketIcTestEnv<Self>) -> Vec<u8> {
+        match self {
+            TestCanister::DbmsCanister => {
+                Encode!(&IcDbmsCanisterArgs::Init(IcDbmsCanisterInitArgs {
+                    allowed_principals: Some(vec![
+                        admin(),
+                        env.canister_id(&TestCanister::DbmsCanisterClientIntegration)
+                    ]),
+                }))
+                .expect("failed to encode dbms canister init args")
+            }
+            TestCanister::DbmsCanisterClientIntegration => {
+                let dbms_canister = env.canister_id(&TestCanister::DbmsCanister);
+                Encode!(&dbms_canister).expect("Failed to encode init arg")
+            }
+        }
+    }
 }
 
 pub trait TestEnvExt {
@@ -40,42 +58,12 @@ pub trait TestEnvExt {
     fn dbms_canister_client_integration(&self) -> Principal;
 }
 
-impl<T> TestEnvExt for PocketIcTestEnv<T>
-where
-    T: CanisterSetup<Canister = TestCanister>,
-{
+impl TestEnvExt for PocketIcTestEnv<TestCanister> {
     fn dbms_canister(&self) -> Principal {
         self.canister_id(&TestCanister::DbmsCanister)
     }
 
     fn dbms_canister_client_integration(&self) -> Principal {
         self.canister_id(&TestCanister::DbmsCanisterClientIntegration)
-    }
-}
-
-pub struct TestCanisterSetup;
-
-impl CanisterSetup for TestCanisterSetup {
-    type Canister = TestCanister;
-
-    async fn setup(env: &mut pocket_ic_harness::PocketIcTestEnv<Self>)
-    where
-        Self: Sized,
-    {
-        let dbms_canister = env.canister_id(&TestCanister::DbmsCanister);
-        let dbms_canister_client_integration_canister =
-            env.canister_id(&TestCanister::DbmsCanisterClientIntegration);
-        // install dbms-canister
-        let init_arg = Encode!(&IcDbmsCanisterArgs::Init(IcDbmsCanisterInitArgs {
-            allowed_principals: Some(vec![admin(), dbms_canister_client_integration_canister]),
-        }))
-        .expect("failed to encode dbms canister init args");
-        env.install_canister(TestCanister::DbmsCanister, init_arg)
-            .await;
-
-        // install dbms-canister-client-integration canister
-        let init_arg = Encode!(&dbms_canister).expect("Failed to encode init arg");
-        env.install_canister(TestCanister::DbmsCanisterClientIntegration, init_arg)
-            .await;
     }
 }

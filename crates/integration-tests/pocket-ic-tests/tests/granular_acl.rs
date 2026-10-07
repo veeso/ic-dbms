@@ -4,9 +4,9 @@ use ic_dbms_api::prelude::{
     Query, RequiredPerm, TablePerms, TableSchema, Text, Uint32, Value,
 };
 use ic_dbms_client::prelude::{Client as _, IcDbmsPocketIcClient};
-use pocket_ic_harness::{CanisterSetup, PocketIcTestEnv};
+use pocket_ic_harness::{Canister, PocketIcTestEnv};
 use pocket_ic_tests::table::{Post, User, UserInsertRequest};
-use pocket_ic_tests::{TestCanister, TestCanisterSetup, TestEnvExt as _, admin, bob};
+use pocket_ic_tests::{TestCanister, TestEnvExt, admin, bob};
 
 fn user_record(id: u32, name: &str) -> UserInsertRequest {
     UserInsertRequest {
@@ -17,7 +17,7 @@ fn user_record(id: u32, name: &str) -> UserInsertRequest {
 }
 
 #[pocket_ic_harness::test]
-async fn test_no_perms_identity_is_denied(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_no_perms_identity_is_denied(env: PocketIcTestEnv<TestCanister>) {
     let client = IcDbmsPocketIcClient::new(env.dbms_canister(), bob(), &env.pic);
     let res = client
         .insert::<User>(User::table_name(), user_record(1, "bob"), None)
@@ -33,7 +33,7 @@ async fn test_no_perms_identity_is_denied(env: PocketIcTestEnv<TestCanisterSetup
 }
 
 #[pocket_ic_harness::test]
-async fn test_admin_can_run_any_crud(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_admin_can_run_any_crud(env: PocketIcTestEnv<TestCanister>) {
     let client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
     client
         .insert::<User>(User::table_name(), user_record(1, "ada"), None)
@@ -43,7 +43,7 @@ async fn test_admin_can_run_any_crud(env: PocketIcTestEnv<TestCanisterSetup>) {
 }
 
 #[pocket_ic_harness::test]
-async fn test_per_table_grant_isolates(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_per_table_grant_isolates(env: PocketIcTestEnv<TestCanister>) {
     let admin_client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
     admin_client
         .grant_table_perms(bob(), "users", TablePerms::READ)
@@ -67,7 +67,7 @@ async fn test_per_table_grant_isolates(env: PocketIcTestEnv<TestCanisterSetup>) 
 }
 
 #[pocket_ic_harness::test]
-async fn test_all_tables_grant_unions_with_per_table(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_all_tables_grant_unions_with_per_table(env: PocketIcTestEnv<TestCanister>) {
     let admin_client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
     admin_client
         .grant_all_tables_perms(bob(), TablePerms::READ)
@@ -94,7 +94,7 @@ async fn test_all_tables_grant_unions_with_per_table(env: PocketIcTestEnv<TestCa
 }
 
 #[pocket_ic_harness::test]
-async fn test_migration_bot_only_has_migrate(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_migration_bot_only_has_migrate(env: PocketIcTestEnv<TestCanister>) {
     let admin_client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
     admin_client
         .grant_migrate(bob())
@@ -119,7 +119,7 @@ async fn test_migration_bot_only_has_migrate(env: PocketIcTestEnv<TestCanisterSe
 }
 
 #[pocket_ic_harness::test]
-async fn test_acl_manager_can_grant(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_acl_manager_can_grant(env: PocketIcTestEnv<TestCanister>) {
     let admin_client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
     admin_client
         .grant_manage_acl(bob())
@@ -136,7 +136,7 @@ async fn test_acl_manager_can_grant(env: PocketIcTestEnv<TestCanisterSetup>) {
 }
 
 #[pocket_ic_harness::test]
-async fn test_init_with_explicit_admins_grants_full(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_init_with_explicit_admins_grants_full(env: PocketIcTestEnv<TestCanister>) {
     let admin_client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
     let identities = admin_client
         .list_identities()
@@ -157,7 +157,7 @@ async fn test_init_with_explicit_admins_grants_full(env: PocketIcTestEnv<TestCan
 }
 
 #[pocket_ic_harness::test]
-async fn test_my_perms_for_unprivileged_caller(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_my_perms_for_unprivileged_caller(env: PocketIcTestEnv<TestCanister>) {
     let bob_client = IcDbmsPocketIcClient::new(env.dbms_canister(), bob(), &env.pic);
     let perms = bob_client.my_perms().await.expect("call");
     assert!(!perms.admin);
@@ -169,7 +169,7 @@ async fn test_my_perms_for_unprivileged_caller(env: PocketIcTestEnv<TestCanister
 
 #[pocket_ic_harness::test]
 async fn test_transaction_with_no_perms_can_open_but_crud_fails(
-    env: PocketIcTestEnv<TestCanisterSetup>,
+    env: PocketIcTestEnv<TestCanister>,
 ) {
     let bob_client = IcDbmsPocketIcClient::new(env.dbms_canister(), bob(), &env.pic);
     let tx = bob_client.begin_transaction().await.expect("call");
@@ -186,9 +186,7 @@ async fn test_transaction_with_no_perms_can_open_but_crud_fails(
 }
 
 #[pocket_ic_harness::test]
-async fn test_revoke_table_perms_removes_only_specified_bits(
-    env: PocketIcTestEnv<TestCanisterSetup>,
-) {
+async fn test_revoke_table_perms_removes_only_specified_bits(env: PocketIcTestEnv<TestCanister>) {
     let admin_client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
     admin_client
         .grant_table_perms(bob(), "users", TablePerms::READ | TablePerms::INSERT)
@@ -215,7 +213,7 @@ async fn test_revoke_table_perms_removes_only_specified_bits(
 }
 
 #[pocket_ic_harness::test]
-async fn test_unknown_table_acl_grant_is_rejected(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_unknown_table_acl_grant_is_rejected(env: PocketIcTestEnv<TestCanister>) {
     let admin_client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
     let res = admin_client
         .grant_table_perms(bob(), "missing", TablePerms::READ)
@@ -229,7 +227,7 @@ async fn test_unknown_table_acl_grant_is_rejected(env: PocketIcTestEnv<TestCanis
 }
 
 #[pocket_ic_harness::test]
-async fn test_join_requires_read_on_joined_table(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_join_requires_read_on_joined_table(env: PocketIcTestEnv<TestCanister>) {
     let admin_client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
     admin_client
         .insert::<User>(User::table_name(), user_record(80, "joiner"), None)
@@ -262,7 +260,7 @@ async fn test_join_requires_read_on_joined_table(env: PocketIcTestEnv<TestCanist
 }
 
 #[pocket_ic_harness::test]
-async fn test_delete_perm_check(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_delete_perm_check(env: PocketIcTestEnv<TestCanister>) {
     let admin_client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
     admin_client
         .grant_table_perms(bob(), "users", TablePerms::READ)
@@ -289,39 +287,52 @@ async fn test_delete_perm_check(env: PocketIcTestEnv<TestCanisterSetup>) {
     ));
 }
 
-#[derive(Debug)]
-struct EmptyInitCanisterSetup;
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum EmptyTestCanister {
+    DbmsCanister,
+    DbmsCanisterClientIntegration,
+}
 
-impl CanisterSetup for EmptyInitCanisterSetup {
-    type Canister = TestCanister;
+impl Canister for EmptyTestCanister {
+    fn as_path(&self) -> &'static std::path::Path {
+        match self {
+            EmptyTestCanister::DbmsCanister => std::path::Path::new(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../../.artifact/example.wasm.gz"
+            )),
+            EmptyTestCanister::DbmsCanisterClientIntegration => std::path::Path::new(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../../.artifact/dbms_canister_client_integration.wasm.gz"
+            )),
+        }
+    }
 
-    async fn setup(env: &mut PocketIcTestEnv<Self>)
-    where
-        Self: Sized,
-    {
-        let dbms_canister = env.canister_id(&TestCanister::DbmsCanister);
-        let init_arg = Encode!(&IcDbmsCanisterArgs::Init(IcDbmsCanisterInitArgs {
-            allowed_principals: None,
-        }))
-        .expect("failed to encode dbms canister init args");
-        env.install_canister(TestCanister::DbmsCanister, init_arg)
-            .await;
+    fn all_canisters() -> &'static [Self] {
+        &[Self::DbmsCanister, Self::DbmsCanisterClientIntegration]
+    }
 
-        let integration_init_arg =
-            Encode!(&dbms_canister).expect("failed to encode integration init arg");
-        env.install_canister(
-            TestCanister::DbmsCanisterClientIntegration,
-            integration_init_arg,
-        )
-        .await;
+    fn init_arg(&self, env: &PocketIcTestEnv<Self>) -> Vec<u8> {
+        match self {
+            EmptyTestCanister::DbmsCanister => {
+                Encode!(&IcDbmsCanisterArgs::Init(IcDbmsCanisterInitArgs {
+                    allowed_principals: None,
+                }))
+                .expect("failed to encode dbms canister init args")
+            }
+            EmptyTestCanister::DbmsCanisterClientIntegration => {
+                let dbms_canister = env.canister_id(&EmptyTestCanister::DbmsCanister);
+                Encode!(&dbms_canister).expect("Failed to encode init arg")
+            }
+        }
     }
 }
 
 #[pocket_ic_harness::test]
 async fn test_empty_init_bootstraps_deployer_as_full_admin(
-    env: PocketIcTestEnv<EmptyInitCanisterSetup>,
+    env: PocketIcTestEnv<EmptyTestCanister>,
 ) {
-    let admin_client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
+    let dbms_canister = env.canister_id(&EmptyTestCanister::DbmsCanister);
+    let admin_client = IcDbmsPocketIcClient::new(dbms_canister, admin(), &env.pic);
     let identities = admin_client
         .list_identities()
         .await

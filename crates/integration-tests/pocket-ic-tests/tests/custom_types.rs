@@ -4,12 +4,10 @@ use ic_dbms_api::prelude::{
 use ic_dbms_client::prelude::{Client as _, IcDbmsPocketIcClient};
 use pocket_ic_harness::PocketIcTestEnv;
 use pocket_ic_tests::table::{Project, ProjectInsertRequest, ProjectUpdateRequest};
-use pocket_ic_tests::{TestCanisterSetup, TestEnvExt as _, admin};
+use pocket_ic_tests::{TestCanister, TestEnvExt as _, admin};
 
 #[pocket_ic_harness::test]
-async fn test_should_insert_and_query_project_with_custom_type(
-    env: PocketIcTestEnv<TestCanisterSetup>,
-) {
+async fn test_should_insert_and_query_project_with_custom_type(env: PocketIcTestEnv<TestCanister>) {
     let client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
 
     let owner = Principal(candid::Principal::from_text("aaaaa-aa").unwrap());
@@ -42,7 +40,7 @@ async fn test_should_insert_and_query_project_with_custom_type(
 }
 
 #[pocket_ic_harness::test]
-async fn test_should_filter_project_by_custom_type(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_should_filter_project_by_custom_type(env: PocketIcTestEnv<TestCanister>) {
     let client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
 
     let owner_a = Principal(candid::Principal::from_text("aaaaa-aa").unwrap());
@@ -81,7 +79,7 @@ async fn test_should_filter_project_by_custom_type(env: PocketIcTestEnv<TestCani
 }
 
 #[pocket_ic_harness::test]
-async fn test_should_update_project_custom_type_field(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_should_update_project_custom_type_field(env: PocketIcTestEnv<TestCanister>) {
     let client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
 
     let original_owner = Principal(candid::Principal::from_text("aaaaa-aa").unwrap());

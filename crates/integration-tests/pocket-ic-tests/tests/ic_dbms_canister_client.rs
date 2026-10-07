@@ -4,10 +4,10 @@ use ic_dbms_api::prelude::{
 };
 use pocket_ic_harness::PocketIcTestEnv;
 use pocket_ic_tests::table::{UserInsertRequest, UserRecord, UserUpdateRequest};
-use pocket_ic_tests::{PocketIcClient, TestCanisterSetup, TestEnvExt as _, admin, bob};
+use pocket_ic_tests::{PocketIcClient, TestCanister, TestEnvExt as _, admin, bob};
 
 #[pocket_ic_harness::test]
-async fn test_should_grant_and_revoke_admin(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_should_grant_and_revoke_admin(env: PocketIcTestEnv<TestCanister>) {
     use ic_dbms_api::prelude::IdentityPerms;
 
     let client = PocketIcClient::new(env.dbms_canister_client_integration(), admin(), &env.pic);
@@ -42,7 +42,7 @@ async fn test_should_grant_and_revoke_admin(env: PocketIcTestEnv<TestCanisterSet
 }
 
 #[pocket_ic_harness::test]
-async fn test_should_begin_commit_transaction(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_should_begin_commit_transaction(env: PocketIcTestEnv<TestCanister>) {
     let client = PocketIcClient::new(env.dbms_canister_client_integration(), admin(), &env.pic);
 
     // Begin transaction
@@ -67,7 +67,7 @@ async fn test_should_begin_commit_transaction(env: PocketIcTestEnv<TestCanisterS
 }
 
 #[pocket_ic_harness::test]
-async fn test_should_begin_rollback_transaction(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_should_begin_rollback_transaction(env: PocketIcTestEnv<TestCanister>) {
     let client = PocketIcClient::new(env.dbms_canister_client_integration(), admin(), &env.pic);
 
     // Begin transaction
@@ -92,7 +92,7 @@ async fn test_should_begin_rollback_transaction(env: PocketIcTestEnv<TestCaniste
 }
 
 #[pocket_ic_harness::test]
-async fn test_should_insert_select_update_delete(env: PocketIcTestEnv<TestCanisterSetup>) {
+async fn test_should_insert_select_update_delete(env: PocketIcTestEnv<TestCanister>) {
     let client = PocketIcClient::new(env.dbms_canister_client_integration(), admin(), &env.pic);
 
     // Insert a record
