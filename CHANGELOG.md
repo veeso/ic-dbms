@@ -2,6 +2,36 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.10.0
+
+Released on 2026-10-07
+
+### Breaking changes
+
+- **canister:** grant per-table permissions in the access control list (#7)
+
+> Permission and AclEntry are removed. acl_grant and acl_revoke take an AclGrant, acl_list and my_permissions return Vec<AclGrant>, and AclError::AccessDenied now carries the required AclPermission and the table.
+
+### Added
+
+- **canister:** track transaction ownership in the canister (#6)
+
+> - feat!: migrate to wasm-dbms 0.10
+>
+> wasm-dbms 0.10 removes the engine access control list and stops recording who opened a transaction. Adapt the canister runtime, the DbmsCanister macro, the clients, the wrapper canister and the PocketIC tests to the new signatures: DbmsContext, WasmDbmsDatabase and DatabaseSchema lose their access-control type parameter, begin_transaction takes no owner and has_transaction takes no caller. Access control and transaction ownership are re-added in the canister by the next two commits of this branch.
+
+- Breaking: **canister:** grant per-table permissions in the access control list (#7)
+
+> The reserved ic_dbms_acl table now stores one row per grant: a principal, an AclPermission (Admin, Read, Insert, Update, Delete) and an optional table, where no table means every table. Every generated endpoint checks the matching permission: select and aggregate need Read, insert, update and delete need the matching write permission, the untyped select needs Read on every joined table and eager relation, cascade deletes need Delete on every referencing table, and opening a transaction needs at least one grant. ACL management still needs Admin; migrations need Admin or a controller. The clients and the wrapper canister use the new AclGrant type.
+
+- **canister:** expose sql through canister endpoints (#8)
+
+> Add an opt-in sql feature to ic-dbms-canister. With it, the DbmsCanister derive generates an sql update endpoint and an sql_query query endpoint that run statements through wasm-dbms-sql. Both take an optional transaction id. Statements are checked against the access control list with the same rules as the typed endpoints, tables reserved for ic-dbms are hidden from SQL, and BEGIN, COMMIT and ROLLBACK go through the transaction ownership ledger. sql_query refuses every statement that is not a SELECT. ic-dbms-api gains the IcDbmsError::Sql variant and ic-dbms-client gains Client::sql and Client::sql_query behind sql features. A new guide documents the feature.
+
+### Build
+
+- bump pocket-ic-harness to 16.0.0 (#4)
+
 ## 0.9.0
 
 Released on 2026-04-28
