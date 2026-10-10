@@ -1,11 +1,9 @@
 use candid::Encode;
-use ic_dbms_api::prelude::{
-    Filter, IcDbmsResult, JoinColumnDef, Query, TableSchema, Uint32, Value,
-};
+use ic_dbms_api::prelude::{Filter, IcDbmsResult, Query, SelectOutput, TableSchema, Uint32, Value};
 use ic_dbms_client::prelude::{Client as _, IcDbmsPocketIcClient};
 use pocket_ic_harness::PocketIcTestEnv;
-use pocket_ic_tests::table::{User, UserInsertRequest};
-use pocket_ic_tests::{TestCanister, TestEnvExt as _, admin};
+use pocket_ic_tests::table::{Post, PostInsertRequest, User, UserInsertRequest};
+use pocket_ic_tests::{PocketIcClient, TestCanister, TestEnvExt as _, admin};
 
 #[pocket_ic_harness::test]
 async fn test_should_select_raw_all_columns(env: PocketIcTestEnv<TestCanister>) {
@@ -33,7 +31,8 @@ async fn test_should_select_raw_all_columns(env: PocketIcTestEnv<TestCanister>) 
         .await
         .expect("failed to call canister");
 
-    let rows = result.expect("select_raw should succeed");
+    let result = result.expect("select_raw should succeed");
+    let rows = result.as_raw().expect("query without joins returns Raw");
     assert_eq!(rows.len(), 1);
 
     let row = &rows[0];
@@ -76,12 +75,13 @@ async fn test_should_select_raw_specific_columns(env: PocketIcTestEnv<TestCanist
     let payload =
         Encode!(&"users".to_string(), &query, &None::<u64>).expect("failed to encode payload");
 
-    let result: IcDbmsResult<Vec<Vec<(JoinColumnDef, Value)>>> = env
+    let result: IcDbmsResult<SelectOutput> = env
         .query(env.dbms_canister(), admin(), "select", payload)
         .await
         .expect("failed to call canister");
 
-    let rows = result.expect("select_raw should succeed");
+    let result = result.expect("select_raw should succeed");
+    let rows = result.as_raw().expect("query without joins returns Raw");
     assert_eq!(rows.len(), 1);
 
     let row = &rows[0];
@@ -120,12 +120,13 @@ async fn test_should_select_raw_with_limit_and_offset(env: PocketIcTestEnv<TestC
     let payload =
         Encode!(&"users".to_string(), &query, &None::<u64>).expect("failed to encode payload");
 
-    let result: IcDbmsResult<Vec<Vec<(JoinColumnDef, Value)>>> = env
+    let result: IcDbmsResult<SelectOutput> = env
         .query(env.dbms_canister(), admin(), "select", payload)
         .await
         .expect("failed to call canister");
 
-    let rows = result.expect("select_raw should succeed");
+    let result = result.expect("select_raw should succeed");
+    let rows = result.as_raw().expect("query without joins returns Raw");
     assert_eq!(rows.len(), 2);
 
     // Should skip LimitA (offset=1), return LimitB and LimitC
@@ -143,10 +144,82 @@ async fn test_should_fail_select_raw_unknown_table(env: PocketIcTestEnv<TestCani
     let payload = Encode!(&"nonexistent".to_string(), &query, &None::<u64>)
         .expect("failed to encode payload");
 
-    let result: IcDbmsResult<Vec<Vec<(JoinColumnDef, Value)>>> = env
+    let result: IcDbmsResult<SelectOutput> = env
         .query(env.dbms_canister(), admin(), "select", payload)
         .await
         .expect("failed to call canister");
 
     assert!(result.is_err(), "should fail for unknown table");
+}
+
+#[pocket_ic_harness::test]
+async fn test_should_select_joined_through_direct_and_wrapper_clients(
+    env: PocketIcTestEnv<TestCanister>,
+) {
+    let client = IcDbmsPocketIcClient::new(env.dbms_canister(), admin(), &env.pic);
+    client
+        .insert::<User>(
+            "users",
+            UserInsertRequest {
+                id: 110.into(),
+                name: "JoinedAlice".into(),
+                email: "joined@example.com".into(),
+            },
+            None,
+        )
+        .await
+        .expect("call")
+        .expect("insert user");
+    client
+        .insert::<Post>(
+            "posts",
+            PostInsertRequest {
+                id: 210.into(),
+                title: "Joined post".into(),
+                content: "Content".into(),
+                user: 110.into(),
+            },
+            None,
+        )
+        .await
+        .expect("call")
+        .expect("insert post");
+    let wrapper = PocketIcClient::new(env.dbms_canister_client_integration(), admin(), &env.pic);
+
+    for id in [110u32, 999u32] {
+        let query = Query::builder()
+            .field("users.id")
+            .field("posts.id")
+            .inner_join("posts", "users.id", "posts.user")
+            .and_where(Filter::eq("users.id", Value::from(id)))
+            .build();
+        let direct = client
+            .select_raw("users", query.clone(), None)
+            .await
+            .expect("direct call")
+            .expect("direct join");
+        let wrapped: Result<IcDbmsResult<SelectOutput>, String> = wrapper
+            .update(
+                "select_raw",
+                Encode!(&query, &None::<u64>).expect("payload"),
+            )
+            .await
+            .expect("wrapper call");
+        let wrapped = wrapped.expect("client call").expect("wrapper join");
+        assert_eq!(direct, wrapped);
+        let joined = direct.as_joined().expect("Joined variant");
+        assert_eq!(joined.columns.len(), 2);
+        assert_eq!(joined.columns[0].table.as_deref(), Some("users"));
+        assert_eq!(joined.columns[1].table.as_deref(), Some("posts"));
+        assert_eq!(joined.columns[0].name, "id");
+        assert_eq!(joined.columns[1].name, "id");
+        if id == 110 {
+            assert_eq!(
+                joined.rows,
+                vec![vec![Value::from(110u32), Value::from(210u32)]]
+            );
+        } else {
+            assert!(joined.rows.is_empty());
+        }
+    }
 }

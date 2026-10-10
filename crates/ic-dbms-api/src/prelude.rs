@@ -8,3 +8,5 @@ pub use crate::acl::{AclError, AclGrant, AclPermission, AclRequirement};
 pub use crate::error::{IcDbmsError, IcDbmsResult};
 pub use crate::init::{IcDbmsCanisterArgs, IcDbmsCanisterInitArgs, IcDbmsCanisterUpgradeArgs};
 pub use crate::principal::Principal;
+#[doc(inline)]
+pub use crate::select::{SelectOutput, SelectRow};

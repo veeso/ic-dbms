@@ -46,5 +46,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
+    // Borrow column-value pairs from an untyped result.
+    let result = client
+        .select_raw(User::table_name(), Query::builder().all().build(), None)
+        .await??;
+    for row in result.iter() {
+        for (column, value) in row.iter() {
+            println!("{name}: {value:?}", name = column.name);
+        }
+    }
+
     Ok(())
 }

@@ -106,6 +106,16 @@ ic_cdk::export_candid!();
 For each table, the macro generates five CRUD/aggregate endpoints plus shared transaction and ACL endpoints:
 
 ```candid
+type JoinResultSet = record {
+  columns : vec JoinColumnDef;
+  rows : vec vec Value;
+};
+type SelectOutput = variant {
+  Raw : vec vec record { JoinColumnDef; Value };
+  Joined : JoinResultSet;
+};
+type Result_SelectOutput = variant { Ok : SelectOutput; Err : IcDbmsError };
+
 service : (IcDbmsCanisterArgs) -> {
   // Per-table CRUD (example for "users" table)
   insert_users : (UserInsertRequest, opt nat64) -> (Result);
@@ -120,6 +130,9 @@ service : (IcDbmsCanisterArgs) -> {
   aggregate_posts : (Query, vec AggregateFunction, opt nat64) -> (Result_Vec_AggregatedRow) query;
   update_posts : (PostUpdateRequest, opt nat64) -> (Result_u64);
   delete_posts : (DeleteBehavior, opt Filter, opt nat64) -> (Result_u64);
+
+  // Untyped select (shared)
+  select : (text, Query, opt nat64) -> (Result_SelectOutput) query;
 
   // Transaction methods (shared)
   begin_transaction : () -> (Result_TransactionId);
@@ -169,6 +182,19 @@ table. The `vec AggregateFunction` parameter lists `COUNT(*)` / `COUNT(col)` /
 `group_by`, `having`, `order_by`, `limit`, and `offset`. See the
 [generic Query API reference](https://wasm-dbms.cc/reference/query.html#aggregate-types) for
 type definitions and the [aggregate pipeline](https://wasm-dbms.cc/reference/query.html#execution-order).
+
+**Untyped select endpoint:** `select(table, query, transaction_id)` returns
+`SelectOutput::Raw` for queries without joins and `SelectOutput::Joined` for
+queries with joins. Raw rows contain `(JoinColumnDef, Value)` pairs, with
+`table = None`. Joined results store column definitions once in `columns`,
+including source table names, and values in `rows` in the same column order.
+Joined results retain column metadata even when no rows match.
+
+This changes the Candid response from a vector of rows to a variant. Regenerate
+Candid bindings and update callers to handle `Raw` and `Joined`. Typed
+`select_<table>` endpoints retain their existing return types. Rust clients
+use `Client::select_raw` for the shared endpoint; see
+[Untyped Select](../guides/client-api.md#untyped-select).
 
 **SQL endpoints:** with the `sql` feature of `ic-dbms-canister` enabled,
 the derive also emits `sql` and `sql_query`. Without the feature neither

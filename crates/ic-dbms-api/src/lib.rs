@@ -43,5 +43,6 @@ mod error;
 mod init;
 pub mod prelude;
 mod principal;
+mod select;
 #[cfg(test)]
 mod tests;

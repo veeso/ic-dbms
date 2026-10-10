@@ -271,6 +271,49 @@ let query = Query::builder()
 let users = client.select::<User>(User::table_name(), query, None).await??;
 ```
 
+### Untyped Select
+
+All three client implementations expose `select_raw(table, query, transaction_id)`
+for the shared `select` endpoint. It returns `SelectOutput`, without requiring a
+record type: `Raw` for a single-table query or `Joined` when the query has joins.
+This replaces the previous vector return type; use `as_raw()` to access
+single-table rows or `as_joined()` to access shared join columns and value rows.
+Both accessors return `None` for the other variant.
+
+```rust
+use ic_dbms_api::prelude::{Query, SelectOutput};
+use ic_dbms_client::prelude::Client as _;
+
+let result: SelectOutput = client
+    .select_raw("users", Query::builder().all().build(), None)
+    .await??;
+for row in result.iter() {
+    for (column, value) in row.iter() {
+        println!("{name}: {value:?}", name = column.name);
+    }
+}
+
+let query = Query::builder()
+    .all()
+    .inner_join("posts", "users.id", "posts.user")
+    .build();
+let result = client.select_raw("users", query, None).await??;
+if let Some(joined) = result.as_joined() {
+    // Qualify names when both tables have an id column.
+    let index = joined.column_index("posts.id").expect("posts.id column");
+    for values in &joined.rows {
+        println!("Post: {id:?}", id = values[index]);
+    }
+}
+```
+
+`len()` and `is_empty()` report row counts for either variant. The shared
+`iter()` borrows column-value pairs without cloning or expanding joined
+metadata. Joined results retain columns even when empty; empty raw results
+contain no column metadata. See the engine's
+[join query documentation](https://wasm-dbms.cc/reference/query.html) for query
+construction and semantics.
+
 ### Aggregate
 
 Aggregate queries dispatch to the per-table `aggregate_<table>` endpoint
