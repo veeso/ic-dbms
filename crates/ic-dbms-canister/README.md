@@ -25,10 +25,13 @@ control by principal.
 ```toml
 [dependencies]
 candid = { version = "0.10", features = ["value"] }
-ic-cdk = "0.19"
-ic-dbms-api = "0.10"
-ic-dbms-canister = { version = "0.10", features = ["sql"] }
-serde = "1"
+ic-cdk = "0.20"
+ic-dbms-api = "0.11"
+ic-dbms-canister = { version = "0.11", features = ["sql"] }
+serde = { version = "1", features = ["derive"] }
+wasm-dbms = "0.11"
+wasm-dbms-api = "0.11"
+wasm-dbms-memory = "0.11"
 ```
 
 ### Define tables
@@ -36,10 +39,11 @@ serde = "1"
 ```rust
 use candid::CandidType;
 use ic_dbms_api::prelude::{Nullable, Text, Uint32, Uint64};
-use ic_dbms_canister::prelude::{DbmsCanister, Table};
+use ic_dbms_canister::prelude::{DatabaseSchema, DbmsCanister, Table};
 use serde::Deserialize;
 
 #[derive(Debug, Table, CandidType, Deserialize, Clone, PartialEq, Eq)]
+#[candid]
 #[table = "users"]
 pub struct User {
     #[primary_key]
@@ -50,6 +54,7 @@ pub struct User {
 }
 
 #[derive(Debug, Table, CandidType, Deserialize, Clone, PartialEq, Eq)]
+#[candid]
 #[table = "posts"]
 pub struct Post {
     #[primary_key]
@@ -60,7 +65,7 @@ pub struct Post {
     author: Uint32,
 }
 
-#[derive(DbmsCanister)]
+#[derive(DatabaseSchema, DbmsCanister)]
 #[tables(User = "users", Post = "posts")]
 pub struct IcDbmsCanisterGenerator;
 ```

@@ -57,7 +57,7 @@ ic-dbms provides three client implementations for different use cases:
 For calls from one IC canister to another:
 
 ```rust
-use ic_dbms_client::{IcDbmsCanisterClient, Client as _};
+use ic_dbms_client::prelude::{IcDbmsCanisterClient, Client as _};
 use candid::Principal;
 
 // In your canister code
@@ -73,7 +73,7 @@ let users = client.select::<User>(User::table_name(), query, None).await??;
 For external applications using the IC Agent:
 
 ```rust
-use ic_dbms_client::{IcDbmsAgentClient, Client as _};
+use ic_dbms_client::prelude::{IcDbmsAgentClient, Client as _};
 use ic_agent::Agent;
 use candid::Principal;
 
@@ -86,7 +86,7 @@ let agent = Agent::builder()
 agent.fetch_root_key().await?;  // Only needed for local replica
 
 let dbms_canister_id = Principal::from_text("rrkah-fqaaa-aaaaa-aaaaq-cai").unwrap();
-let client = IcDbmsAgentClient::new(dbms_canister_id, &agent);
+let client = IcDbmsAgentClient::new(&agent, dbms_canister_id);
 
 // Use the client
 let users = client.select::<User>(User::table_name(), query, None).await??;
@@ -97,11 +97,11 @@ let users = client.select::<User>(User::table_name(), query, None).await??;
 For integration tests using PocketIC:
 
 ```rust
-use ic_dbms_client::{IcDbmsPocketIcClient, Client as _};
-use pocket_ic::PocketIc;
+use ic_dbms_client::prelude::{IcDbmsPocketIcClient, Client as _};
+use pocket_ic::nonblocking::PocketIc;
 use candid::Principal;
 
-let pic = PocketIc::new();
+let pic = PocketIc::new().await;
 // ... setup canister ...
 
 let client = IcDbmsPocketIcClient::new(
@@ -124,21 +124,21 @@ Add `ic-dbms-client` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-ic-dbms-client = "0.6"
+ic-dbms-client = "0.11"
 ```
 
 **For external applications:**
 
 ```toml
 [dependencies]
-ic-dbms-client = { version = "0.9", features = ["ic-agent"] }
+ic-dbms-client = { version = "0.11", features = ["ic-agent"] }
 ```
 
 **For integration tests:**
 
 ```toml
 [dev-dependencies]
-ic-dbms-client = { version = "0.9", features = ["pocket-ic"] }
+ic-dbms-client = { version = "0.11", features = ["pocket-ic"] }
 ```
 
 **For SQL endpoints:** enable the `sql` feature, together with any other
@@ -146,7 +146,7 @@ feature you need:
 
 ```toml
 [dependencies]
-ic-dbms-client = { version = "0.10", features = ["sql"] }
+ic-dbms-client = { version = "0.11", features = ["sql"] }
 ```
 
 ---
@@ -156,70 +156,85 @@ ic-dbms-client = { version = "0.10", features = ["sql"] }
 All clients implement the `Client` trait, providing a consistent API:
 
 ```rust
+// Simplified: every method returns
+// `impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<T>>>`.
 pub trait Client {
+    fn principal(&self) -> Principal;
+
     // CRUD Operations
-    async fn insert<T: Table>(
+    async fn insert<T: TableSchema>(
         &self,
         table: &str,
-        record: T::InsertRequest,
-        tx: Option<u64>,
-    ) -> Result<Result<(), IcDbmsError>>;
-    async fn select<T: Table>(
+        record: T::Insert,
+        tx: Option<TransactionId>,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>>;
+    async fn select<T: TableSchema>(
         &self,
         table: &str,
-        query: Query<T>,
-        tx: Option<u64>,
-    ) -> Result<Result<Vec<T::Record>, IcDbmsError>>;
-    async fn aggregate<T: Table>(
+        query: Query,
+        tx: Option<TransactionId>,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<T::Record>>>;
+    async fn select_raw(
+        &self,
+        table: &str,
+        query: Query,
+        tx: Option<TransactionId>,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<SelectOutput>>;
+    async fn aggregate<T: TableSchema>(
         &self,
         table: &str,
         query: Query,
         aggregates: Vec<AggregateFunction>,
-        tx: Option<u64>,
-    ) -> Result<Result<Vec<AggregatedRow>, IcDbmsError>>;
-    async fn update<T: Table>(
+        tx: Option<TransactionId>,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<AggregatedRow>>>;
+    async fn update<T: TableSchema>(
         &self,
         table: &str,
-        update: T::UpdateRequest,
-        tx: Option<u64>,
-    ) -> Result<Result<u64, IcDbmsError>>;
-    async fn delete<T: Table>(
+        patch: T::Update,
+        tx: Option<TransactionId>,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<u64>>;
+    async fn delete<T: TableSchema>(
         &self,
         table: &str,
-        behavior: DeleteBehavior,
+        behaviour: DeleteBehavior,
         filter: Option<Filter>,
-        tx: Option<u64>,
-    ) -> Result<Result<u64, IcDbmsError>>;
+        tx: Option<TransactionId>,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<u64>>;
 
     // Transactions
-    async fn begin_transaction(&self) -> Result<Result<u64, IcDbmsError>>;
-    async fn commit(&self, tx: u64) -> Result<Result<(), IcDbmsError>>;
-    async fn rollback(&self, tx: u64) -> Result<Result<(), IcDbmsError>>;
+    async fn begin_transaction(&self) -> IcDbmsCanisterClientResult<IcDbmsResult<TransactionId>>;
+    async fn commit(&self, tx: TransactionId) -> IcDbmsCanisterClientResult<IcDbmsResult<()>>;
+    async fn rollback(&self, tx: TransactionId) -> IcDbmsCanisterClientResult<IcDbmsResult<()>>;
 
     // Access control
-    async fn acl_grant(&self, grant: AclGrant) -> Result<Result<(), IcDbmsError>>;
-    async fn acl_revoke(&self, grant: AclGrant) -> Result<Result<(), IcDbmsError>>;
-    async fn acl_list(&self) -> Result<Result<Vec<AclGrant>, IcDbmsError>>;
-    async fn my_permissions(&self) -> Result<Result<Vec<AclGrant>, IcDbmsError>>;
+    async fn acl_grant(&self, grant: AclGrant) -> IcDbmsCanisterClientResult<IcDbmsResult<()>>;
+    async fn acl_revoke(&self, grant: AclGrant) -> IcDbmsCanisterClientResult<IcDbmsResult<()>>;
+    async fn acl_list(&self) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<AclGrant>>>;
+    async fn my_permissions(&self) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<AclGrant>>>;
 
     // Schema Migrations
-    async fn has_drift(&self) -> Result<Result<bool, IcDbmsError>>;
-    async fn pending_migrations(&self) -> Result<Result<Vec<MigrationOp>, IcDbmsError>>;
-    async fn migrate(&self, policy: MigrationPolicy) -> Result<Result<(), IcDbmsError>>;
+    async fn has_drift(&self) -> IcDbmsCanisterClientResult<IcDbmsResult<bool>>;
+    async fn pending_migrations(
+        &self,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<Vec<MigrationOp>>>;
+    async fn migrate(
+        &self,
+        policy: MigrationPolicy,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<()>>;
 
     // SQL (requires the `sql` feature)
     async fn sql(
         &self,
         query: &str,
         params: Vec<Value>,
-        tx: Option<u64>,
-    ) -> Result<Result<SqlResult, IcDbmsError>>;
+        tx: Option<TransactionId>,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<SqlResult>>;
     async fn sql_query(
         &self,
         query: &str,
         params: Vec<Value>,
-        tx: Option<u64>,
-    ) -> Result<Result<SqlResult, IcDbmsError>>;
+        tx: Option<TransactionId>,
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<SqlResult>>;
 }
 ```
 
@@ -235,7 +250,7 @@ pub trait Client {
 ### Insert
 
 ```rust
-use ic_dbms_client::Client as _;
+use ic_dbms_client::prelude::Client as _;
 use my_schema::{User, UserInsertRequest};
 
 let user = UserInsertRequest {
@@ -264,8 +279,8 @@ let users: Vec<UserRecord> = client
 
 // Select with filter
 let query = Query::builder()
-    .filter(Filter::eq("status", Value::Text("active".into())))
-    .order_by("created_at", OrderDirection::Descending)
+    .and_where(Filter::eq("status", Value::Text("active".into())))
+    .order_by_desc("created_at")
     .limit(10)
     .build();
 let users = client.select::<User>(User::table_name(), query, None).await??;
@@ -360,10 +375,11 @@ also reference any column listed in `group_by`.
 ```rust
 use my_schema::UserUpdateRequest;
 
-let update = UserUpdateRequest::builder()
-    .set_email("new@example.com".into())
-    .filter(Filter::eq("id", Value::Uint32(1.into())))
-    .build();
+let update = UserUpdateRequest {
+    email: Some("new@example.com".into()),
+    where_clause: Some(Filter::eq("id", Value::Uint32(1.into()))),
+    ..Default::default()
+};
 
 let affected_rows: u64 = client
     .update::<User>(User::table_name(), update, None)
@@ -537,7 +553,7 @@ A backend canister calling the database canister:
 ```rust
 use candid::Principal;
 use ic_cdk::update;
-use ic_dbms_client::{Client as _, IcDbmsCanisterClient};
+use ic_dbms_client::prelude::{Client as _, IcDbmsCanisterClient};
 
 const DBMS_CANISTER: &str = "rrkah-fqaaa-aaaaa-aaaaq-cai";
 
@@ -583,7 +599,9 @@ A CLI tool or backend service:
 use candid::Principal;
 use ic_agent::Agent;
 use ic_agent::identity::BasicIdentity;
-use ic_dbms_client::{Client as _, IcDbmsAgentClient};
+use ic_dbms_api::prelude::{Query, TableSchema as _};
+use ic_dbms_client::prelude::{Client as _, IcDbmsAgentClient};
+use my_schema::User;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -600,7 +618,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // agent.fetch_root_key().await?;
 
     let canister_id = Principal::from_text("rrkah-fqaaa-aaaaa-aaaaq-cai")?;
-    let client = IcDbmsAgentClient::new(canister_id, &agent);
+    let client = IcDbmsAgentClient::new(&agent, canister_id);
 
     // List all users
     let query = Query::builder().all().build();
@@ -608,8 +626,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .select::<User>(User::table_name(), query, None)
         .await??;
 
+    // Record fields are `Option` because a query can select a subset of columns.
     for user in users {
-        println!("User: {} ({})", user.name, user.email);
+        println!("User: {:?} ({:?})", user.name, user.email);
     }
 
     Ok(())
@@ -622,24 +641,25 @@ Testing with PocketIC:
 
 ```rust
 use candid::{Principal, encode_one};
-use ic_dbms_client::{Client as _, IcDbmsPocketIcClient};
-use pocket_ic::PocketIc;
+use ic_dbms_client::prelude::{Client as _, IcDbmsPocketIcClient};
+use pocket_ic::nonblocking::PocketIc;
 
 #[tokio::test]
 async fn test_user_crud() {
     // Setup PocketIC
-    let pic = PocketIc::new();
+    let pic = PocketIc::new().await;
 
     // Create and install canister
-    let canister_id = pic.create_canister();
-    pic.add_cycles(canister_id, 2_000_000_000_000);
+    let canister_id = pic.create_canister().await;
+    pic.add_cycles(canister_id, 2_000_000_000_000).await;
 
     let wasm = std::fs::read("path/to/canister.wasm").unwrap();
     let init_args = IcDbmsCanisterArgs::Init(IcDbmsCanisterInitArgs {
-        allowed_principals: vec![admin_principal],
+        allowed_principals: Some(vec![admin_principal]),
     });
 
-    pic.install_canister(canister_id, wasm, encode_one(init_args).unwrap(), None);
+    pic.install_canister(canister_id, wasm, encode_one(init_args).unwrap(), None)
+        .await;
 
     // Create client
     let client = IcDbmsPocketIcClient::new(canister_id, admin_principal, &pic);
@@ -664,13 +684,15 @@ async fn test_user_crud() {
         .unwrap()
         .unwrap();
     assert_eq!(users.len(), 1);
-    assert_eq!(users[0].name.as_str(), "Test User");
+    // Record fields are `Option` because a query can select a subset of columns.
+    assert_eq!(users[0].name.as_ref().unwrap().as_str(), "Test User");
 
     // Test update
-    let update = UserUpdateRequest::builder()
-        .set_name("Updated User".into())
-        .filter(Filter::eq("id", Value::Uint32(1.into())))
-        .build();
+    let update = UserUpdateRequest {
+        name: Some("Updated User".into()),
+        where_clause: Some(Filter::eq("id", Value::Uint32(1.into()))),
+        ..Default::default()
+    };
     let affected = client
         .update::<User>(User::table_name(), update, None)
         .await
