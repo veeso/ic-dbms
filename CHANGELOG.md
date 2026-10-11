@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.11.0
+
+Released on 2026-10-11
+
+### Breaking changes
+
+- upgrade to wasm-dbms 0.11 and return select output
+
+> the shared select endpoint and Client::select_raw now return SelectOutput with Raw and Joined variants instead of row vectors. The select_join helper now returns JoinResultSet. Regenerate Candid bindings and update callers. The minimum supported Rust version is now 1.96.0.
+
+### Added
+
+- Breaking: upgrade to wasm-dbms 0.11 and return select output
+
 ## 0.10.0
 
 Released on 2026-10-07
