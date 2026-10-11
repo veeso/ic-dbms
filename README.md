@@ -205,6 +205,31 @@ Other projects exist but are no longer maintained or are not relational:
 - [x] Clients for canisters, `ic-agent`, and PocketIC
 - [ ] SQL query support
 
+## Agent skills
+
+The [`skills`](./skills) directory ships agent skills that teach coding
+agents (Claude Code, Codex, Cursor, and others) how to build with ic-dbms:
+
+| Skill                        | Use it when                                                                                    |
+| ---------------------------- | ---------------------------------------------------------------------------------------------- |
+| `ic-dbms-dedicated-canister` | Several canisters or agents share one database canister, with a Candid API and access control  |
+| `ic-dbms-embedded-database`  | One canister stores its own entities in ic-dbms tables, with no generated endpoints and no ACL |
+
+Install them with [`skills`](https://github.com/vercel-labs/skills):
+
+```sh
+# install both skills in the current project
+npx skills add veeso/ic-dbms
+# install one skill
+npx skills add veeso/ic-dbms --skill ic-dbms-embedded-database
+# install globally, for every project
+npx skills add veeso/ic-dbms --global
+# list the skills without installing
+npx skills add veeso/ic-dbms --list
+```
+
+Run `npx skills update` to pull the latest version after an ic-dbms release.
+
 ## Documentation
 
 Read the documentation at <https://ic.wasm-dbms.cc>. The engine documentation
