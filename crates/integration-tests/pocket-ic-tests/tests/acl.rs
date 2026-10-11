@@ -1,15 +1,12 @@
 use candid::{Encode, Principal};
 use ic_dbms_api::prelude::{
     AclError, AclGrant, AclPermission, AclRequirement, IcDbmsCanisterArgs, IcDbmsCanisterInitArgs,
-    IcDbmsError, IcDbmsResult, JoinColumnDef, MigrationPolicy, Query, TableSchema, Text, Uint32,
-    Value,
+    IcDbmsError, IcDbmsResult, MigrationPolicy, Query, SelectOutput, TableSchema, Text, Uint32,
 };
 use ic_dbms_client::prelude::{Client as _, IcDbmsPocketIcClient};
 use pocket_ic_harness::{Canister, PocketIcTestEnv};
 use pocket_ic_tests::table::{User, UserInsertRequest};
 use pocket_ic_tests::{TestCanister, TestEnvExt, admin, alice, assert_access_denied, bob};
-
-type RawRows = Vec<Vec<(JoinColumnDef, Value)>>;
 
 fn user_record(id: u32, name: &str) -> UserInsertRequest {
     UserInsertRequest {
@@ -329,7 +326,7 @@ async fn test_reserved_acl_table_is_readable_only_by_admin(env: PocketIcTestEnv<
     )
     .expect("encode payload");
 
-    let res: Result<IcDbmsResult<RawRows>, _> = env
+    let res: Result<IcDbmsResult<SelectOutput>, _> = env
         .query(env.dbms_canister(), bob(), "select", payload.clone())
         .await;
     assert_access_denied(
@@ -338,7 +335,7 @@ async fn test_reserved_acl_table_is_readable_only_by_admin(env: PocketIcTestEnv<
         Some("ic_dbms_acl"),
     );
 
-    let res: Result<IcDbmsResult<RawRows>, _> = env
+    let res: Result<IcDbmsResult<SelectOutput>, _> = env
         .query(env.dbms_canister(), admin(), "select", payload)
         .await;
     let rows = res.expect("call").expect("admin reads the acl table");

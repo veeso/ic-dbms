@@ -8,10 +8,11 @@ use candid::{CandidType, Decode, Principal};
 use ic_agent::Agent;
 use ic_dbms_api::prelude::{
     AclGrant, AggregateFunction, AggregatedRow, DeleteBehavior, Filter, IcDbmsResult, InsertRecord,
-    MigrationOp, MigrationPolicy, Query, TableSchema, TransactionId, UpdateRecord, Value,
+    MigrationOp, MigrationPolicy, Query, SelectOutput, TableSchema, TransactionId, UpdateRecord,
+    Value,
 };
 
-use crate::client::{Client, RawRecords};
+use crate::client::Client;
 use crate::errors::{IcAgentError, IcDbmCanisterClientError, IcDbmsCanisterClientResult};
 
 /// Client to interact with an IC DBMS Canister using ic-agent.
@@ -137,7 +138,7 @@ impl Client for IcDbmsAgentClient<'_> {
         table: &str,
         query: Query,
         transaction_id: Option<TransactionId>,
-    ) -> IcDbmsCanisterClientResult<IcDbmsResult<RawRecords>> {
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<SelectOutput>> {
         self.query("select", (table, query, transaction_id)).await
     }
 

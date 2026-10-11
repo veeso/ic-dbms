@@ -4,9 +4,10 @@ pub use ic_dbms_api::prelude::{
     AclError, AclGrant, AclPermission, AclRequirement, AggregateFunction, AggregatedRow,
     AggregatedValue, Blob, Boolean, CandidDataTypeKind, ColumnDef, DataTypeKind, Date, DateTime,
     Decimal, DeleteBehavior, Filter, ForeignKeyDef, IcDbmsError, IcDbmsResult, InsertRecord, Int8,
-    Int16, Int32, Int64, Json, JsonCmp, JsonFilter, Nullable, OrderDirection, Principal, Query,
-    QueryBuilder, Select, TableColumns, TableError, TableRecord, Text, Uint8, Uint16, Uint32,
-    Uint64, UpdateRecord, Uuid, Value, ValuesSource,
+    Int16, Int32, Int64, JoinColumnDef, JoinResultSet, JoinRow, Json, JsonCmp, JsonFilter,
+    Nullable, OrderDirection, Principal, Query, QueryBuilder, Select, SelectOutput, SelectRow,
+    TableColumns, TableError, TableRecord, Text, Uint8, Uint16, Uint32, Uint64, UpdateRecord, Uuid,
+    Value, ValuesSource,
 };
 
 #[cfg(feature = "ic-agent")]

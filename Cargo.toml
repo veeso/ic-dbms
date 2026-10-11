@@ -11,14 +11,14 @@ members = [
 resolver = "3"
 
 [workspace.package]
-version = "0.10.0"
+version = "0.11.0"
 authors = ["Christian Visintin <christian.visintin@veeso.dev>"]
 categories = ["database", "network-programming", "wasm"]
 edition = "2024"
 keywords = ["ic", "dbms", "canister", "database", "async"]
 license = "MIT"
 repository = "https://github.com/veeso/ic-dbms"
-rust-version = "1.91.1"
+rust-version = "1.96.0"
 
 [workspace.dependencies]
 anyhow = "1"
@@ -27,10 +27,10 @@ criterion = "0.8"
 flate2 = "1"
 ic-agent = "0.49"
 ic-cdk = "0.20"
-ic-dbms-api = { version = "0.10", path = "crates/ic-dbms-api" }
-ic-dbms-canister = { version = "0.10", path = "crates/ic-dbms-canister" }
-ic-dbms-client = { version = "0.10", path = "crates/ic-dbms-client" }
-ic-dbms-macros = { version = "0.10", path = "crates/ic-dbms-macros" }
+ic-dbms-api = { version = "0.11", path = "crates/ic-dbms-api" }
+ic-dbms-canister = { version = "0.11", path = "crates/ic-dbms-canister" }
+ic-dbms-client = { version = "0.11", path = "crates/ic-dbms-client" }
+ic-dbms-macros = { version = "0.11", path = "crates/ic-dbms-macros" }
 pocket-ic = "16"
 pocket-ic-harness = "16"
 proc-macro2 = "1"
@@ -41,8 +41,8 @@ syn = "3"
 thiserror = "2"
 tokio = "1"
 url = "2"
-wasm-dbms = "0.10"
-wasm-dbms-api = "0.10"
-wasm-dbms-macros = "0.10"
-wasm-dbms-memory = "0.10"
-wasm-dbms-sql = "0.10"
+wasm-dbms = "0.11"
+wasm-dbms-api = "0.11"
+wasm-dbms-macros = "0.11"
+wasm-dbms-memory = "0.11"
+wasm-dbms-sql = "0.11"

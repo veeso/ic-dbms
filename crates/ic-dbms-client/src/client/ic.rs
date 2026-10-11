@@ -2,9 +2,9 @@ use std::time::Duration;
 
 use candid::utils::ArgumentEncoder;
 use candid::{CandidType, Principal};
-use ic_dbms_api::prelude::{AclGrant, IcDbmsResult};
+use ic_dbms_api::prelude::{AclGrant, IcDbmsResult, SelectOutput};
 
-use crate::client::{Client, RawRecords};
+use crate::client::Client;
 use crate::prelude::IcDbmsCanisterClientResult;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(300);
@@ -117,7 +117,7 @@ impl Client for IcDbmsCanisterClient {
         table: &str,
         query: ic_dbms_api::prelude::Query,
         transaction_id: Option<ic_dbms_api::prelude::TransactionId>,
-    ) -> IcDbmsCanisterClientResult<IcDbmsResult<RawRecords>> {
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<SelectOutput>> {
         self.call("select", &(table, query, transaction_id)).await
     }
 

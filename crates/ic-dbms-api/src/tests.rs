@@ -9,6 +9,79 @@ use crate::prelude::{
     DbmsError, Filter, InsertRecord, NoForeignFetcher, QueryError, UpdateRecord, Validate,
 };
 
+#[cfg(test)]
+mod select_output_tests {
+    use super::User;
+    use crate::prelude::{JoinColumnDef, JoinResultSet, SelectOutput, TableSchema, Value};
+
+    #[test]
+    fn test_should_borrow_raw_rows() {
+        let result = SelectOutput::Raw(vec![vec![(
+            JoinColumnDef::from(User::columns()[0]),
+            Value::from(42u32),
+        )]]);
+        assert_eq!(result.len(), 1);
+        assert!(!result.is_empty());
+        assert!(result.as_joined().is_none());
+        let raw = result.as_raw().expect("raw rows");
+        let row = result.iter().next().expect("first row");
+        let (column, value) = row.iter().next().expect("id column");
+        assert_eq!(column.name, "id");
+        assert_eq!(*value, Value::from(42u32));
+        assert!(std::ptr::eq(column, &raw[0][0].0));
+        assert!(std::ptr::eq(value, &raw[0][0].1));
+    }
+
+    #[test]
+    fn test_should_borrow_joined_rows_with_duplicate_column_names() {
+        let mut user_id = JoinColumnDef::from(User::columns()[0]);
+        user_id.table = Some("users".to_string());
+        let mut post_id = user_id.clone();
+        post_id.table = Some("posts".to_string());
+        let result = SelectOutput::Joined(JoinResultSet {
+            columns: vec![user_id, post_id],
+            rows: vec![vec![Value::from(42u32), Value::Null]],
+        });
+        assert_eq!(result.len(), 1);
+        assert!(!result.is_empty());
+        assert!(result.as_raw().is_none());
+        let joined = result.as_joined().expect("joined rows");
+        let row = result.iter().next().expect("first row");
+        let pairs: Vec<_> = row.iter().collect();
+        assert_eq!(pairs[0].0.table.as_deref(), Some("users"));
+        assert_eq!(pairs[1].0.table.as_deref(), Some("posts"));
+        assert_eq!(*pairs[1].1, Value::Null);
+        assert!(std::ptr::eq(pairs[0].0, &joined.columns[0]));
+        assert!(std::ptr::eq(pairs[0].1, &joined.rows[0][0]));
+    }
+
+    #[test]
+    fn test_should_preserve_empty_join_metadata_and_roundtrip_variants() {
+        let column = JoinColumnDef::from(User::columns()[0]);
+        for result in [
+            SelectOutput::Raw(vec![]),
+            SelectOutput::Raw(vec![vec![(column.clone(), Value::from(42u32))]]),
+            SelectOutput::Joined(JoinResultSet {
+                columns: vec![column.clone()],
+                rows: vec![],
+            }),
+            SelectOutput::Joined(JoinResultSet {
+                columns: vec![column.clone()],
+                rows: vec![vec![Value::Null]],
+            }),
+        ] {
+            assert_eq!(result.is_empty(), result.len() == 0);
+            assert_eq!(result.iter().count(), result.len());
+            let encoded = candid::encode_one(&result).expect("encode select output");
+            let decoded: SelectOutput = candid::decode_one(&encoded).expect("decode select output");
+            assert_eq!(decoded, result);
+            if let Some(joined) = decoded.as_joined() {
+                assert_eq!(joined.columns.len(), 1);
+            }
+        }
+    }
+}
+
 /// A simple user struct for testing purposes.
 #[derive(Debug, Clone, PartialEq, Eq, CandidType)]
 pub struct User {

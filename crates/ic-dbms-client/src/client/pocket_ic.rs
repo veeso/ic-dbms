@@ -1,8 +1,8 @@
 use candid::{CandidType, Decode, Encode, Principal};
-use ic_dbms_api::prelude::{AclGrant, IcDbmsResult};
+use ic_dbms_api::prelude::{AclGrant, IcDbmsResult, SelectOutput};
 use pocket_ic::nonblocking::PocketIc;
 
-use crate::client::{Client, RawRecords};
+use crate::client::Client;
 use crate::errors::{IcDbmsCanisterClientResult, PocketIcError};
 
 /// IC DBMS Canister client implementation for pocket-ic.
@@ -171,7 +171,7 @@ impl Client for IcDbmsPocketIcClient<'_> {
         table: &str,
         query: ic_dbms_api::prelude::Query,
         transaction_id: Option<ic_dbms_api::prelude::TransactionId>,
-    ) -> IcDbmsCanisterClientResult<IcDbmsResult<RawRecords>> {
+    ) -> IcDbmsCanisterClientResult<IcDbmsResult<SelectOutput>> {
         self.query(
             self.principal,
             self.caller,

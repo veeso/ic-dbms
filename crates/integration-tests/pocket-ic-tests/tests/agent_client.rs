@@ -100,6 +100,30 @@ async fn test_agent_client_should_insert_and_select(env: PocketIcTestEnv<TestCan
         user.email.as_ref().unwrap(),
         &Text::from("agent.alice@example.com")
     );
+
+    let result = client
+        .select_raw("users", Query::builder().field("id").build(), None)
+        .await
+        .expect("raw call")
+        .expect("raw query");
+    let rows = result.as_raw().expect("Raw variant");
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0][0].1, Value::from(100u32));
+
+    let query = Query::builder()
+        .field("users.id")
+        .field("posts.id")
+        .left_join("posts", "users.id", "posts.user")
+        .build();
+    let result = client
+        .select_raw("users", query, None)
+        .await
+        .expect("join call")
+        .expect("join query");
+    let joined = result.as_joined().expect("Joined variant");
+    assert_eq!(joined.columns[0].table.as_deref(), Some("users"));
+    assert_eq!(joined.columns[1].table.as_deref(), Some("posts"));
+    assert_eq!(joined.rows, vec![vec![Value::from(100u32), Value::Null]]);
 }
 
 #[pocket_ic_harness::test]

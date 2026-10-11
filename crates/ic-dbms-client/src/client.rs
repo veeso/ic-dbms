@@ -12,8 +12,7 @@ use candid::{CandidType, Principal};
 use ic_dbms_api::prelude::SqlResult;
 use ic_dbms_api::prelude::{
     AclGrant, AggregateFunction, AggregatedRow, DeleteBehavior, Filter, IcDbmsResult, InsertRecord,
-    JoinColumnDef, MigrationOp, MigrationPolicy, Query, TableSchema, TransactionId, UpdateRecord,
-    Value,
+    MigrationOp, MigrationPolicy, Query, SelectOutput, TableSchema, TransactionId, UpdateRecord,
 };
 
 #[cfg(feature = "ic-agent")]
@@ -24,8 +23,6 @@ pub use self::ic::IcDbmsCanisterClient;
 #[cfg_attr(docsrs, doc(cfg(feature = "pocket-ic")))]
 pub use self::pocket_ic::IcDbmsPocketIcClient;
 use crate::prelude::IcDbmsCanisterClientResult;
-
-type RawRecords = Vec<Vec<(JoinColumnDef, Value)>>;
 
 /// Trait for implementing a ic-dbms-client.
 ///
@@ -106,13 +103,16 @@ pub trait Client {
     where
         T: TableSchema;
 
-    /// Executes a `SELECT` query on the IC DBMS Canister and returns raw records (without deserialization).
+    /// Executes an untyped `SELECT` through the shared canister endpoint.
+    ///
+    /// Returns [`SelectOutput::Raw`] without joins and [`SelectOutput::Joined`]
+    /// with joins. Typed per-table queries use [`Self::select`] instead.
     fn select_raw(
         &self,
         table: &str,
         query: Query,
         transaction_id: Option<TransactionId>,
-    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<RawRecords>>>;
+    ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<SelectOutput>>>;
 
     /// Executes an `INSERT` query on the IC DBMS Canister.
     fn insert<T>(
@@ -175,7 +175,7 @@ pub trait Client {
     fn sql(
         &self,
         query: &str,
-        params: Vec<Value>,
+        params: Vec<ic_dbms_api::prelude::Value>,
         transaction_id: Option<TransactionId>,
     ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<SqlResult>>>;
 
@@ -189,7 +189,7 @@ pub trait Client {
     fn sql_query(
         &self,
         query: &str,
-        params: Vec<Value>,
+        params: Vec<ic_dbms_api::prelude::Value>,
         transaction_id: Option<TransactionId>,
     ) -> impl Future<Output = IcDbmsCanisterClientResult<IcDbmsResult<SqlResult>>>;
 }

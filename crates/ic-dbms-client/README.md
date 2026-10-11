@@ -137,9 +137,23 @@ All the client methods are defined in the `Client` trait.
 - `commit`
 - `rollback`
 - `select`
+- `select_raw`
 - `insert`
 - `update`
 - `delete`
+
+`select` returns typed records from a per-table endpoint. `select_raw` calls
+the shared `select` endpoint and returns `SelectOutput::Raw` for queries
+without joins or `SelectOutput::Joined` for queries with joins. Use
+`as_raw()` / `as_joined()` to borrow a variant, or `iter()` to borrow rows
+of column-value pairs from either representation. Joined results store
+column metadata once, including when no rows match.
+
+The shared endpoint now returns a Candid variant instead of a vector of
+rows. Existing callers must update their decoding types and regenerate
+Candid bindings. See the
+[client guide](https://ic.wasm-dbms.cc/guides/client-api.html#untyped-select)
+for examples.
 
 ## Available Types
 

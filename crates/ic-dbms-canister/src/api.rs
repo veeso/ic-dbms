@@ -10,10 +10,11 @@ mod inspect;
 mod sql;
 
 use candid::Principal;
+use ic_dbms_api::dbms::query::JoinResultSet;
 use ic_dbms_api::prelude::{
     AclGrant, AclPermission, AggregateFunction, AggregatedRow, ColumnDef, Database, DeleteBehavior,
-    Filter, IcDbmsError, IcDbmsResult, InsertRecord, JoinColumnDef, MigrationOp, MigrationPolicy,
-    Query, TableSchema, TransactionId, UpdateRecord, Value,
+    Filter, IcDbmsError, IcDbmsResult, InsertRecord, MigrationOp, MigrationPolicy, Query,
+    TableSchema, TransactionId, UpdateRecord, Value,
 };
 use wasm_dbms::prelude::{DatabaseSchema, WasmDbmsDatabase};
 
@@ -212,7 +213,7 @@ pub fn select_join<S>(
     query: Query,
     transaction_id: Option<TransactionId>,
     database_schema: S,
-) -> IcDbmsResult<Vec<Vec<(JoinColumnDef, Value)>>>
+) -> IcDbmsResult<JoinResultSet>
 where
     S: DatabaseSchema<IcMemoryProvider> + 'static,
 {
