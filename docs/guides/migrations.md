@@ -147,30 +147,31 @@ The outer `Result` wraps transport / canister-call failures; the inner
 ```rust
 use candid::Principal;
 use ic_dbms_api::prelude::MigrationPolicy;
-use ic_dbms_client::{Client as _, IcDbmsCanisterClient};
+use ic_dbms_client::prelude::{Client as _, IcDbmsCanisterClient};
 
 #[ic_cdk::update]
 async fn heal_schema(canister: Principal) -> Result<u64, String> {
     let client = IcDbmsCanisterClient::new(canister);
 
-    if !client
+    let drifted = client
         .has_drift()
         .await
-        .map_err(|e| e.to_string())??
-        .then_some(())
-        .is_some()
-    {
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?;
+    if !drifted {
         return Ok(0);
     }
 
     let ops = client
         .pending_migrations()
         .await
-        .map_err(|e| e.to_string())??;
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?;
     client
         .migrate(MigrationPolicy::default())
         .await
-        .map_err(|e| e.to_string())??;
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?;
 
     Ok(ops.len() as u64)
 }
@@ -182,7 +183,7 @@ async fn heal_schema(canister: Principal) -> Result<u64, String> {
 use candid::Principal;
 use ic_agent::Agent;
 use ic_dbms_api::prelude::MigrationPolicy;
-use ic_dbms_client::{Client as _, IcDbmsAgentClient};
+use ic_dbms_client::prelude::{Client as _, IcDbmsAgentClient};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -191,7 +192,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_identity(load_identity()?)
         .build()?;
     let canister = Principal::from_text("rrkah-fqaaa-aaaaa-aaaaq-cai")?;
-    let client = IcDbmsAgentClient::new(canister, &agent);
+    let client = IcDbmsAgentClient::new(&agent, canister);
 
     if client.has_drift().await?? {
         let plan = client.pending_migrations().await??;
@@ -214,15 +215,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ```rust
 use ic_dbms_api::prelude::MigrationPolicy;
-use ic_dbms_client::{Client as _, IcDbmsPocketIcClient};
+use ic_dbms_client::prelude::{Client as _, IcDbmsPocketIcClient};
 
 #[tokio::test]
 async fn upgrade_heals_drift() {
-    let pic = pocket_ic::PocketIc::new();
-    let canister = install_v1_canister(&pic);
+    let pic = pocket_ic::nonblocking::PocketIc::new().await;
+    let canister = install_v1_canister(&pic).await;
     insert_fixtures(&pic, canister).await;
 
-    upgrade_to_v2(&pic, canister);
+    upgrade_to_v2(&pic, canister).await;
 
     let client = IcDbmsPocketIcClient::new(canister, admin_principal(), &pic);
     assert!(client.has_drift().await.unwrap().unwrap());
@@ -246,30 +247,35 @@ you can wire `migrate` directly into a `#[ic_cdk::post_upgrade]` hook so the
 schema heals before the first CRUD call lands.
 
 ```rust
-use ic_dbms_api::prelude::MigrationPolicy;
+use ic_dbms_api::prelude::{Database as _, IcDbmsCanisterArgs, MigrationPolicy};
 use ic_dbms_canister::prelude::{
-    CanisterSchema, DBMS_CONTEXT, DatabaseSchema as _, WasmDbmsDatabase,
+    CanisterSchema, DBMS_CONTEXT, DatabaseSchema, DbmsCanister, WasmDbmsDatabase,
 };
+use my_schema::*;
 
 #[derive(DatabaseSchema, DbmsCanister)]
 #[tables(User = "users", Post = "posts")]
 pub struct MyCanister;
 
 #[ic_cdk::post_upgrade]
-fn post_upgrade() {
+fn post_upgrade(_args: IcDbmsCanisterArgs) {
     DBMS_CONTEXT.with(|ctx| {
-        // Re-register tables so the registry matches the compiled schema
-        // before drift detection runs.
-        MyCanister::register_tables(ctx).expect("failed to register tables");
-
         let mut db = WasmDbmsDatabase::oneshot(ctx, CanisterSchema::new(MyCanister));
-        if db.has_drift().expect("drift check failed") {
-            db.migrate(MigrationPolicy::default())
-                .expect("migration failed");
+        let drifted = db
+            .has_drift()
+            .unwrap_or_else(|err| ic_cdk::trap(format!("drift check failed: {err}")));
+        if drifted {
+            if let Err(err) = db.migrate(MigrationPolicy::default()) {
+                ic_cdk::trap(format!("migration failed: {err}"));
+            }
         }
     });
 }
 ```
+
+The table registry is reloaded from stable memory when the canister starts,
+so `post_upgrade` does not register the tables again: `migrate` creates the
+tables added by the new release.
 
 > **Note:** Always open the database through `CanisterSchema::new(...)`. The
 > reserved `ic_dbms_acl` table is part of the persisted schema; a bare

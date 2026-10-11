@@ -197,7 +197,7 @@ match client.insert::<User>(User::table_name(), user, None).await {
             IcDbmsError::Dbms(DbmsError::Query(QueryError::PrimaryKeyConflict)) => {
                 println!("User already exists");
             }
-            IcDbmsError::Dbms(DbmsError::Query(QueryError::BrokenForeignKeyReference)) => {
+            IcDbmsError::Dbms(DbmsError::Query(QueryError::BrokenForeignKeyReference { .. })) => {
                 println!("Referenced record doesn't exist");
             }
             IcDbmsError::Dbms(DbmsError::Validation(msg)) => {
@@ -219,19 +219,22 @@ match client.insert::<User>(User::table_name(), user, None).await {
 ```rust
 fn handle_db_error(error: IcDbmsError) -> String {
     match error {
-        IcDbmsError::Dbms(DbmsError::Query(QueryError::PrimaryKeyConflict)) =>
-            "Record with this ID already exists".to_string(),
-        IcDbmsError::Dbms(DbmsError::Query(QueryError::BrokenForeignKeyReference)) =>
-            "Referenced record not found".to_string(),
-        IcDbmsError::Dbms(DbmsError::Query(QueryError::ForeignKeyConstraintViolation)) =>
-            "Cannot delete: record has dependencies".to_string(),
-        IcDbmsError::Dbms(DbmsError::Validation(msg)) =>
-            format!("Invalid data: {}", msg),
-        _ =>
-            format!("Unexpected error: {:?}", error),
+        IcDbmsError::Dbms(DbmsError::Query(QueryError::PrimaryKeyConflict)) => {
+            "Record with this ID already exists".to_string()
+        }
+        IcDbmsError::Dbms(DbmsError::Query(QueryError::BrokenForeignKeyReference { .. })) => {
+            "Referenced record not found".to_string()
+        }
+        IcDbmsError::Dbms(DbmsError::Query(QueryError::ForeignKeyConstraintViolation {
+            ..
+        })) => "Cannot delete: record has dependencies".to_string(),
+        IcDbmsError::Dbms(DbmsError::Validation(msg)) => format!("Invalid data: {}", msg),
+        _ => format!("Unexpected error: {:?}", error),
     }
 }
+```
 
+```rust
 // Usage
 let result = client.insert::<User>(User::table_name(), user, None).await;
 match result {
@@ -246,12 +249,20 @@ match result {
 Network-level errors (outer `Result`) may be transient. Database errors (inner `Result`) are deterministic and should not be retried.
 
 ```rust
-async fn insert_with_retry<T: Table>(
+use candid::CandidType;
+use ic_dbms_api::prelude::{InsertRecord, TableSchema};
+use ic_dbms_client::prelude::Client;
+
+async fn insert_with_retry<T>(
     client: &impl Client,
     table: &str,
-    record: T::InsertRequest,
+    record: T::Insert,
     max_retries: u32,
-) -> Result<(), String> {
+) -> Result<(), String>
+where
+    T: TableSchema,
+    T::Insert: InsertRecord<Schema = T> + CandidType + Clone,
+{
     for attempt in 0..max_retries {
         match client.insert::<T>(table, record.clone(), None).await {
             Ok(Ok(())) => return Ok(()),

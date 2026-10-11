@@ -105,9 +105,10 @@
 //! ```toml
 //! [dependencies]
 //! candid = "0.10"
-//! ic-dbms-api = "0.1"
-//! ic-dbms-client = "0.1"
-//! serde = "1"
+//! ic-dbms-api = "0.11"
+//! ic-dbms-client = "0.11"
+//! serde = { version = "1", features = ["derive"] }
+//! wasm-dbms-api = "0.11"
 //! ```
 //!
 //! ### Implement the record types
@@ -121,6 +122,7 @@
 //! use serde::Deserialize;
 //!
 //! #[derive(Table, CandidType, Clone, Deserialize)]
+//! #[candid]
 //! #[table = "users"]
 //! pub struct User {
 //!     #[primary_key]
@@ -146,7 +148,7 @@
 //!
 //! client
 //!     .insert::<User>(User::table_name(), alice, None)
-//!     .await?;
+//!     .await??;
 //! ```
 //!
 

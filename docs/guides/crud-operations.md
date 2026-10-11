@@ -55,9 +55,9 @@ All operations:
 To insert a record, create an `InsertRequest` and call the insert method:
 
 ```rust
-use ic_dbms_client::{IcDbmsCanisterClient, Client as _};
-use my_schema::{User, UserInsertRequest};
 use ic_dbms_api::prelude::*;
+use ic_dbms_client::prelude::{Client as _, IcDbmsCanisterClient};
+use my_schema::{User, UserInsertRequest};
 
 let client = IcDbmsCanisterClient::new(canister_id);
 
@@ -65,7 +65,7 @@ let user = UserInsertRequest {
     id: 1.into(),
     name: "Alice".into(),
     email: "alice@example.com".into(),
-    created_at: DateTime::now(),
+    created_at: ic_cdk::api::time().into(),
 };
 
 // Insert without transaction (None)
@@ -101,10 +101,12 @@ For fields wrapped in `Nullable<T>`, you can insert either a value or null:
 pub struct Profile {
     #[primary_key]
     pub id: Uint32,
-    pub bio: Nullable<Text>,      // Optional field
-    pub website: Nullable<Text>,  // Optional field
+    pub bio: Nullable<Text>,     // Optional field
+    pub website: Nullable<Text>, // Optional field
 }
+```
 
+```rust
 // Insert with value
 let profile = ProfileInsertRequest {
     id: 1.into(),
@@ -146,8 +148,9 @@ let users: Vec<UserRecord> = client
     .select::<User>(User::table_name(), query, None)
     .await??;
 
+// Record fields are `Option` because a query can select a subset of columns.
 for user in users {
-    println!("User: {} ({})", user.name, user.email);
+    println!("User: {:?} ({:?})", user.name, user.email);
 }
 ```
 
@@ -158,7 +161,7 @@ Add filters to narrow down results:
 ```rust
 // Select users with specific name
 let query = Query::builder()
-    .filter(Filter::eq("name", Value::Text("Alice".into())))
+    .and_where(Filter::eq("name", Value::Text("Alice".into())))
     .build();
 
 let users = client.select::<User>(User::table_name(), query, None).await??;
@@ -172,11 +175,11 @@ Select only the columns you need:
 
 ```rust
 let query = Query::builder()
-    .columns(vec!["id".to_string(), "name".to_string()])
+    .fields(["id", "name"])
     .build();
 
 let users = client.select::<User>(User::table_name(), query, None).await??;
-// Only id and name are populated; other fields have default values
+// Only `id` and `name` are `Some`; the other fields are `None`
 ```
 
 ### Select with Eager Loading
@@ -206,10 +209,11 @@ Create an `UpdateRequest` to modify records:
 ```rust
 use my_schema::UserUpdateRequest;
 
-let update = UserUpdateRequest::builder()
-    .set_name("Alice Smith".into())
-    .filter(Filter::eq("id", Value::Uint32(1.into())))
-    .build();
+let update = UserUpdateRequest {
+    name: Some("Alice Smith".into()),
+    where_clause: Some(Filter::eq("id", Value::Uint32(1.into()))),
+    ..Default::default()
+};
 
 let affected_rows = client
     .update::<User>(User::table_name(), update, None)
@@ -220,31 +224,34 @@ println!("Updated {} row(s)", affected_rows);
 
 ### Partial Updates
 
-Only specify the fields you want to change. Unspecified fields remain unchanged:
+Only set the fields you want to change. Fields left as `None` remain unchanged:
 
 ```rust
 // Only update the email, keep everything else
-let update = UserUpdateRequest::builder()
-    .set_email("new.email@example.com".into())
-    .filter(Filter::eq("id", Value::Uint32(1.into())))
-    .build();
+let update = UserUpdateRequest {
+    email: Some("new.email@example.com".into()),
+    where_clause: Some(Filter::eq("id", Value::Uint32(1.into()))),
+    ..Default::default()
+};
 
 client.update::<User>(User::table_name(), update, None).await??;
 ```
 
 ### Update with Filter
 
-The filter determines which records are updated:
+The `where_clause` determines which records are updated; `None` updates every
+record:
 
 ```rust
 // Update all users with a specific domain
-let update = UserUpdateRequest::builder()
-    .set_verified(true.into())
-    .filter(Filter::like("email", "%@company.com"))
-    .build();
+let update = UserUpdateRequest {
+    name: Some("Company user".into()),
+    where_clause: Some(Filter::like("email", "%@company.com")),
+    ..Default::default()
+};
 
 let affected = client.update::<User>(User::table_name(), update, None).await??;
-println!("Verified {} company users", affected);
+println!("Renamed {} company users", affected);
 ```
 
 ### Update Return Value
@@ -308,7 +315,7 @@ let result = client.delete::<User>(
 
 match result {
     Ok(count) => println!("Deleted {} user(s)", count),
-    Err(IcDbmsError::Dbms(DbmsError::Query(QueryError::ForeignKeyConstraintViolation))) => {
+    Err(IcDbmsError::Dbms(DbmsError::Query(QueryError::ForeignKeyConstraintViolation { .. }))) => {
         println!("Cannot delete: user has posts");
     }
     Err(e) => return Err(e.into()),
@@ -367,10 +374,11 @@ client.insert::<User>(User::table_name(), user1, Some(tx_id)).await??;
 client.insert::<User>(User::table_name(), user2, Some(tx_id)).await??;
 
 // Update within same transaction
-let update = UserUpdateRequest::builder()
-    .set_verified(true.into())
-    .filter(Filter::all())
-    .build();
+let update = UserUpdateRequest {
+    name: Some("Batch user".into()),
+    where_clause: None, // every record
+    ..Default::default()
+};
 client.update::<User>(User::table_name(), update, Some(tx_id)).await??;
 
 // Commit all changes atomically
@@ -383,7 +391,7 @@ See the [Transactions Guide](https://wasm-dbms.cc/guides/transactions.html) for 
 
 ## Error Handling
 
-CRUD operations via the IC client return a **double Result**: `Result<Result<T, IcDbmsError>, CallError>`.
+CRUD operations via the IC client return a **double Result**: `IcDbmsCanisterClientResult<IcDbmsResult<T>>`.
 
 - **Outer `Result`**: Network/canister call errors (canister unreachable, cycles exhausted)
 - **Inner `Result`**: Database logic errors (validation, constraint violations, etc.)

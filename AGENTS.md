@@ -143,7 +143,7 @@ the local cap in tracked project files.
 The local recipes expect:
 
 - Rust and rustup. `rust-toolchain.toml` pins Rust 1.99.0 with the
-  `wasm32-unknown-unknown` target. Crate manifests advertise Rust 1.91.1 as the
+  `wasm32-unknown-unknown` target. Crate manifests advertise Rust 1.96.0 as the
   published MSRV.
 - just.
 - dprint 0.56.1 and nightly rustfmt.

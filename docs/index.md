@@ -73,7 +73,7 @@ use ic_dbms_api::prelude::*; // Re-exports wasm_dbms_api types
 // In your canister crate
 use ic_dbms_canister::prelude::DbmsCanister;
 // In your client code
-use ic_dbms_client::{Client as _, IcDbmsCanisterClient};
+use ic_dbms_client::prelude::{Client as _, IcDbmsCanisterClient};
 ```
 
 ---

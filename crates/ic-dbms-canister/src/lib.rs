@@ -18,8 +18,12 @@
 //! [dependencies]
 //! candid = { version = "0.10", features = ["value"] }
 //! ic-cdk = "0.20"
-//! ic-dbms-api = "0.10"
-//! ic-dbms-canister = { version = "0.10", features = ["sql"] }
+//! ic-dbms-api = "0.11"
+//! ic-dbms-canister = { version = "0.11", features = ["sql"] }
+//! serde = { version = "1", features = ["derive"] }
+//! wasm-dbms = "0.11"
+//! wasm-dbms-api = "0.11"
+//! wasm-dbms-memory = "0.11"
 //! serde = "1"
 //! ```
 //!

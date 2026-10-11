@@ -37,9 +37,10 @@ feature.
 ```toml
 [dependencies]
 candid = "0.10"
-ic-dbms-api = "0.6"
-ic-dbms-client = "0.6"
-serde = "1"
+ic-dbms-api = "0.11"
+ic-dbms-client = "0.11"
+serde = { version = "1", features = ["derive"] }
+wasm-dbms-api = "0.11"
 ```
 
 ### Implement the record types
@@ -53,6 +54,7 @@ use ic_dbms_client::prelude::{Client as _, IcDbmsCanisterClient};
 use serde::Deserialize;
 
 #[derive(Table, CandidType, Clone, Deserialize)]
+#[candid]
 #[table = "users"]
 pub struct User {
     #[primary_key]
@@ -79,7 +81,9 @@ async fn main() -> anyhow::Result<()> {
 
     client
         .insert::<User>(User::table_name(), alice, None)
-        .await?;
+        .await??;
+
+    Ok(())
 }
 ```
 
@@ -90,8 +94,8 @@ you need to enable the `ic-agent` feature and use the `IcDbmsAgentClient` implem
 
 ```toml
 [dependencies]
-ic-dbms-client = { version = "0.9", features = ["ic-agent"] }
-ic-agent = "0.45"
+ic-dbms-client = { version = "0.11", features = ["ic-agent"] }
+ic-agent = "0.49"
 ```
 
 ```rust
@@ -114,7 +118,9 @@ async fn main() -> anyhow::Result<()> {
 
     client
         .insert::<User>(User::table_name(), alice, None)
-        .await?;
+        .await??;
+
+    Ok(())
 }
 ```
 
